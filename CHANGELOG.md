@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.5 – Diagnose beim Hardware-Debugstart
+
+- Die Ausgabe des PlatformIO-Debugadapters erscheint zusätzlich im MiniCtrlBox-Ausgabekanal.
+- Bei einem fehlgeschlagenen Debugstart werden die tatsächlichen Adapterfehler angezeigt. USB-JTAG-Fehler mit einem blockierten ESP32-C3-Kern enthalten einen Hinweis zum Beenden der Sitzung und erneuten Verbinden des USB-Kabels.
+- Dies verbessert die Diagnose; ein Hardware-Timeout wird dadurch nicht automatisch behoben.
+
 ## v0.3.4 – Gesperrte Firmware beim Hardware-Debugging
 
 - Hardware-Debugsitzungen bleiben auch bei einem Wechsel der ausgewählten Sitzung erfasst und verhindern einen parallelen Build.

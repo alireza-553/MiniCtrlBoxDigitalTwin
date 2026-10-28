@@ -88,7 +88,7 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.4](vscode-extension/mcb-digital-twin-0.3.4.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die Treibereinrichtung liegt unter **Werkzeuge**. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die [Erweiterung 0.3.4](vscode-extension/mcb-digital-twin-0.3.5.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die Treibereinrichtung liegt unter **Werkzeuge**. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am nativen USB-Anschluss und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
@@ -216,4 +216,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.3.4.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.3.5.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
