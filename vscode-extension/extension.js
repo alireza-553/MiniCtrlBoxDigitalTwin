@@ -21,11 +21,20 @@ function activate(context) {
     status.command = 'mcbDigitalTwin.start';
     status.show();
 
+    const uploadStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49);
+    uploadStatus.text = '$(cloud-upload)';
+    uploadStatus.name = 'MiniCtrlBox: Projekt hochladen';
+    uploadStatus.tooltip = 'Geöffnetes Projekt in den MiniCtrlBox Digital Twin hochladen';
+    uploadStatus.accessibilityInformation = { label: uploadStatus.tooltip };
+    uploadStatus.command = 'mcbDigitalTwin.upload';
+    uploadStatus.show();
+
     const treeProvider = new DigitalTwinTreeProvider();
 
     context.subscriptions.push(
         output,
         status,
+        uploadStatus,
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
         vscode.commands.registerCommand('mcbDigitalTwin.stop', stop),
