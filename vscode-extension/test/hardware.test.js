@@ -22,7 +22,16 @@ function harness(options = {}) {
         Uri: { file: fsPath => ({ fsPath }) },
         window: { showErrorMessage: message => calls.errors.push(message), showInformationMessage() {},
             withProgress: async (_, task) => task(), showQuickPick: async () => undefined },
-        debug: { startDebugging: async (folder, config) => { calls.debug.push({ folder, config }); return !options.debugRejected; } },
+        debug: { startDebugging: async (folder, config) => {
+            calls.debug.push({ folder, config });
+            if (options.jtagBusy) {
+                const tracker = hardware.createDebugAdapterTracker({ configuration: config });
+                tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: "Error: Abstract command ended in error 'busy' (abstractcs=0x10001102)" } });
+                tracker.onDidSendMessage({ type: 'response', command: 'launch', success: false, message: 'Failed to launch GDB' });
+                return false;
+            }
+            return !options.debugRejected;
+        } },
     };
     const fakeFS = { existsSync: () => true, readFileSync: file => {
         assert.equal(file, iniPath); return ini;
@@ -107,6 +116,16 @@ test('a non-selected hardware debug session blocks rebuilding until terminated',
     h.hardware.sessionTerminated(session);
     await h.hardware.debug();
     assert.equal(h.calls.debug.length, 1);
+});
+
+test('failed hardware launch reports actual adapter output and USB-JTAG recovery steps', async () => {
+    const h = harness({ jtagBusy: true });
+    await h.hardware.debug();
+    assert.equal(h.calls.errors.length, 1);
+    assert.match(h.calls.errors[0], /abstractcs=0x10001102/);
+    assert.match(h.calls.errors[0], /Failed to launch GDB/);
+    assert.match(h.calls.errors[0], /USB kurz trennen/);
+    assert.equal(h.hardware.createDebugAdapterTracker({ configuration: { mcbProcessId: 42 } }), undefined);
 });
 
 test('a locked firmware aborts before build and before changing project configuration', { skip: process.platform !== 'win32' }, async () => {
