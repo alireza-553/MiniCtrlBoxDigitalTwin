@@ -26,7 +26,7 @@ function harness(options = {}) {
     };
     const fakeFS = { existsSync: () => true, readFileSync: file => {
         assert.equal(file, iniPath); return ini;
-    }, appendFileSync: (file, text) => { assert.equal(file, iniPath); ini += text; } };
+    }, writeFileSync: (file, text) => { assert.equal(file, iniPath); ini = text; } };
     const childProcess = { spawn: (exe, args, spawnOptions) => {
         calls.processes.push({ exe, args, options: spawnOptions });
         const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
@@ -122,4 +122,20 @@ test('double invocation does not start concurrent hardware operations', async ()
     const h = harness();
     await Promise.all([h.hardware.upload(), h.hardware.upload()]);
     assert.equal(h.calls.processes.filter(p => p.args.includes('upload')).length, 1);
+});
+
+test('legacy generated environment is upgraded without changing other environments or custom commands', () => {
+    const { updateDebugSection } = require('../hardware');
+    const before = '[env:lesson]\r\nboard = esp32-c3-devkitm-1\r\n\r\n';
+    const after = '[env:other]\r\nboard = esp32dev\r\n';
+    const old = '[env:mcb-usb-debug-lesson]\r\nextends = env:lesson\r\ndebug_init_break = tbreak setup\r\ndebug_extra_cmds =\r\n    monitor echo keep\r\n\r\n';
+    const commands = ['monitor echo keep', 'monitor riscv set_maskisr off', 'monitor esp32c3_wdt_disable',
+        'monitor mww 0x6002007c 2', 'monitor mww 0x6001f07c 2'];
+    const updated = updateDebugSection(before + old + after, 'mcb-usb-debug-lesson', commands);
+    assert.ok(updated.startsWith(before));
+    assert.ok(updated.endsWith(after));
+    assert.match(updated, /debug_init_break = thbreak setup/);
+    assert.match(updated, /monitor echo keep/);
+    assert.equal(updated.match(/debug_extra_cmds =/g).length, 1);
+    assert.equal(updateDebugSection(updated, 'mcb-usb-debug-lesson', commands), updated);
 });

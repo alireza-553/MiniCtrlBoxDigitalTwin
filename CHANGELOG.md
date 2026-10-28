@@ -1,5 +1,12 @@
 # Versionshistorie
 
+## v0.3.3 – Watchdog-Zustand bei Hardware-Debugging
+
+- Debugstart bereinigt Watchdog-Interrupts und erlaubt Interrupts während Einzelschritten.
+- Temporärer Hardware-Haltepunkt in `setup()` statt zusätzlichem Software-Haltepunkt.
+- Bestehende generierte Debug-Umgebungen werden aktualisiert; eigene zusätzliche Befehle bleiben erhalten.
+- Den beobachteten Interrupt-Watchdog-Abbruch mit nachfolgender „Duplicate Breakpoint“-Schleife auf echter Hardware untersucht und bis zum Halt in `loop()` wiederhergestellt.
+
 ## v0.3.2 – Übersichtliche Steuerung
 
 - Separate aufklappbare Bereiche für Digital Twin, echte Hardware und Werkzeuge.
