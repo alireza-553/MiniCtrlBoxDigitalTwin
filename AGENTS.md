@@ -2,8 +2,11 @@
 
 - For each new requested change, create a separate feature or fix branch from
   the current `origin/main`. Do not commit changes directly to `main`.
-- If a change depends on an unmerged PR, create a separate stacked branch from
-  that PR's branch and use it as the new PR's base so existing work is preserved.
+- Every pull request must target `main`, including changes that depend on
+  another unmerged PR. Never use a feature, fix, or documentation branch as
+  the pull request base. Preserve required dependency changes on the working
+  branch, but keep the pull request base set to `main`.
+- Verify the pull request base is `main` when creating or updating a PR.
 - Push the branch and open a GitHub pull request for that change. Do not merge
   the pull request unless the user requests it.
 - Run the checks relevant to the change before pushing. For extension changes,
