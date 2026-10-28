@@ -1,5 +1,7 @@
 # MiniCtrlBox Digital Twin
 
+> **Mit KI-Unterstützung entwickelt:** Dieses Projekt wurde mit Hilfe von künstlicher Intelligenz (OpenAI Codex) entwickelt und dokumentiert.
+
 MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: mit OLED, Tastern und gekoppeltem Kreuzungsmodul. Der originale C++-Quellcode steuert die simulierten Ausgänge.
 
 **[Version v0.1.0 herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0)** · **[VSIX direkt herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.1.0/mcb-digital-twin-0.1.0.vsix)**
