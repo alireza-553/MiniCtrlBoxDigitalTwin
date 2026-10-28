@@ -6,13 +6,18 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.3.1.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.2.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
 1. Den gewünschten Projektordner in VS Code öffnen.
 2. Links das MiniCtrlBox-Symbol `MiniCtrlBox Digital Twin` anklicken.
-3. **Geöffnetes Projekt hochladen** mit dem Upload-Symbol auswählen.
+3. **Digital Twin → Projekt laden und starten** mit dem Upload-Symbol auswählen.
+
+Die Seitenleiste trennt **Digital Twin** (Simulation auf diesem PC) und **Echte Hardware**
+(MiniCtrlBox über USB). **Werkzeuge** ist anfangs eingeklappt und enthält
+**Simulator testen** und **USB-JTAG-Treiber einrichten**. Der separate Startbefehl
+bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei Bedarf selbst.
 
 Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
@@ -42,8 +47,8 @@ Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 
 ## Echte Hardware programmieren und debuggen (ab 0.3.0)
 
-**Echte Hardware programmieren** überträgt das geöffnete PlatformIO-Projekt auf die
-MiniCtrlBox. **Echte Hardware debuggen (USB)** baut und überträgt einen Debug-Build,
+**Echte Hardware → Programm übertragen** überträgt das geöffnete PlatformIO-Projekt auf die
+MiniCtrlBox. **Echte Hardware → Hardware debuggen** baut und überträgt einen Debug-Build,
 verbindet PlatformIO über natives USB-JTAG und hält in `setup()`.
 Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
 
@@ -75,7 +80,7 @@ die echte Hardware wird darin nicht live gespiegelt.
 
 Zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`) installieren.
 MSVC-Builds verwenden den Visual-Studio-Debugger; bei `g++`/`clang++` wird GDB im PATH benötigt.
-Im vertrauenswürdigen Projektordner Haltepunkte mit F9 setzen und **C++-Projekt debuggen**
+Im vertrauenswürdigen Projektordner Haltepunkte mit F9 setzen und **Digital Twin → Projekt debuggen**
 in der Seitenleiste, Toolbar oder Statusleiste wählen. Der Debugger verbindet sich vor `setup()`.
 Eine `launch.json` ist nicht nötig. F10: nächster Schritt, F11: hineinspringen,
 F5: fortsetzen, Umschalt+F5: beenden. Variablen und Aufrufliste stehen in der VS-Code-Debugansicht.
