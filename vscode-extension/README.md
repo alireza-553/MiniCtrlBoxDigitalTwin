@@ -18,22 +18,7 @@ Die Seitenleiste trennt **Digital Twin** (Simulation auf diesem PC) und **Echte 
 **Simulator testen** und **USB-JTAG-Treiber einrichten**. Der separate Startbefehl
 bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei Bedarf selbst.
 
-### Was macht welche Schaltfläche?
-
-| Bereich / Schaltfläche | Verhalten |
-| --- | --- |
-| Digital Twin → **Projekt laden und starten** | Speichert das Projekt, startet den Simulator bei Bedarf, baut und startet das C++-Programm auf dem PC und öffnet die Oberfläche. |
-| Digital Twin → **Projekt debuggen** | Speichert und baut das Projekt auf dem PC und verbindet den C++-Debugger vor `setup()`. Haltepunkte betreffen den simulierten Prozess. |
-| Digital Twin → **Oberfläche öffnen** | Startet bei Bedarf den Simulator und öffnet seine Oberfläche. Lädt kein neues C++-Programm. |
-| Digital Twin → **Digital Twin beenden** | Stoppt die zugehörige Twin-Debugsitzung und den von der Erweiterung gestarteten Simulator. |
-| Echte Hardware → **Programm übertragen** | Speichert und baut das PlatformIO-Projekt und überträgt es über USB auf die echte MiniCtrlBox. **Ersetzt die bisherige Firmware.** |
-| Echte Hardware → **Hardware debuggen** | Speichert das Projekt, prüft den JTAG-Treiber, ergänzt oder aktualisiert die Debug-Umgebung in `platformio.ini` und baut die Debug-Firmware. **Überträgt Firmware und startet das Board neu.** Verbindet USB-JTAG und hält in `setup()`. |
-| Werkzeuge → **Simulator testen** | Führt Python-Tests aus; Ergebnisse stehen unter **Ausgabe → MiniCtrlBox Digital Twin**. |
-| Werkzeuge → **USB-JTAG-Treiber einrichten** | Prüft unter Windows den JTAG-Treiber und installiert ihn bei Bedarf nach Bestätigung der Administratorabfrage. Überträgt keine Firmware. |
-
-Die Bereichsüberschriften klappen nur die Einträge auf und zu. Upload- und Debug-Symbole in der Toolbar und Statusleiste gehören zum **Digital Twin**. Der Statusleisteneintrag **MCB Digital Twin** startet den Simulator oder öffnet seine Oberfläche, wenn er bereits läuft.
-
-Die [vollständige Beschreibung aller Schaltflächen und Debug-Tasten](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/README.md#befehle-und-einstellungen) enthält Voraussetzungen und Hinweise zum Beenden.
+Die [Bedienungsanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/BEDIENUNG.md) erklärt alle Schaltflächen und Debug-Tasten.
 
 Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
