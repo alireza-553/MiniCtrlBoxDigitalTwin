@@ -84,9 +84,11 @@ function activate(context) {
             },
         }),
         vscode.debug.onDidStartDebugSession(session => {
+            hardware.sessionStarted(session);
             if (session.configuration.mcbProcessId) debugSession = session;
         }),
         vscode.debug.onDidTerminateDebugSession(async session => {
+            hardware.sessionTerminated(session);
             const config = session.configuration;
             if (!config.mcbProcessId) return;
             if (debugSession?.id === session.id) debugSession = undefined;

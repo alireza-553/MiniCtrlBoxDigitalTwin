@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.4 – Gesperrte Firmware beim Hardware-Debugging
+
+- Hardware-Debugsitzungen bleiben auch bei einem Wechsel der ausgewählten Sitzung erfasst und verhindern einen parallelen Build.
+- Unter Windows prüft die Erweiterung vor dem Build, ob die vorhandene `firmware.elf` exklusiv geöffnet werden kann. Bei einer Sperre nennt sie die nötigen Schritte zum Beenden der vorherigen Debugsitzung, bevor PlatformIO gestartet wird.
+- Keine automatische Löschung von Builddateien oder Beendigung fremder Prozesse.
+
 ## v0.3.3 – Watchdog-Zustand bei Hardware-Debugging
 
 - Debugstart bereinigt Watchdog-Interrupts und erlaubt Interrupts während Einzelschritten.
