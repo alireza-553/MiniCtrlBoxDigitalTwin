@@ -6,7 +6,7 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.1.0.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.2.0.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -40,6 +40,22 @@ GPIO_0/1/2 steuern die erste Fahrzeugampel, GPIO_3/4/5 die zweite.
 Alle Ampeln bleiben ohne Anwenderprogramm aus. Es gibt keine manuelle
 Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 
+## C++ debuggen (ab 0.2.0)
+
+Zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`) installieren.
+MSVC-Builds verwenden den Visual-Studio-Debugger; bei `g++`/`clang++` wird GDB im PATH benötigt.
+Im vertrauenswürdigen Projektordner Haltepunkte mit F9 setzen und **C++-Projekt debuggen**
+in der Seitenleiste, Toolbar oder Statusleiste wählen. Der Debugger verbindet sich vor `setup()`.
+Eine `launch.json` ist nicht nötig. F10: nächster Schritt, F11: hineinspringen,
+F5: fortsetzen, Umschalt+F5: beenden. Variablen und Aufrufliste stehen in der VS-Code-Debugansicht.
+
+Am Haltepunkt bleibt der Twin bedienbar und zeigt den letzten vollständigen Zustand.
+Ausgänge aktualisieren sich nach `setup()` bzw. dem jeweiligen `loop()`-Durchlauf.
+Während einer Pause wird nur der aktuelle Eingabestand übernommen; vollständig während
+der Pause gedrückte und losgelassene Taster können nicht als Ereignis ankommen.
+Es gibt im Debugmodus kein Zwei-Sekunden-Timeout. Debuggen beenden stoppt den Prozess
+und entfernt den temporären Build. Einen bereits laufenden älteren Twin zuerst stoppen.
+
 ## C++-Anwenderprogramm ausführen
 
 Unter **Einstellungen → Modul 1** den Projektordner mit `src/main.cpp`
@@ -65,6 +81,7 @@ Modul 2; das Anwenderprogramm auf Modul 1 läuft weiter.
 
 - `MiniCtrlBox: Digital Twin starten`
 - `MiniCtrlBox: Geöffnetes Projekt in den Digital Twin hochladen`
+- `MiniCtrlBox: C++-Projekt im Digital Twin debuggen`
 - `MiniCtrlBox: Digital Twin stoppen`
 - `MiniCtrlBox: Digital Twin öffnen`
 - `MiniCtrlBox: Digital Twin testen`

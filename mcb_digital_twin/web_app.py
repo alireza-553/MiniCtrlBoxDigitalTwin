@@ -59,6 +59,7 @@ class SimulationController:
             "program_running": running,
             "program_path": self.program.project or self.program_path,
             "program_error": self.program.error,
+            "program_debug": self.program.debug if running else None,
             "module_connected": self.module_connected,
             "phase": "PROGRAM" if running else "OFF",
             "ew": [bool(pins[i]) for i in (0, 1, 4)],
@@ -93,14 +94,21 @@ class SimulationController:
         if action == "program_start":
             self.program_path = str(data.get("path") or self.program_path)
             try:
-                self.program.start(self.program_path)
+                self.program.start(self.program_path, debug=data.get("debug") is True)
             except (ValueError, OSError, subprocess.SubprocessError) as error:
                 self.program.stop()
                 self.program.error = str(error)
                 raise ValueError(str(error)) from error
             self._program_inputs()
             return
+        if action == "program_debug_continue":
+            if not self.program.debug or data.get("processId") != self.program.debug["processId"]:
+                raise ValueError("Debug-Prozess stimmt nicht überein.")
+            self.program.release_debug()
+            return
         if action == "program_stop":
+            if data.get("processId") and (not self.program.debug or data["processId"] != self.program.debug["processId"]):
+                return
             self.program.stop()
             return
         if action in ("on", "off", "next", "remote_led", "local", "oled"):
