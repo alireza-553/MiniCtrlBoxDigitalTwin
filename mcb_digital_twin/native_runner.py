@@ -1,0 +1,233 @@
+"""Run the project's original setup()/loop() with a small desktop hardware adapter."""
+
+import json
+import os
+from pathlib import Path
+from queue import Empty, Queue
+import shutil
+import subprocess
+import tempfile
+from threading import RLock, Thread
+import time
+from uuid import uuid4
+
+
+ARDUINO = r'''
+#pragma once
+#include <cstdint>
+#include <array>
+#include <chrono>
+#include <thread>
+constexpr int OUTPUT=1, INPUT=0, INPUT_PULLUP=2, HIGH=1, LOW=0;
+using gpio_num_t=int;
+inline std::array<int,32> twinPins{};
+inline std::array<bool,32> twinDown{}, twinPressed{}, twinReleased{};
+inline std::array<int,6> twinRGB{};
+inline int twinRemote=0, twinSwitches=0;
+inline void pinMode(int,int) {}
+inline void digitalWrite(int pin,int value) { if(pin>=0&&pin<32)twinPins[pin]=value!=0; }
+inline int digitalRead(int pin) { return pin>=0&&pin<32?twinPins[pin]:0; }
+inline unsigned long millis() {
+ static auto start=std::chrono::steady_clock::now();
+ return (unsigned long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-start).count();
+}
+inline void delay(unsigned long ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+'''
+
+MINICTRLBOX = r'''
+#pragma once
+#include "Arduino.h"
+#include <string>
+#include <cstdio>
+#include <cstdarg>
+inline std::array<std::string,8> twinOLED;
+namespace nspMiniCtrlBox {
+constexpr int PIN_BUTTON_LEFT=0, PIN_BUTTON_RIGHT=3, PIN_BUTTON_1=3, PIN_BUTTON_2=0;
+class COLed {
+public:
+ bool begin() {return true;}
+ void printLine(int row,const char* text) {if(row>=0&&row<8)twinOLED[row]=std::string(text).substr(0,21);}
+ void printfLine(int row,const char* format,...) {char text[256];va_list args;va_start(args,format);vsnprintf(text,sizeof(text),format,args);va_end(args);printLine(row,text);}
+ void clear() {for(auto& row:twinOLED)row.clear();}
+};
+class CButton {
+ int pin;
+public:
+ CButton(int p,unsigned=30):pin(p) {}
+ bool hasButtonPressed(bool reset=true) {bool flag=twinPressed.at(pin);if(reset)twinPressed.at(pin)=false;return flag;}
+ bool hasButtonReleased(bool reset=true) {bool flag=twinReleased.at(pin);if(reset)twinReleased.at(pin)=false;return flag;}
+ void resetPressedFlag(){twinPressed.at(pin)=false;}
+ void resetReleasedFlag(){twinReleased.at(pin)=false;}
+ void updateFlags(){}
+};
+class CPortExpLoc {
+public:
+ enum RGBLEDColor {RED0=1,GREEN0=2,BLUE0=4,RED1=8,GREEN1=16,BLUE1=32};
+ bool begin(){return true;}
+ void setColor(int index,bool on){if(index>=0&&index<6)twinRGB[index]=on;}
+ void setColor(RGBLEDColor mask,bool on){for(int i=0;i<6;i++)if(int(mask)&(1<<i))twinRGB[i]=on;}
+};
+class CPortExpOOPExp {
+public:
+ bool begin(){return true;}
+ void setLED(unsigned char index,bool on){if(index<8){if(on)twinRemote|=1<<index;else twinRemote&=~(1<<index);}}
+ void setLEDPort(unsigned char value){twinRemote=value;}
+ unsigned char getLEDPortState(){return (unsigned char)twinRemote;}
+ unsigned char getSwitchState(){return (unsigned char)twinSwitches;}
+ bool getSwitchState(unsigned char index){return (twinSwitches&(1<<index))!=0;}
+};
+}
+'''
+
+RUNNER = r'''
+#include "MiniCtrlBox.h"
+#include <iostream>
+extern void setup();
+extern void loop();
+void quoted(const std::string& value){
+ std::cout<<'"';for(unsigned char c:value){if(c=='"'||c=='\\')std::cout<<'\\'<<c;else if(c>=32&&c<127)std::cout<<c;else{char escaped[7];snprintf(escaped,sizeof(escaped),"\\u%04x",c);std::cout<<escaped;}}std::cout<<'"';
+}
+void snapshot(){
+ std::cout<<"{\"pins\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';std::cout<<twinPins[i];}
+ std::cout<<"],\"rgb\":[";for(int i=0;i<6;i++){if(i)std::cout<<',';std::cout<<twinRGB[i];}
+ std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]}"<<std::endl;
+}
+void button(int pin,bool down){if(down!=twinDown[pin]){if(down)twinPressed[pin]=true;else twinReleased[pin]=true;twinDown[pin]=down;}}
+int main(){setup();snapshot();int left,right,switches,connected;
+ while(std::cin>>left>>right>>switches>>connected){button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;loop();snapshot();}
+}
+'''
+
+
+def _compiler():
+    for name in ("g++", "clang++"):
+        if binary := shutil.which(name):
+            return binary, os.environ.copy(), False
+    if os.name == "nt":
+        locator = Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Microsoft Visual Studio/Installer/vswhere.exe"
+        if locator.exists():
+            installation = subprocess.run([str(locator), "-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath"], capture_output=True, text=True, check=True).stdout.strip()
+            if installation:
+                setup = Path(installation) / "VC/Auxiliary/Build/vcvars64.bat"
+                result = subprocess.run(f'cmd /d /c call "{setup}" >nul && set', capture_output=True, text=True, check=True)
+                environment = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line and not line.startswith("="))
+                search_path = next((value for key, value in environment.items() if key.lower() == "path"), "")
+                if compiler := shutil.which("cl.exe", path=search_path):
+                    return compiler, environment, True
+    raise ValueError("Kein Desktop-C++-Compiler gefunden. Visual Studio C++ Build Tools oder g++ erforderlich.")
+
+
+def find_project(path):
+    root = Path(path).expanduser().resolve()
+    if (root / "src/main.cpp").is_file():
+        return root
+    candidates = [child for child in root.iterdir() if child.is_dir() and (child / "src/main.cpp").is_file()] if root.is_dir() else []
+    if len(candidates) == 1:
+        return candidates[0]
+    raise ValueError("Kein eindeutiges C++-Projekt mit src/main.cpp gefunden.")
+
+
+class NativeProgram:
+    def __init__(self):
+        self.process = None
+        self.snapshot = None
+        self.error = ""
+        self.project = ""
+        self.buttons = [False, False]
+        self.switches = 0
+        self.connected = False
+        self.lock = RLock()
+        self.worker = None
+        self.build = None
+
+    @property
+    def running(self):
+        return self.process is not None and self.process.poll() is None
+
+    def start(self, project):
+        self.stop()
+        root = find_project(project)
+        self.project = str(root)
+        self.error = ""
+        self.build_parent = Path(tempfile.gettempdir()).resolve()
+        self.build = self.build_parent / ("mcb-native-" + uuid4().hex)
+        self.build.mkdir()
+        build = self.build
+        (build / "Arduino.h").write_text(ARDUINO, encoding="utf-8")
+        (build / "MiniCtrlBox.h").write_text(MINICTRLBOX, encoding="utf-8")
+        runner = build / "runner.cpp"
+        runner.write_text(RUNNER, encoding="utf-8")
+        executable = build / ("program.exe" if os.name == "nt" else "program")
+        compiler, environment, msvc = _compiler()
+        sources = [str(runner)] + [str(source) for source in sorted((root / "src").rglob("*.cpp"))]
+        flags = ["/nologo", "/EHsc", "/std:c++17", "/utf-8", f"/Fe:{executable}", f"/I{build}", f"/I{root / 'include'}"] if msvc else ["-std=c++17", "-pthread", "-o", str(executable), "-I", str(build), "-I", str(root / "include")]
+        result = subprocess.run([compiler, *flags, *sources], cwd=build, env=environment, capture_output=True, text=True, errors="replace", timeout=60)
+        if result.returncode:
+            raise ValueError("Anwenderprogramm konnte mit dem Desktop-Adapter nicht gebaut werden:\n" + (result.stdout + result.stderr)[-6000:])
+        self.messages = Queue()
+        self.process = subprocess.Popen([str(executable)], cwd=build, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        process = self.process
+        messages = self.messages
+        def read():
+            for line in process.stdout:
+                messages.put(line)
+        Thread(target=read, daemon=True).start()
+        try:
+            self.snapshot = self._receive()
+        except Exception:
+            self.stop()
+            raise
+        def run():
+            while process.poll() is None:
+                try:
+                    with self.lock:
+                        if process is not self.process:
+                            break
+                        self._tick()
+                except Exception as error:
+                    self.error = str(error)
+                    process.terminate()
+                    break
+                time.sleep(.02)
+        self.worker = Thread(target=run, daemon=True)
+        self.worker.start()
+
+    def _receive(self):
+        try:
+            return json.loads(self.messages.get(timeout=2))
+        except (Empty, json.JSONDecodeError) as error:
+            raise ValueError("Anwenderprogramm liefert keine gültigen Zustände (setup/loop blockiert oder Prozess beendet).") from error
+
+    def _tick(self):
+        if self.running:
+            self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)}\n")
+            self.process.stdin.flush()
+            self.snapshot = self._receive()
+
+    def inputs(self, left, right, switches, connected):
+        with self.lock:
+            self.buttons = [left, right]
+            self.switches = switches
+            self.connected = connected
+            self._tick()
+
+    def stop(self):
+        process = self.process
+        if process is not None and process.poll() is None:
+            process.terminate()
+            process.wait(timeout=5)
+        self.process = None
+        if self.worker is not None and self.worker.is_alive():
+            self.worker.join(timeout=3)
+        self.worker = None
+        if process is not None:
+            process.stdin.close()
+            process.stdout.close()
+        self.snapshot = None
+        self.buttons = [False, False]
+        if self.build is not None:
+            target = self.build.resolve()
+            if target.parent != self.build_parent or not target.name.startswith("mcb-native-"):
+                raise ValueError("Ungültiger temporärer Buildpfad")
+            shutil.rmtree(target)
+            self.build = None
