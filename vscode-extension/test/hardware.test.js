@@ -73,6 +73,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.saves, 1);
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
+    assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\ndebug_tool = esp-builtin/);
     const config = h.calls.debug[0].config;
     assert.equal(config.type, 'platformio-debug');

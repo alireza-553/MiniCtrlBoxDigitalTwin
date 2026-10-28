@@ -5,6 +5,8 @@ const childProcess = require('child_process');
 
 const DEBUG_STARTUP_COMMANDS = [
     'monitor riscv set_maskisr off',
+    // Keep OpenOCD's watchdog shutdown and also clear pending interrupts at every halt.
+    'monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }',
     'monitor esp32c3_wdt_disable',
     // ESP32-C3 TIMG_INT_CLR (+0x7c), WDT interrupt bit 1.
     'monitor mww 0x6002007c 2',
