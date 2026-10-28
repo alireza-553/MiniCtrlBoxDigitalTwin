@@ -1,5 +1,13 @@
 # Versionshistorie
 
+## v0.3.1 – Automatische Windows-JTAG-Treibereinrichtung
+
+- Treiberprüfung vor dem Hardware-Debugstart und separater Einrichtungsbefehl.
+- Offizielles Espressif-Paket mit fester SHA-256-Prüfsumme und Signaturprüfung.
+- Zuordnung über Windows PnP Utility mit vom Nutzer bestätigter Administratorabfrage.
+- Bereits korrekte Einrichtungen bleiben unverändert; die Automatik ist abschaltbar.
+- Anleitung für andere PCs und technische Beschreibung des Ablaufs.
+
 ## v0.3.0 – Native USB-Hardwareanbindung
 
 - Befehle zum Programmieren und Debuggen der echten MiniCtrlBox über PlatformIO.

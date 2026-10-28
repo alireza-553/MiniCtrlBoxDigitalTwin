@@ -6,7 +6,7 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.3.0.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.1.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -59,7 +59,15 @@ Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
 
 Bei `LIBUSB_ERROR_NOT_FOUND` die [offizielle USB-JTAG-Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html) prüfen.
-Treiber werden nicht automatisch geändert. Ein eigener PlatformIO-Core ist über
+Unter Windows wird die JTAG-Treiberzuordnung vor dem Hardware-Debugstart geprüft.
+Bei Bedarf wird das feste Espressif-Paket geladen, per SHA-256 und Signatur geprüft
+und mit dem Windows-Treiberwerkzeug eingerichtet. Die Administratorabfrage muss
+der Nutzer selbst bestätigen. Ein korrekt eingerichteter PC benötigt keinen Download.
+Manuell starten: **USB-JTAG-Treiber einrichten**. Mit
+`mcbDigitalTwin.autoInstallJtagDriver = false` lässt sich die Automatik abschalten.
+Linux/macOS führen keine Windows-Treiberinstallation aus. Details zur Umsetzung:
+[Hardware-Debugging und Treiberautomatik](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md).
+Ein eigener PlatformIO-Core ist über
 `mcbDigitalTwin.platformioPath` einstellbar. Die Browseransicht bleibt der Simulator;
 die echte Hardware wird darin nicht live gespiegelt.
 

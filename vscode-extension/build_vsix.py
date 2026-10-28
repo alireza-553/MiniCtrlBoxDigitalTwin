@@ -18,7 +18,7 @@ def main():
         raise ValueError("package.json und extension.vsixmanifest stimmen nicht überein.")
 
     output = root / f"{package['name']}-{package['version']}.vsix"
-    files = [root / name for name in ("package.json", "extension.js", "hardware.js", "README.md")]
+    files = [root / name for name in ("package.json", "extension.js", "hardware.js", "jtag-driver.js", "windows-jtag.ps1", "README.md")]
     files += sorted((root / "media").rglob("*.svg"))
     files += sorted((root / "python").rglob("*.py"))
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:

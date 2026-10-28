@@ -88,7 +88,7 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.0](vscode-extension/mcb-digital-twin-0.3.0.vsix) ergänzt **Echte Hardware programmieren** und **Echte Hardware debuggen (USB)** in der Seitenleiste. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die [Erweiterung 0.3.1](vscode-extension/mcb-digital-twin-0.3.1.vsix) ergänzt **Echte Hardware programmieren**, **Echte Hardware debuggen (USB)** und **USB-JTAG-Treiber einrichten** in der Seitenleiste. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am nativen USB-Anschluss und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
@@ -112,7 +112,19 @@ debug_init_break = tbreak setup
 
 Bei mehreren passenden Umgebungen fragt die Erweiterung nach der gewünschten. Bei mehreren angeschlossenen Espressif-USB-Geräten bitte die übrigen trennen, damit kein anderes Board programmiert wird. Ein anderer PlatformIO-Core ist über `mcbDigitalTwin.platformioPath` wählbar.
 
-**Verbindungsfehler:** Bei `LIBUSB_ERROR_NOT_FOUND` kann OpenOCD die USB-JTAG-Schnittstelle nicht öffnen. Unter Windows die Espressif-WinUSB-Treiberzuordnung prüfen; ein sichtbarer COM-Port allein bestätigt keinen funktionierenden Debugzugriff. Die Erweiterung installiert oder ersetzt keine Treiber. [Offizielle Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers).
+### Treibereinrichtung für andere PCs
+
+Der digitale Zwilling braucht keinen USB-Treiber. Zum Debuggen der echten Hardware benötigt jeder PC dagegen einen funktionierenden USB-JTAG-Zugriff.
+
+Unter **Windows** prüft die Erweiterung vor dem Hardware-Debugging die JTAG-Schnittstelle. Ist sie bereits korrekt eingerichtet, passiert nichts weiter. Andernfalls lädt die Automatik das feste Espressif-Treiberpaket von `dl.espressif.com`, prüft SHA-256 und die Espressif-Signatur und startet das Windows-Treiberwerkzeug. Die **Windows-Administratorabfrage muss der Nutzer selbst mit „Ja“ bestätigen**. Der Ablauf lässt sich auch mit **USB-JTAG-Treiber einrichten** starten. Internet ist nur nötig, wenn das Paket noch nicht im Cache liegt.
+
+Die Automatik ist über `mcbDigitalTwin.autoInstallJtagDriver` abschaltbar. Abbruch, fehlende Rechte oder fehlgeschlagene Prüfung stoppen den Hardware-Debugstart mit einer Fehlermeldung. Bei nötigem Neustart die MiniCtrlBox neu verbinden bzw. Windows selbst neu starten und erneut versuchen.
+
+Unter **Linux** müssen USB-Zugriffsregeln eingerichtet sein; unter **macOS** wird normalerweise kein separater USB-JTAG-Treiber benötigt. Die Windows-Treiberinstallation wird dort nicht ausgeführt. [Offizielle Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers).
+
+Bei `LIBUSB_ERROR_NOT_FOUND` kann OpenOCD die JTAG-Schnittstelle nicht öffnen. Ein sichtbarer COM-Port allein bestätigt keinen funktionierenden Debugzugriff. Auf dem geprüften PC war der generische Microsoft-WinUSB-Treiber zugeordnet. Nach Installation und Zuordnung des signierten Espressif-Pakets erkannte OpenOCD den RISC-V-Kern des ESP32-C3 erfolgreich. Ein Firmware-Upload war für diesen Verbindungstest nicht nötig.
+
+Die technische Umsetzung und der Ablauf sind in [Hardware-Debugging und Treiberautomatik](docs/HARDWARE_DEBUG.md) beschrieben.
 
 ## Befehle und Einstellungen
 
@@ -125,6 +137,7 @@ Alle Befehle sind über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar.
 | C++-Projekt im Digital Twin debuggen | Baut mit Debug-Symbolen und verbindet den C++-Debugger. |
 | Echte Hardware programmieren | Überträgt das PlatformIO-Projekt auf die angeschlossene MiniCtrlBox. |
 | Echte Hardware debuggen (USB) | Überträgt die Debug-Firmware und startet USB-JTAG-Debugging. |
+| USB-JTAG-Treiber einrichten | Prüft bzw. richtet unter Windows die passende JTAG-Treiberzuordnung ein. |
 | Digital Twin öffnen | öffnet die Oberfläche. |
 | Digital Twin testen | Führt die Simulator-Tests aus. |
 | Digital Twin stoppen | Beendet den von der Erweiterung gestarteten Simulator. |
@@ -134,6 +147,7 @@ Alle Befehle sind über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar.
 | `mcbDigitalTwin.pythonPath` | `python3` | Python-Befehl oder vollständiger Interpreterpfad. |
 | `mcbDigitalTwin.openInsideVSCode` | `true` | Oberfläche innerhalb von VS Code öffnen. |
 | `mcbDigitalTwin.platformioPath` | leer | PlatformIO-Programmdatei; automatisch aus dem PlatformIO-Core bzw. PATH ermitteln. |
+| `mcbDigitalTwin.autoInstallJtagDriver` | `true` | Fehlenden Windows-JTAG-Treiber vor dem Hardware-Debugstart automatisch einrichten; Windows fragt nach Administratorrechten. |
 
 Optional im Anwenderprojekt eine `mcb-digital-twin.json` anlegen, etwa für einen anderen Port:
 
@@ -183,4 +197,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.3.0.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.3.1.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).

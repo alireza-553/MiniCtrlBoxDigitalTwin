@@ -122,7 +122,8 @@ function harness(options = {}) {
     const sandbox = {
         module: { exports: {} }, process, Buffer, setTimeout,
         require: name => ({ vscode, fs: fakeFS, http: options.live ? require('node:http') : http, child_process: childProcess,
-            './hardware': require(path.join(extensionRoot, 'hardware')) }[name] || require(name)),
+            './hardware': require(path.join(extensionRoot, 'hardware')),
+            './jtag-driver': require(path.join(extensionRoot, 'jtag-driver')) }[name] || require(name)),
     };
     vm.runInNewContext(fs.readFileSync(path.join(extensionRoot, 'extension.js'), 'utf8'), sandbox);
     sandbox.module.exports.activate({ extensionPath: extensionRoot, subscriptions: [] });

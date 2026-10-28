@@ -53,7 +53,10 @@ function harness(options = {}) {
         require: name => ({ fs: fakeFS, child_process: childProcess }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../hardware.js'), 'utf8'), sandbox);
     const output = { show() {}, append() {}, appendLine() {} };
-    const hardware = sandbox.module.exports.createHardwareCommands(vscode, output, () => root);
+    const hardware = sandbox.module.exports.createHardwareCommands(vscode, output, () => root, async () => {
+        calls.driverChecked = true;
+        if (options.driverFailure) throw new Error('JTAG driver failed');
+    });
     return { hardware, calls, root, original, ini: () => ini, activated: () => extensionsActivated };
 }
 
@@ -63,6 +66,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.deepEqual(h.calls.errors, []);
     assert.equal(h.activated(), 1);
     assert.equal(h.calls.saves, 1);
+    assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\ndebug_tool = esp-builtin/);
     const config = h.calls.debug[0].config;
@@ -85,6 +89,7 @@ test('hardware upload explicitly targets the detected serial device and keeps co
     assert.ok(upload.args.includes('lesson'));
     assert.equal(h.ini(), h.original);
     assert.equal(h.calls.debug.length, 0);
+    assert.equal(h.calls.driverChecked, undefined);
 });
 
 for (const [name, options] of [
@@ -93,6 +98,7 @@ for (const [name, options] of [
     ['disconnected hardware', { noDevice: true }], ['ambiguous USB hardware', { twoDevices: true }],
     ['build failure', { buildFailure: true }], ['missing CLI', { spawnError: true }],
     ['conflicting existing debug environment', { conflictingEnv: true }],
+    ['driver setup failure', { driverFailure: true }],
 ]) {
     test(`${name} never starts a hardware debugger or flashes firmware`, async () => {
         const h = harness(options);

@@ -3,7 +3,7 @@ const os = require('os');
 const path = require('path');
 const childProcess = require('child_process');
 
-function createHardwareCommands(vscode, output, getRoot) {
+function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
 
     function platformioPath() {
@@ -79,6 +79,7 @@ function createHardwareCommands(vscode, output, getRoot) {
                 return;
             }
 
+            await ensureDriver();
             const debugEnv = `mcb-usb-debug-${selected.label}`;
             const iniPath = path.join(root, 'platformio.ini');
             const original = fs.readFileSync(iniPath, 'utf8');

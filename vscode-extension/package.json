@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -21,7 +21,8 @@
     "onCommand:mcbDigitalTwin.debug",
     "onView:mcbDigitalTwin.control",
     "onCommand:mcbDigitalTwin.hardwareUpload",
-    "onCommand:mcbDigitalTwin.hardwareDebug"
+    "onCommand:mcbDigitalTwin.hardwareDebug",
+    "onCommand:mcbDigitalTwin.hardwareDrivers"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -86,6 +87,12 @@
         "title": "Echte Hardware debuggen (USB)",
         "category": "MiniCtrlBox",
         "icon": "$(debug-alt-small)"
+      },
+      {
+        "command": "mcbDigitalTwin.hardwareDrivers",
+        "title": "USB-JTAG-Treiber einrichten",
+        "category": "MiniCtrlBox",
+        "icon": "$(tools)"
       }
     ],
     "menus": {
@@ -119,6 +126,11 @@
           "type": "string",
           "default": "",
           "description": "PlatformIO-Programmdatei. Leer: Core der PlatformIO-IDE oder platformio im PATH."
+        },
+        "mcbDigitalTwin.autoInstallJtagDriver": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fehlenden Windows-USB-JTAG-Treiber vor Hardware-Debugging automatisch einrichten. Windows fragt bei Bedarf nach Administratorrechten."
         }
       }
     }
