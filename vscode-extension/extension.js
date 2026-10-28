@@ -3,6 +3,7 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { createHardwareCommands } = require('./hardware');
 
 let backendProcess;
 let backendRoot;
@@ -40,6 +41,7 @@ function activate(context) {
     debugStatus.show();
 
     const treeProvider = new DigitalTwinTreeProvider();
+    const hardware = createHardwareCommands(vscode, output, getWorkspaceRoot);
 
     context.subscriptions.push(
         output,
@@ -53,6 +55,8 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
         vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
+        vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
+        vscode.commands.registerCommand('mcbDigitalTwin.hardwareDebug', hardware.debug),
         vscode.debug.registerDebugAdapterTrackerFactory('*', {
             createDebugAdapterTracker(session) {
                 const config = session.configuration;
@@ -99,6 +103,8 @@ class DigitalTwinTreeProvider {
             this.createItem('Digital Twin starten', 'mcbDigitalTwin.start', 'play'),
             this.createItem('Geöffnetes Projekt hochladen', 'mcbDigitalTwin.upload', 'cloud-upload'),
             this.createItem('C++-Projekt debuggen', 'mcbDigitalTwin.debug', 'debug-alt'),
+            this.createItem('Echte Hardware programmieren', 'mcbDigitalTwin.hardwareUpload', 'circuit-board'),
+            this.createItem('Echte Hardware debuggen (USB)', 'mcbDigitalTwin.hardwareDebug', 'debug-alt-small'),
             this.createItem('Digital Twin öffnen', 'mcbDigitalTwin.open', 'link-external'),
             this.createItem('Digital Twin testen', 'mcbDigitalTwin.test', 'beaker'),
             this.createItem('Digital Twin stoppen', 'mcbDigitalTwin.stop', 'debug-stop'),

@@ -1,5 +1,13 @@
 # Versionshistorie
 
+## v0.3.0 – Native USB-Hardwareanbindung
+
+- Befehle zum Programmieren und Debuggen der echten MiniCtrlBox über PlatformIO.
+- ESP32-C3 mit nativem USB-JTAG und eigener geerbter Debug-Umgebung.
+- Bestehende Projektumgebungen bleiben erhalten.
+- Eindeutige Geräteauswahl vor Hardwareaktionen.
+- Keine automatische Änderung von USB-Treibern.
+
 ## v0.2.1 – Wartezeiten im Anwenderprogramm
 
 - `delay()` überträgt während der Wartezeit regelmäßig den aktuellen Zustand.

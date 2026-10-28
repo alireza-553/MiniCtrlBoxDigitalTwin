@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -19,7 +19,9 @@
     "onCommand:mcbDigitalTwin.test",
     "onCommand:mcbDigitalTwin.upload",
     "onCommand:mcbDigitalTwin.debug",
-    "onView:mcbDigitalTwin.control"
+    "onView:mcbDigitalTwin.control",
+    "onCommand:mcbDigitalTwin.hardwareUpload",
+    "onCommand:mcbDigitalTwin.hardwareDebug"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -72,6 +74,18 @@
         "command": "mcbDigitalTwin.test",
         "title": "MiniCtrlBox: Digital Twin testen",
         "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.hardwareUpload",
+        "title": "Echte Hardware programmieren",
+        "category": "MiniCtrlBox",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "mcbDigitalTwin.hardwareDebug",
+        "title": "Echte Hardware debuggen (USB)",
+        "category": "MiniCtrlBox",
+        "icon": "$(debug-alt-small)"
       }
     ],
     "menus": {
@@ -100,6 +114,11 @@
           "type": "boolean",
           "default": true,
           "description": "Öffnet die Oberfläche im integrierten Simple Browser."
+        },
+        "mcbDigitalTwin.platformioPath": {
+          "type": "string",
+          "default": "",
+          "description": "PlatformIO-Programmdatei. Leer: Core der PlatformIO-IDE oder platformio im PATH."
         }
       }
     }
