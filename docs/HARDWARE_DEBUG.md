@@ -17,7 +17,7 @@
 4. `platformio device list --json-output` muss genau ein natives Espressif-USB-Gerät mit VID/PID `303A:1001` erkennen.
 5. Beim normalen Hardware-Upload wird die bestehende Umgebung über den eindeutig erkannten COM-Port übertragen. Dieser Befehl benötigt die JTAG-Treiberautomatik nicht.
 6. Vor dem Hardware-Debugging wird unter Windows der JTAG-Treiber geprüft bzw. eingerichtet.
-7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und den initialen Haltepunkt `setup()`. Abweichende bestehende Umgebungen werden nicht überschrieben.
+7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und einen temporären Hardware-Haltepunkt `setup()`. Eine bekannte ältere generierte Umgebung mit `tbreak setup` wird auf `thbreak setup` und den neuen Debugstart aktualisiert. Abweichende bestehende Umgebungen werden nicht überschrieben; zusätzliche Befehle bleiben erhalten.
 8. Nach dem Build liefert `platformio project metadata --json-output` die ELF-Datei und den Compilerpfad. Daraus entsteht eine VS-Code-Konfiguration vom Typ `platformio-debug` mit `loadMode: always`.
 9. PlatformIO/OpenOCD übertragen die Firmware und übernehmen die Debugsitzung. Haltepunkte, Variablen, Einzelschritte und Fortsetzen gehören zum echten ESP32-Programm.
 
@@ -52,5 +52,26 @@ Die Erkennung und der Build wurden geprüft. Der Verbindungstest änderte die Fi
 ## Weitere Betriebssysteme
 
 Linux benötigt passende USB-Zugriffsregeln. macOS benötigt normalerweise keinen zusätzlichen USB-JTAG-Treiber. Die Windows-Einrichtung wird auf diesen Systemen nicht aufgerufen. Andere USB-UART-Adapter oder JTAG-Probes sind nicht Teil dieser automatischen Einrichtung.
+
+## Interrupt-Watchdog und „Duplicate Breakpoint“
+
+Im untersuchten Fall war „Duplicate Breakpoint address: 0x42001b9c“ ein Folgefehler. GDB meldete keine normalen Haltepunkte mehr. Der ESP32 stand im Panic-Handler mit `PANIC_EXCEPTION_IWDT` und dem Grund `Interrupt wdt timeout on CPU0`; der interne Panic-Haltepunkt zielte auf `COLed::begin()`.
+
+Ein Debugger-Reset mit deaktiviertem Debug-Watchdog, gelöschten ausstehenden Watchdog-Interrupts und `riscv set_maskisr off` stellte die Ausführung ohne Änderung der Firmware wieder her. Das Originalprogramm erreichte danach einen temporären Hardware-Haltepunkt in `loop()`. Dieser Ablauf ist als zusätzliche GDB-Konfiguration für die eigene ESP32-C3-Debugumgebung umgesetzt:
+
+```ini
+debug_init_break = thbreak setup
+debug_extra_cmds =
+    monitor riscv set_maskisr off
+    monitor esp32c3_wdt_disable
+    monitor mww 0x6002007c 2
+    monitor mww 0x6001f07c 2
+```
+
+Die beiden Register sind beim ESP32-C3 `TIMG_INT_CLR_TIMERS_REG` der Timergruppen 1 und 0; Bit 1 löscht den Watchdog-Interrupt. Die Änderung betrifft ausschließlich die Debugumgebung. Das normale Hardware-Upload verwendet weiterhin die ursprüngliche Umgebung. Watchdog-Verhalten im Debugger ist kein Test für das Watchdog-Verhalten im normalen Betrieb.
+
+Der live geprüfte Wiederherstellungsablauf enthielt vor diesen Befehlen einen Reset und danach einen temporären Halt in `loop()`. Der gesamte neu erzeugte PlatformIO-Start wurde noch nicht erneut auf das Board geflasht; ein vollständiger Einzelschritttest bleibt offen. Andere Ursachen doppelter Haltepunkte sind damit nicht ausgeschlossen.
+
+Siehe [OpenOCD: Interruptmaskierung beim Einzelschritt](https://openocd.org/doc/html/Architecture-and-Core-Commands.html) und [Espressif: JTAG und Watchdogs](https://docs.espressif.com/projects/esp-idf/en/release-v4.4/esp32c3/api-reference/system/wdts.html).
 
 Quellen: [Espressif USB-JTAG und Treiber](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html), [PlatformIO Debug-Konfiguration](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/index.html).

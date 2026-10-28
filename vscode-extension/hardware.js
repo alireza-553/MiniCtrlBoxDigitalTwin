@@ -3,6 +3,34 @@ const os = require('os');
 const path = require('path');
 const childProcess = require('child_process');
 
+const DEBUG_STARTUP_COMMANDS = [
+    'monitor riscv set_maskisr off',
+    'monitor esp32c3_wdt_disable',
+    // ESP32-C3 TIMG_INT_CLR (+0x7c), WDT interrupt bit 1.
+    'monitor mww 0x6002007c 2',
+    'monitor mww 0x6001f07c 2',
+];
+
+function updateDebugSection(text, name, commands) {
+    const lines = text.split(/\r?\n/);
+    const start = lines.findIndex(line => line.trim() === `[env:${name}]`);
+    if (start < 0) throw new Error('Die MiniCtrlBox-Debugumgebung wurde nicht gefunden.');
+    let end = lines.findIndex((line, index) => index > start && /^\s*\[/.test(line));
+    if (end < 0) end = lines.length;
+    const section = lines.slice(start, end);
+    function setOption(key, value) {
+        const index = section.findIndex(line => new RegExp(`^\\s*${key}\\s*=`).test(line));
+        if (index < 0) { section.push(...value); return; }
+        let count = 1;
+        while (index + count < section.length && /^\s+\S/.test(section[index + count])) count++;
+        section.splice(index, count, ...value);
+    }
+    setOption('debug_init_break', ['debug_init_break = thbreak setup']);
+    setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
+    lines.splice(start, end - start, ...section);
+    return lines.join(text.includes('\r\n') ? '\r\n' : '\n');
+}
+
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
 
@@ -84,20 +112,26 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             const iniPath = path.join(root, 'platformio.ini');
             const original = fs.readFileSync(iniPath, 'utf8');
             const section = `[env:${debugEnv}]`;
+            let updated = original;
+            let extraCommands = [].concat(selected.options.debug_extra_cmds || []);
             if (original.split(/\r?\n/).some(line => line.trim() === section)) {
                 const current = config.find(([name]) => name === `env:${debugEnv}`);
                 const options = current && Object.fromEntries(current[1]);
                 if (!options || options.debug_tool !== 'esp-builtin' || options.build_type !== 'debug'
-                    || options.upload_protocol !== 'esp-builtin' || options.debug_init_break !== 'tbreak setup') {
+                    || options.upload_protocol !== 'esp-builtin' || !['tbreak setup', 'thbreak setup'].includes(options.debug_init_break)) {
                     throw new Error(`Die vorhandene Umgebung ${debugEnv} weicht von der USB-Debugkonfiguration ab. Bitte platformio.ini prüfen.`);
                 }
+                extraCommands = [].concat(options.debug_extra_cmds || []);
             } else {
                 const eol = original.includes('\r\n') ? '\r\n' : '\n';
                 const addition = ['', '; MiniCtrlBox: natives USB-JTAG-Debugging', section,
                     `extends = env:${selected.label}`, 'build_type = debug', 'debug_tool = esp-builtin',
-                    'upload_protocol = esp-builtin', 'debug_init_break = tbreak setup', ''].join(eol);
-                fs.appendFileSync(iniPath, eol + addition, 'utf8');
+                    'upload_protocol = esp-builtin', 'debug_init_break = thbreak setup', ''].join(eol);
+                updated += eol + addition;
             }
+            // Keep user commands; add the debug-only C3 workaround once.
+            updated = updateDebugSection(updated, debugEnv, [...new Set([...extraCommands, ...DEBUG_STARTUP_COMMANDS])]);
+            if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },
             () => run(root, ['run', '--project-dir', root, '--environment', debugEnv]));
@@ -126,4 +160,4 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     return { upload: () => execute(false), debug: () => execute(true) };
 }
 
-module.exports = { createHardwareCommands };
+module.exports = { createHardwareCommands, updateDebugSection };

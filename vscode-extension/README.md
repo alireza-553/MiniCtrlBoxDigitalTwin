@@ -6,7 +6,7 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.3.2.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.3.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -59,7 +59,7 @@ Den seriellen Monitor vorher schließen.
 
 Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 `platformio.ini` angehängt. Sie erbt die bestehende Umgebung und setzt `build_type = debug`,
-`debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = tbreak setup`.
+`debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = thbreak setup`.
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
 
