@@ -1,5 +1,7 @@
 # MiniCtrlBox Digital Twin für VS Code
 
+**Zum Nachschlagen:** Das [Begriffslexikon mit Beispielen und Lernaufgaben](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md) erklärt unter anderem [Build](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#build), [Haltepunkt](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#haltepunkt), [USB-JTAG](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#usb-jtag) und [Watchdog-Interrupt](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#watchdog-interrupt).
+
 Diese Erweiterung enthält den Python-Digitalzwilling und startet ihn für den
 aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speichern geänderte Projektdateien. Hardware-Debugging ergänzt oder aktualisiert zusätzlich eine Debug-Umgebung in `platformio.ini`.
 

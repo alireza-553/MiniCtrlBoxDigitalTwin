@@ -4,6 +4,8 @@
 
 MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: mit OLED, Tastern und gekoppeltem Kreuzungsmodul. Der originale C++-Quellcode steuert die simulierten Ausgänge.
 
+**Zum Lernen:** Im [Begriffslexikon](docs/begriffe/README.md) findest du kurze Erklärungen, Beispiele und Lernaufgaben. Verlinkte Fachbegriffe in den Anleitungen führen direkt zum passenden Eintrag, etwa [Watchdog-Interrupt](docs/begriffe/README.md#watchdog-interrupt).
+
 **[Version v0.1.0 herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0)** · **[VSIX direkt herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.1.0/mcb-digital-twin-0.1.0.vsix)**
 
 Das Repository ist privat: Zum Download mit einem GitHub-Konto mit Zugriff anmelden. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
@@ -47,7 +49,7 @@ Alternativ im Terminal:
 code --install-extension .\mcb-digital-twin-0.1.0.vsix
 ```
 
-Unter Windows in den VS-Code-Einstellungen nach **`mcbDigitalTwin.pythonPath`** suchen und bei Bedarf `python` oder den vollständigen Pfad zur `python.exe` eintragen. Mit `python --version` im Terminal die Installation prüfen.
+Unter Windows in den VS-Code-Einstellungen nach **`mcbDigitalTwin.pythonPath`** suchen und bei Bedarf `python` oder den [vollständigen Pfad](docs/begriffe/README.md#pfad) zur `python.exe` eintragen. Mit `python --version` im Terminal die Installation prüfen.
 
 Falls bereits eine interne Entwicklungsversion `0.4.x` installiert ist, diese zuerst deinstallieren und anschließend `0.1.0` installieren. Mit `0.1.0` beginnt die neue Release-Reihe; frühere Nummern waren Entwicklungsstände.
 
@@ -69,9 +71,9 @@ Mit dem geprüften Übungsprogramm startet die erste Fahrzeugampel rot. Der link
 
 ## C++ mit Haltepunkten debuggen (ab Version 0.2.0)
 
-Das [VSIX der Version 0.2.1](vscode-extension/mcb-digital-twin-0.2.1.vsix) enthält die Debug-Anbindung und die Korrektur für lange `delay()`-Aufrufe. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
+Das [VSIX der Version 0.2.1](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.2.1/mcb-digital-twin-0.2.1.vsix) enthält die Debug-Anbindung und die Korrektur für lange `delay()`-Aufrufe. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
 
-Voraussetzung ist zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`). Unter Windows wird bei einem MSVC-Build der Visual-Studio-Debugger verwendet. Bei einem Build mit `g++`/`clang++` muss **GDB** im PATH liegen; die Erweiterung verbindet sich dann über GDB.
+Voraussetzung ist zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`). Unter Windows wird bei einem [Build](docs/begriffe/README.md#build) mit MSVC der Visual-Studio-Debugger verwendet. Bei einem Build mit `g++`/`clang++` muss [GDB](docs/begriffe/README.md#gdb-openocd) im PATH liegen; die Erweiterung verbindet sich dann über GDB.
 
 Das Betriebssystem muss das Anfügen an den Prozess erlauben. Insbesondere Linux kann GDB-Attach über seine `ptrace`-Richtlinie einschränken; die Erweiterung verändert diese Sicherheitseinstellungen nicht.
 
@@ -88,9 +90,9 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.4](vscode-extension/mcb-digital-twin-0.3.6.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die Treibereinrichtung liegt unter **Werkzeuge**. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die [Erweiterung 0.3.6](vscode-extension/mcb-digital-twin-0.3.6.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
-Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am nativen USB-Anschluss und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
+Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am [nativen USB-Anschluss](docs/begriffe/README.md#usb-jtag) und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
 1. Den PlatformIO-Projektordner öffnen und die MiniCtrlBox über USB anschließen. Den seriellen Monitor schließen.
 2. **Echte Hardware → Programm übertragen** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
@@ -128,7 +130,7 @@ Die technische Umsetzung und der Ablauf sind in [Hardware-Debugging und Treibera
 
 ## Bedienung und Einstellungen
 
-Die [Bedienungsanleitung](docs/BEDIENUNG.md) beschreibt alle Schaltflächen, Voraussetzungen und das Verhalten beim Hardware-Debugging.
+Die [Bedienungsanleitung](docs/BEDIENUNG.md) beschreibt alle Schaltflächen, Voraussetzungen und das Verhalten beim Hardware-Debugging. Das [Begriffslexikon](docs/begriffe/README.md) erklärt die Fachwörter dazu.
 
 | VS-Code-Einstellung | Standard | Zweck |
 | --- | --- | --- |
