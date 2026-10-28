@@ -51,7 +51,7 @@ function harness(options = {}) {
             stopDebugging: async session => terminated(session),
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
-        TreeItemCollapsibleState: { None: 0 },
+        TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
         TreeItem: class { constructor(label) { this.label = label; } },
         ThemeIcon: class { constructor(id) { this.id = id; } },
         window: {
@@ -132,7 +132,8 @@ function harness(options = {}) {
 
 test('upload is discoverable in the tree and view toolbar', () => {
     const h = harness();
-    const item = h.tree.getChildren().find(item => item.command.command === 'mcbDigitalTwin.upload');
+    const twin = h.tree.getChildren().find(item => item.label === 'Digital Twin');
+    const item = h.tree.getChildren(twin).find(item => item.command.command === 'mcbDigitalTwin.upload');
     assert.equal(item.iconPath.id, 'cloud-upload');
     const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
     assert.ok(manifest.contributes.commands.some(command => command.command === 'mcbDigitalTwin.upload'));

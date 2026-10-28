@@ -54,12 +54,12 @@ Falls bereits eine interne Entwicklungsversion `0.4.x` installiert ist, diese zu
 ## Projekt hochladen und benutzen
 
 1. Den C++-Projektordner in VS Code öffnen. Bei mehreren Workspace-Ordnern eine Datei des gewünschten Projekts aktivieren.
-2. Links das **MiniCtrlBox-Symbol** öffnen und **Geöffnetes Projekt hochladen** wählen. Alternativ das **Upload-Symbol unten neben „MCB Digital Twin“** oder oben in der Steuerungsansicht anklicken.
+2. Links das **MiniCtrlBox-Symbol** öffnen und **Digital Twin → Projekt laden und starten** wählen. Alternativ das **Upload-Symbol unten neben „MCB Digital Twin“** oder oben in der Steuerungsansicht anklicken.
 3. Die Erweiterung speichert geänderte Dateien dieses Projekts, startet den Simulator, baut den C++-Code und startet das Anwenderprogramm. Die Oberfläche öffnet sich in VS Code.
 4. In der Oberfläche **Verbinden** wählen, um das Kreuzungsmodul an die MiniCtrlBox zu koppeln. Modul 2 benötigt diese Verbindung.
 5. Über **Modul / Ampeln** die Darstellung von Modul 2 wechseln. Lichtzustände kommen ausschließlich aus deinem Programm.
 6. Das **OLED anklicken** oder mit Enter öffnen, um den Inhalt groß zu lesen. Mit **Schließen** oder Escape zurückkehren.
-7. Unter **Einstellungen → Modul 1** den Projektpfad ansehen und das **Programm starten / stoppen**. **Digital Twin stoppen** in der Erweiterung beendet den von ihr gestarteten Simulator.
+7. Unter **Einstellungen → Modul 1** den Projektpfad ansehen und das **Programm starten / stoppen**. **Digital Twin → Digital Twin beenden** in der Erweiterung beendet den von ihr gestarteten Simulator.
 
 Die orangefarbenen Taster sind Programmeingänge. Ihre Wirkung hängt vom C++-Programm ab. Es gibt keine manuelle Ampel-Phasensteuerung.
 
@@ -77,7 +77,7 @@ Das Betriebssystem muss das Anfügen an den Prozess erlauben. Insbesondere Linux
 
 1. Deinen C++-Projektordner öffnen und eine Quelldatei auswählen.
 2. Mit einem Klick links neben die Zeilennummer oder **F9** einen Haltepunkt in `setup()`, `loop()` oder einer aufgerufenen Funktion setzen.
-3. In der MiniCtrlBox-Seitenleiste **C++-Projekt debuggen** wählen. Das Debug-Symbol steht auch oben in der Steuerungsansicht und unten neben dem Upload-Symbol.
+3. In der MiniCtrlBox-Seitenleiste **Digital Twin → Projekt debuggen** wählen. Das Debug-Symbol steht auch oben in der Steuerungsansicht und unten neben dem Upload-Symbol.
 4. Der Twin baut das Projekt mit Debug-Symbolen und ohne Optimierung. Der Debugger verbindet sich, bevor `setup()` ausgeführt wird. Eine eigene `launch.json` ist nicht erforderlich.
 5. Am Haltepunkt unter **Ausführen und Debuggen** Variablen, Überwachung und Aufrufliste ansehen. **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion und **F5** setzt das Programm fort.
 6. Mit **Umschalt+F5** die Debugsitzung beenden. Der zugehörige C++-Prozess wird gestoppt und der temporäre Build entfernt.
@@ -88,13 +88,13 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.1](vscode-extension/mcb-digital-twin-0.3.1.vsix) ergänzt **Echte Hardware programmieren**, **Echte Hardware debuggen (USB)** und **USB-JTAG-Treiber einrichten** in der Seitenleiste. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die [Erweiterung 0.3.2](vscode-extension/mcb-digital-twin-0.3.2.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die Treibereinrichtung liegt unter **Werkzeuge**. Die Browseransicht bleibt der Simulator; eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am nativen USB-Anschluss und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
 1. Den PlatformIO-Projektordner öffnen und die MiniCtrlBox über USB anschließen. Den seriellen Monitor schließen.
-2. **Echte Hardware programmieren** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
-3. Zum Debuggen Haltepunkte setzen und **Echte Hardware debuggen (USB)** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
+2. **Echte Hardware → Programm übertragen** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
+3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Hardware debuggen** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
 4. Die Erweiterung ergänzt in `platformio.ini` eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>`. Die bestehende Umgebung und ihre Einstellungen bleiben erhalten. Abweichende vorhandene Debug-Umgebungen werden nicht überschrieben.
 5. PlatformIO baut den Debug-Build, verbindet sich über USB-JTAG und hält in `setup()`. F10/F11/F5 und die Variablenansicht funktionieren in der VS-Code-Debugansicht.
 6. Mit Umschalt+F5 die Hardware-Debugsitzung beenden. Das Verhalten des Controllers nach dem Trennen bestimmt PlatformIO/OpenOCD; bei Bedarf die MiniCtrlBox zurücksetzen.
@@ -197,4 +197,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.3.1.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.3.2.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).

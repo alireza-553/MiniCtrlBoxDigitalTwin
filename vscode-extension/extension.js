@@ -104,24 +104,49 @@ class DigitalTwinTreeProvider {
         return item;
     }
 
-    getChildren() {
+    getChildren(element) {
+        if (element) return element.children || [];
         return [
-            this.createItem('Digital Twin starten', 'mcbDigitalTwin.start', 'play'),
-            this.createItem('Geöffnetes Projekt hochladen', 'mcbDigitalTwin.upload', 'cloud-upload'),
-            this.createItem('C++-Projekt debuggen', 'mcbDigitalTwin.debug', 'debug-alt'),
-            this.createItem('Echte Hardware programmieren', 'mcbDigitalTwin.hardwareUpload', 'circuit-board'),
-            this.createItem('Echte Hardware debuggen (USB)', 'mcbDigitalTwin.hardwareDebug', 'debug-alt-small'),
-            this.createItem('USB-JTAG-Treiber einrichten', 'mcbDigitalTwin.hardwareDrivers', 'tools'),
-            this.createItem('Digital Twin öffnen', 'mcbDigitalTwin.open', 'link-external'),
-            this.createItem('Digital Twin testen', 'mcbDigitalTwin.test', 'beaker'),
-            this.createItem('Digital Twin stoppen', 'mcbDigitalTwin.stop', 'debug-stop'),
+            this.createGroup('Digital Twin', 'Auf diesem PC simulieren', 'vm', [
+                this.createItem('Projekt laden und starten', 'mcbDigitalTwin.upload', 'cloud-upload',
+                    'Aktuelles C++-Projekt speichern, auf diesem PC bauen und im Digital Twin starten.'),
+                this.createItem('Projekt debuggen', 'mcbDigitalTwin.debug', 'debug-alt',
+                    'C++-Programm auf diesem PC mit Haltepunkten im Digital Twin debuggen.'),
+                this.createItem('Oberfläche öffnen', 'mcbDigitalTwin.open', 'link-external',
+                    'Digital Twin bei Bedarf starten und seine Browseroberfläche öffnen.'),
+                this.createItem('Digital Twin beenden', 'mcbDigitalTwin.stop', 'debug-stop',
+                    'Den von dieser Erweiterung gestarteten Simulator beenden.'),
+            ]),
+            this.createGroup('Echte Hardware', 'MiniCtrlBox über USB', 'circuit-board', [
+                this.createItem('Programm übertragen', 'mcbDigitalTwin.hardwareUpload', 'arrow-up',
+                    'Firmware auf die über USB angeschlossene echte MiniCtrlBox übertragen.'),
+                this.createItem('Hardware debuggen', 'mcbDigitalTwin.hardwareDebug', 'debug-alt',
+                    'Debug-Firmware auf die echte MiniCtrlBox übertragen und USB-JTAG-Debugging starten.'),
+            ]),
+            this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
+                this.createItem('Simulator testen', 'mcbDigitalTwin.test', 'beaker',
+                    'Automatisierte Tests des Python-Simulators ausführen.'),
+                this.createItem('USB-JTAG-Treiber einrichten', 'mcbDigitalTwin.hardwareDrivers', 'plug',
+                    'Windows-Treiber für das Debuggen der echten MiniCtrlBox prüfen und bei Bedarf einrichten.'),
+            ], false),
         ];
     }
 
-    createItem(label, command, icon) {
+    createGroup(label, tooltip, icon, children, expanded = true) {
+        const item = new vscode.TreeItem(label, expanded
+            ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed);
+        item.id = `mcbDigitalTwin.group.${label}`;
+        item.tooltip = tooltip;
+        item.iconPath = new vscode.ThemeIcon(icon);
+        item.children = children;
+        return item;
+    }
+
+    createItem(label, command, icon, tooltip) {
         const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
         item.command = { command, title: label };
         item.iconPath = new vscode.ThemeIcon(icon);
+        item.tooltip = tooltip;
         return item;
     }
 }

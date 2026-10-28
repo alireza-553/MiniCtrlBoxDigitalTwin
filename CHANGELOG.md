@@ -1,5 +1,12 @@
 # Versionshistorie
 
+## v0.3.2 – Übersichtliche Steuerung
+
+- Separate aufklappbare Bereiche für Digital Twin, echte Hardware und Werkzeuge.
+- Kürzere Befehle mit erklärenden Tooltips und eindeutiger Zielzuordnung.
+- Tests und Treibereinrichtung unter den zunächst eingeklappten Werkzeugen.
+- Redundanten Simulator-Start aus der Seitenleiste entfernt; in der Befehlspalette weiter verfügbar.
+
 ## v0.3.1 – Automatische Windows-JTAG-Treibereinrichtung
 
 - Treiberprüfung vor dem Hardware-Debugstart und separater Einrichtungsbefehl.
