@@ -6,7 +6,7 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.2.1.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.1.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -40,7 +40,38 @@ GPIO_0/1/2 steuern die erste Fahrzeugampel, GPIO_3/4/5 die zweite.
 Alle Ampeln bleiben ohne Anwenderprogramm aus. Es gibt keine manuelle
 Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 
-## C++ debuggen (ab 0.2.1)
+## Echte Hardware programmieren und debuggen (ab 0.3.0)
+
+**Echte Hardware programmieren** überträgt das geöffnete PlatformIO-Projekt auf die
+MiniCtrlBox. **Echte Hardware debuggen (USB)** baut und überträgt einen Debug-Build,
+verbindet PlatformIO über natives USB-JTAG und hält in `setup()`.
+Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
+
+Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`,
+genau eine direkt über natives USB angeschlossene MiniCtrlBox (C3 ab Revision 0.3)
+und ein funktionierender JTAG-Treiber. Ein USB-UART-Wandler genügt nicht.
+Den seriellen Monitor vorher schließen.
+
+Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
+`platformio.ini` angehängt. Sie erbt die bestehende Umgebung und setzt `build_type = debug`,
+`debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = tbreak setup`.
+Abweichende vorhandene Umgebungen werden nicht überschrieben.
+F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
+
+Bei `LIBUSB_ERROR_NOT_FOUND` die [offizielle USB-JTAG-Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html) prüfen.
+Unter Windows wird die JTAG-Treiberzuordnung vor dem Hardware-Debugstart geprüft.
+Bei Bedarf wird das feste Espressif-Paket geladen, per SHA-256 und Signatur geprüft
+und mit dem Windows-Treiberwerkzeug eingerichtet. Die Administratorabfrage muss
+der Nutzer selbst bestätigen. Ein korrekt eingerichteter PC benötigt keinen Download.
+Manuell starten: **USB-JTAG-Treiber einrichten**. Mit
+`mcbDigitalTwin.autoInstallJtagDriver = false` lässt sich die Automatik abschalten.
+Linux/macOS führen keine Windows-Treiberinstallation aus. Details zur Umsetzung:
+[Hardware-Debugging und Treiberautomatik](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md).
+Ein eigener PlatformIO-Core ist über
+`mcbDigitalTwin.platformioPath` einstellbar. Die Browseransicht bleibt der Simulator;
+die echte Hardware wird darin nicht live gespiegelt.
+
+## C++ debuggen (ab 0.2.0)
 
 Zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`) installieren.
 MSVC-Builds verwenden den Visual-Studio-Debugger; bei `g++`/`clang++` wird GDB im PATH benötigt.
