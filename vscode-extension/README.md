@@ -6,7 +6,7 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.4.7.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.1.0.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -18,7 +18,7 @@ Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
 Projektordner. In einem Workspace mit mehreren Ordnern wird das Projekt
 der aktiven Datei verwendet. Das Upload-Symbol steht auch oben in der
-Steuerungsansicht. Eine manuelle Pfadeingabe ist dafür nicht erforderlich.
+Steuerungsansicht und unten in der Statusleiste neben „MCB Digital Twin“. Eine manuelle Pfadeingabe ist dafür nicht erforderlich.
 
 Es muss keine Datei in das Projekt kopiert werden.
 
@@ -87,3 +87,9 @@ erzeugen. Der enthaltene Python-Simulator wird dabei mit eingepackt.
 Den Erweiterungsordner separat in VS Code öffnen und `F5` drücken. Im
 gestarteten Extension Development Host anschließend ein MiniCtrlBox-Projekt
 öffnen.
+
+## Download und Anleitung
+
+[Version 0.1.0 herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0).
+Die [bebilderte Projektanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/tree/v0.1.0#readme) erklärt Installation, Upload und Bedienung.
+Bereits installierte interne 0.4.x-Entwicklungsversionen vor der Installation von 0.1.0 deinstallieren.
