@@ -7,7 +7,7 @@ aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speich
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.3.6.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.7.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -84,6 +84,8 @@ Ein eigener PlatformIO-Core ist über
 die echte Hardware wird darin nicht live gespiegelt.
 
 ## C++ debuggen (ab 0.2.0)
+
+Ab **0.3.7** hilft **Variable suchen und überwachen** beim Finden von Variablennamen: am Haltepunkt das Suchsymbol bei **Variables** oder **Watch** anklicken, einen Namen wie `af` eingeben und `afTemperaturen` auswählen. Die Variable erscheint unter **Watch**. Der Befehl steht außerdem unter **Werkzeuge** und in der Befehlspalette. Weitere globale Variablen können ausdrücklich nachgeladen werden. Die [Bedienungsanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/BEDIENUNG.md#variablen-suchen-und-zu-watch-hinzufügen-ab-037) erklärt Ablauf und Grenzen. Die Vorschläge erscheinen in der eigenen Suchauswahl, nicht im normalen Watch-Textfeld.
 
 Zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`) installieren.
 MSVC-Builds verwenden den Visual-Studio-Debugger; bei `g++`/`clang++` wird GDB im PATH benötigt.

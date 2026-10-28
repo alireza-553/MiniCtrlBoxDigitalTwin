@@ -90,7 +90,7 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.6](vscode-extension/mcb-digital-twin-0.3.6.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die [Erweiterung 0.3.7](vscode-extension/mcb-digital-twin-0.3.7.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am [nativen USB-Anschluss](docs/begriffe/README.md#usb-jtag) und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
@@ -187,4 +187,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.3.6.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.3.7.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).

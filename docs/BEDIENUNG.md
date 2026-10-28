@@ -6,6 +6,7 @@ Die Namen in der folgenden Tabelle entsprechen den Schaltflächen der Seitenleis
 
 | Bereich / Schaltfläche | Ablauf und Ergebnis |
 | --- | --- |
+| Werkzeuge → **Variable suchen und überwachen** | Öffnet am Haltepunkt eine Suche nach lokalen und statischen Variablen sowie globalen Variablen aus der aktuellen Quelldatei. Eine Auswahl wird zu **Watch / Überwachung** hinzugefügt. Für weitere globale Variablen gibt es einen zusätzlichen Ladeeintrag. |
 | Digital Twin → **Projekt laden und starten** | Speichert geänderte Dateien des gewählten Projekts, startet bei Bedarf den Python-[Simulator](begriffe/README.md#simulator), baut den C++-Code für den PC und startet ihn im Twin. Öffnet die Oberfläche. Benötigt Python und einen unterstützten [C++-Compiler](begriffe/README.md#compiler-linker). |
 | Digital Twin → **Projekt debuggen** | Speichert und baut das Projekt mit [Debug-Informationen](begriffe/README.md#elf-bin) auf dem PC. Verbindet den [C++-Debugger](begriffe/README.md#debugger) vor der Ausführung von [`setup()`](begriffe/README.md#setup-loop). Benötigt zusätzlich Microsoft C/C++ und gegebenenfalls [GDB](begriffe/README.md#gdb-openocd). [Haltepunkte](begriffe/README.md#haltepunkt) betreffen den simulierten Programmprozess. |
 | Digital Twin → **Oberfläche öffnen** | Startet den Simulator bei Bedarf und öffnet dessen Oberfläche in VS Code oder entsprechend der Einstellung im externen Browser. Lädt dabei kein neues C++-Programm. |
@@ -20,6 +21,21 @@ Die Aktionen unter **Digital Twin** laufen auf dem PC. Die beiden Aktionen unter
 Seit **0.3.4** verhindern erkannte laufende Hardware-Debugsitzungen einen weiteren Hardware-Build über die Erweiterung. Unter Windows wird zusätzlich die vorhandene `firmware.elf` vor dem Build auf exklusiven Zugriff geprüft. Bei einer Sperre die vorherige Debugsitzung mit **Umschalt+F5** beenden, auch in anderen VS-Code-Fenstern. Bleibt die Datei gesperrt, das zugehörige Fenster schließen und erneut versuchen. Die Erweiterung löscht die Datei nicht automatisch.
 
 ## Verhalten während des Hardware-Debuggings
+
+### Variablen suchen und zu Watch hinzufügen (ab 0.3.7)
+
+1. Das Programm an einem Haltepunkt anhalten. In der **Aufrufliste** die gewünschte Funktion auswählen, zum Beispiel dein `setup()` oder `loop()`.
+2. Auf das **Suchsymbol** oben bei **Variables / Variablen** oder **Watch / Überwachung** klicken. Alternativ **MiniCtrlBox → Werkzeuge → Variable suchen und überwachen** oder den gleichnamigen Befehl über **Strg+Umschalt+P** öffnen.
+3. Einen Teil des Namens tippen, etwa `af`. Die Liste filtert die Vorschläge, darunter `afTemperaturen`, sofern es in dieser Quelldatei als globale Variable bekannt ist.
+4. Den gewünschten Treffer mit Enter auswählen. Die Erweiterung prüft den Ausdruck am aktuellen Haltepunkt und fügt ihn zu **Watch** hinzu. Arrays und Objekte lassen sich dort aufklappen.
+
+Globale C++-Variablen werden mit `::` eingetragen, etwa `::afTemperaturen`. Das bezeichnet ausdrücklich die globale Variable, auch wenn eine lokale Variable denselben Namen hat. Die Auswahl zeigt den Namen ohne dieses Präfix.
+
+Die schnelle Liste verwendet die vom Debugger gelieferten lokalen/statischen Variablen und den C++-Symbolanbieter für globale Variablen der aktuellen Quelldatei. **Weitere globale Variablen laden** fragt zusätzlich die globalen Variablen des Debuggers ab, einschließlich Bibliotheks- und Framework-Variablen. Bei großen Projekten kann das länger dauern. Fehlt der C++-Symbolanbieter, bleibt dieser Ladeeintrag der Weg zu den globalen Variablen.
+
+Die Suche arbeitet mit PlatformIO- und C++-Debugsitzungen im Twin und auf echter Hardware. Sie fügt eine eigene Suchauswahl hinzu; im normalen Watch-Textfeld werden dadurch keine automatischen Vorschläge aktiviert. Wenn du fortsetzt oder den Stack Frame wechselst, öffne die Suche erneut. Bereits überwachte Variablen können außerhalb ihres Gültigkeitsbereichs nicht mehr verfügbar sein.
+
+### Halten und Fortsetzen
 
 Am Haltepunkt stoppt die [**echte ESP32-C3-CPU**](begriffe/README.md#mikrocontroller-cpu); der Anwendercode wird dort nicht weiter ausgeführt. [GPIO-Ausgänge](begriffe/README.md#gpio) behalten normalerweise ihren letzten Zustand, und das [OLED](begriffe/README.md#oled-i2c) zeigt den zuletzt geschriebenen Inhalt. Bereits gestartete, eigenständig laufende Peripherie kann weiterarbeiten. Ein Debug-Halt schaltet daher nicht automatisch alle angeschlossenen Geräte aus.
 
