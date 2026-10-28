@@ -69,7 +69,7 @@ Mit dem geprüften Übungsprogramm startet die erste Fahrzeugampel rot. Der link
 
 ## C++ mit Haltepunkten debuggen (ab Version 0.2.0)
 
-Das [VSIX der Version 0.2.0](vscode-extension/mcb-digital-twin-0.2.0.vsix) enthält die Debug-Anbindung. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
+Das [VSIX der Version 0.2.1](vscode-extension/mcb-digital-twin-0.2.1.vsix) enthält die Debug-Anbindung und die Korrektur für lange `delay()`-Aufrufe. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
 
 Voraussetzung ist zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`). Unter Windows wird bei einem MSVC-Build der Visual-Studio-Debugger verwendet. Bei einem Build mit `g++`/`clang++` muss **GDB** im PATH liegen; die Erweiterung verbindet sich dann über GDB.
 
@@ -82,7 +82,7 @@ Das Betriebssystem muss das Anfügen an den Prozess erlauben. Insbesondere Linux
 5. Am Haltepunkt unter **Ausführen und Debuggen** Variablen, Überwachung und Aufrufliste ansehen. **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion und **F5** setzt das Programm fort.
 6. Mit **Umschalt+F5** die Debugsitzung beenden. Der zugehörige C++-Prozess wird gestoppt und der temporäre Build entfernt.
 
-Am Haltepunkt bleibt die Oberfläche bedienbar und zeigt den zuletzt vollständig übertragenen Zustand. Neue Ausgangswerte erscheinen nach Abschluss von `setup()` oder des jeweiligen `loop()`-Durchlaufs. Einzelschritte aktualisieren daher nicht nach jeder C++-Zeile die Ampeln. Während einer Pause werden die aktuellen Taster-/Schalterzustände für den nächsten Durchlauf übernommen; kurze Klicks, die vollständig in der Pause liegen, können nicht als Ereignis ankommen.
+Am Haltepunkt bleibt die Oberfläche bedienbar und zeigt den zuletzt vollständig übertragenen Zustand. Neue Ausgangswerte erscheinen während `delay()` sowie nach Abschluss von `setup()` oder des jeweiligen `loop()`-Durchlaufs. Einzelschritte aktualisieren daher nicht nach jeder C++-Zeile die Ampeln. Während einer Pause oder Wartezeit werden die aktuellen Taster-/Schalterzustände für den nächsten Durchlauf übernommen; kurze Klicks, die vollständig in der Pause liegen, können nicht als Ereignis ankommen.
 
 Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programms. Ein blockierendes Programm muss über **Debuggen beenden** oder **Programm stoppen** beendet werden. Der Desktop-Adapter und seine unterstützten Hardwarefunktionen bleiben die Grundlage; dies debuggt keine Firmware auf einer echten ESP32-Platine.
 
@@ -152,4 +152,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.2.0.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.2.1.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).

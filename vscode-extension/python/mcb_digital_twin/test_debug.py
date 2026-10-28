@@ -69,5 +69,45 @@ void loop(){ digitalWrite(1, HIGH); delay(2300); }
                 controller.program.stop()
 
 
+class NativeDelayTests(unittest.TestCase):
+    def test_setup_and_loop_delays_publish_states_without_timeout(self):
+        try:
+            _compiler()
+        except (ValueError, OSError) as error:
+            self.skipTest(str(error))
+        with tempfile.TemporaryDirectory(prefix="mcb-delay-test-") as directory:
+            root = Path(directory)
+            (root / "src").mkdir()
+            (root / "src/main.cpp").write_text('''
+#include "MiniCtrlBox.h"
+void setup(){digitalWrite(0,HIGH);delay(2300);digitalWrite(0,LOW);delay(2300);digitalWrite(0,HIGH);}
+void loop(){digitalWrite(1,HIGH);delay(2300);digitalWrite(1,LOW);}
+''', encoding="utf-8")
+            controller = SimulationController()
+            try:
+                controller.action({"action": "module_connection", "state": True})
+                controller.action({"action": "program_start", "path": directory})
+                self.assertTrue(controller.state()["ew"][0])
+                seen_off = False
+                seen_loop = False
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline:
+                    state = controller.state()
+                    self.assertTrue(state["program_running"], state["program_error"])
+                    self.assertEqual(state["program_error"], "")
+                    seen_off |= not state["ew"][0]
+                    seen_loop |= state["ew"][1]
+                    before = time.monotonic()
+                    controller.action({"action": "main_button", "side": "left", "state": True})
+                    self.assertLess(time.monotonic() - before, .5)
+                    if seen_off and seen_loop:
+                        break
+                    time.sleep(.05)
+                self.assertTrue(seen_off, "intermediate setup state was not displayed")
+                self.assertTrue(seen_loop, "setup did not finish or loop delay timed out")
+            finally:
+                controller.program.stop()
+
+
 if __name__ == "__main__":
     unittest.main()
