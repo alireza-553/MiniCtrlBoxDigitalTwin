@@ -10,7 +10,10 @@ const extensionRoot = path.resolve(__dirname, '..');
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
-    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [] };
+    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [] };
+    let terminated;
+    let started;
+    let trackerFactory;
     const commands = new Map();
     let tree;
     let healthy = !options.cold;
@@ -20,6 +23,33 @@ function harness(options = {}) {
     });
     const docs = [document(first), document(selected)];
     const vscode = {
+        extensions: { getExtension: () => options.noDebugger ? undefined : {} },
+        debug: {
+            registerDebugAdapterTrackerFactory: (_, factory) => { trackerFactory = factory; return {}; },
+            onDidStartDebugSession: callback => { started = callback; return {}; },
+            onDidTerminateDebugSession: callback => { terminated = callback; return {}; },
+            startDebugging: async (folder, configuration) => {
+                calls.debug.push({ folder, configuration });
+                if (options.debugRejected) return false;
+                const session = { id: 'twin-debug', configuration };
+                started(session);
+                const tracker = trackerFactory.createDebugAdapterTracker(session);
+                if (options.adapterFailure) {
+                    tracker.onError(new Error('Debugger attach failed'));
+                    return true;
+                }
+                // Adapter reports these after startDebugging has resolved.
+                setTimeout(() => {
+                    tracker.onDidSendMessage({ type: 'response', command: 'configurationDone', success: true });
+                    tracker.onDidSendMessage(configuration.type === 'cppvsdbg'
+                        ? { type: 'event', event: 'attachComplete' }
+                        : { type: 'response', command: 'attach', success: true });
+                    calls.debugReady = true;
+                }, 10);
+                return true;
+            },
+            stopDebugging: async session => terminated(session),
+        },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
         TreeItemCollapsibleState: { None: 0 },
         TreeItem: class { constructor(label) { this.label = label; } },
@@ -34,6 +64,7 @@ function harness(options = {}) {
             withProgress: async (_, run) => run({ report() {} }),
         },
         workspace: {
+            isTrusted: true,
             textDocuments: docs,
             workspaceFolders: [{ uri: { fsPath: first } }, { uri: { fsPath: selected } }],
             getWorkspaceFolder: uri => ({ uri: { fsPath: uri.fsPath.startsWith(selected) ? selected : first } }),
@@ -43,7 +74,7 @@ function harness(options = {}) {
             registerCommand: (name, run) => { commands.set(name, run); return {}; },
             executeCommand: async (...args) => { calls.opened.push(args); },
         },
-        Uri: { parse: value => ({ toString: () => value }) },
+        Uri: { parse: value => ({ toString: () => value }), file: fsPath => ({ fsPath }) },
         env: { asExternalUri: async uri => uri },
     };
     const fakeFS = {
@@ -59,6 +90,7 @@ function harness(options = {}) {
         request: (args, callback) => {
             const request = new EventEmitter();
             request.end = body => {
+                if (JSON.parse(body).action === 'program_debug_continue') assert.equal(calls.debugReady, true);
                 calls.requests.push({ args, body: JSON.parse(body) });
                 queueMicrotask(() => {
                     const response = new EventEmitter();
@@ -67,7 +99,11 @@ function harness(options = {}) {
                     callback(response);
                     response.emit('data', JSON.stringify(options.buildFailure
                         ? { error: 'Compiler: missing header' }
-                        : { program_running: true, program_path: selected }));
+                        : { program_running: true, program_path: selected,
+                            program_debug: options.oldBackend ? undefined : {
+                                type: options.gdb ? 'cppdbg' : 'cppvsdbg', processId: '1234',
+                                program: path.join(selected, 'program.exe'), miDebuggerPath: '/usr/bin/gdb',
+                            } }));
                     response.emit('end');
                 });
             };
@@ -89,7 +125,7 @@ function harness(options = {}) {
     };
     vm.runInNewContext(fs.readFileSync(path.join(extensionRoot, 'extension.js'), 'utf8'), sandbox);
     sandbox.module.exports.activate({ extensionPath: extensionRoot, subscriptions: [] });
-    return { calls, selected, commands, tree };
+    return { calls, selected, commands, tree, terminate: terminated };
 }
 
 test('upload is discoverable in the tree and view toolbar', () => {
@@ -146,6 +182,64 @@ test('a double click does not start two concurrent uploads', async () => {
     await Promise.all([upload(), upload()]);
     assert.equal(h.calls.requests.length, 1);
     assert.deepEqual(h.calls.saved, [h.selected]);
+});
+
+test('debug attaches to the built process before releasing setup and stops only its own process', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.equal(h.calls.errors.length, 0);
+    assert.deepEqual(h.calls.saved, [h.selected]);
+    assert.equal(h.calls.requests[0].body.debug, true);
+    assert.equal(h.calls.debug.length, 1);
+    const config = h.calls.debug[0].configuration;
+    assert.equal(config.type, 'cppvsdbg');
+    assert.equal(config.request, 'attach');
+    assert.equal(config.processId, '1234');
+    assert.equal(h.calls.requests[1].body.action, 'program_debug_continue');
+    await h.terminate({ id: 'unrelated', configuration: {} });
+    assert.equal(h.calls.requests.length, 2);
+    await h.terminate({ id: 'twin-debug', configuration: config });
+    assert.deepEqual(h.calls.requests[2].body, { action: 'program_stop', processId: '1234' });
+});
+
+test('debug config uses GDB when built with a GNU-compatible compiler', async () => {
+    const h = harness({ gdb: true });
+    await h.commands.get('mcbDigitalTwin.debug')();
+    const config = h.calls.debug[0].configuration;
+    assert.equal(config.type, 'cppdbg');
+    assert.equal(config.MIMode, 'gdb');
+    assert.equal(config.miDebuggerPath, '/usr/bin/gdb');
+});
+
+test('cancelled debugger attachment cleans up without releasing setup', async () => {
+    const h = harness({ debugRejected: true });
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.deepEqual(h.calls.requests.map(r => r.body.action), ['program_start', 'program_stop']);
+    assert.equal(h.calls.errors.length, 1);
+    assert.equal(h.calls.opened.length, 0);
+});
+
+test('missing debugger extension aborts before starting a native process', async () => {
+    const h = harness({ noDebugger: true });
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.equal(h.calls.requests.length, 0);
+    assert.match(h.calls.errors[0], /ms-vscode.cpptools/);
+});
+
+test('adapter failure cleans up the gated process instead of executing setup', async () => {
+    const h = harness({ adapterFailure: true });
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.ok(h.calls.requests.some(r => r.body.action === 'program_stop'));
+    assert.ok(!h.calls.requests.some(r => r.body.action === 'program_debug_continue'));
+    assert.deepEqual(h.calls.errors, ['Debugger attach failed']);
+});
+
+test('old backend is rejected rather than silently running without a debugger', async () => {
+    const h = harness({ oldBackend: true });
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.equal(h.calls.debug.length, 0);
+    assert.equal(h.calls.requests[1].body.action, 'program_stop');
+    assert.equal(h.calls.errors.length, 1);
 });
 
 test('the extension loads the original C++ project into a running twin', {

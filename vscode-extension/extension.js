@@ -11,6 +11,8 @@ let output;
 let status;
 let extensionRoot;
 let uploading = false;
+let debugSession;
+const debugReadiness = new Map();
 
 function activate(context) {
     extensionRoot = context.extensionPath;
@@ -29,18 +31,61 @@ function activate(context) {
     uploadStatus.command = 'mcbDigitalTwin.upload';
     uploadStatus.show();
 
+    const debugStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 48);
+    debugStatus.text = '$(debug-alt)';
+    debugStatus.name = 'MiniCtrlBox: C++ debuggen';
+    debugStatus.tooltip = 'Geöffnetes C++-Projekt im Digital Twin debuggen';
+    debugStatus.accessibilityInformation = { label: debugStatus.tooltip };
+    debugStatus.command = 'mcbDigitalTwin.debug';
+    debugStatus.show();
+
     const treeProvider = new DigitalTwinTreeProvider();
 
     context.subscriptions.push(
         output,
         status,
         uploadStatus,
+        debugStatus,
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
         vscode.commands.registerCommand('mcbDigitalTwin.stop', stop),
         vscode.commands.registerCommand('mcbDigitalTwin.open', open),
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
-        vscode.commands.registerCommand('mcbDigitalTwin.upload', upload),
+        vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
+        vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
+        vscode.debug.registerDebugAdapterTrackerFactory('*', {
+            createDebugAdapterTracker(session) {
+                const config = session.configuration;
+                const ready = debugReadiness.get(`${config.mcbPort}:${config.mcbProcessId}`);
+                if (!ready) return undefined;
+                return {
+                    onDidSendMessage(message) {
+                        if (message.type === 'response' && message.success === false) {
+                            ready.error = message.message || 'Debugger-Anfrage fehlgeschlagen.';
+                        }
+                        if (message.type === 'response' && message.command === 'configurationDone' && message.success) ready.configured = true;
+                        if ((config.type === 'cppvsdbg' && message.event === 'attachComplete')
+                            || (config.type === 'cppdbg' && message.type === 'response' && message.command === 'attach' && message.success)) ready.attached = true;
+                        if (message.event === 'terminated') ready.error = 'Debugger wurde vor dem Programmstart beendet.';
+                    },
+                    onError(error) { ready.error = error.message; },
+                    onExit() { ready.error = 'Debugger wurde vor dem Programmstart beendet.'; },
+                };
+            },
+        }),
+        vscode.debug.onDidStartDebugSession(session => {
+            if (session.configuration.mcbProcessId) debugSession = session;
+        }),
+        vscode.debug.onDidTerminateDebugSession(async session => {
+            const config = session.configuration;
+            if (!config.mcbProcessId) return;
+            if (debugSession?.id === session.id) debugSession = undefined;
+            try {
+                await postAction(config.mcbPort, { action: 'program_stop', processId: config.mcbProcessId });
+            } catch (error) {
+                output.appendLine(`Debug-Prozess aufräumen: ${error.message}`);
+            }
+        }),
     );
 }
 
@@ -53,6 +98,7 @@ class DigitalTwinTreeProvider {
         return [
             this.createItem('Digital Twin starten', 'mcbDigitalTwin.start', 'play'),
             this.createItem('Geöffnetes Projekt hochladen', 'mcbDigitalTwin.upload', 'cloud-upload'),
+            this.createItem('C++-Projekt debuggen', 'mcbDigitalTwin.debug', 'debug-alt'),
             this.createItem('Digital Twin öffnen', 'mcbDigitalTwin.open', 'link-external'),
             this.createItem('Digital Twin testen', 'mcbDigitalTwin.test', 'beaker'),
             this.createItem('Digital Twin stoppen', 'mcbDigitalTwin.stop', 'debug-stop'),
@@ -154,10 +200,18 @@ async function start() {
     }
 }
 
-async function upload() {
+async function upload(debug = false) {
     if (uploading) return;
     uploading = true;
+    let debugTarget;
     try {
+        if (debugSession) throw new Error('Bitte zuerst die laufende MiniCtrlBox-Debugsitzung beenden.');
+        if (debug && !vscode.workspace.isTrusted) {
+            throw new Error('C++-Debugging benötigt einen vertrauenswürdigen Projektordner in VS Code.');
+        }
+        if (debug && !vscode.extensions.getExtension('ms-vscode.cpptools')) {
+            throw new Error('Zum C++-Debuggen bitte die Microsoft-Erweiterung „C/C++“ (ms-vscode.cpptools) installieren.');
+        }
         const project = loadProject();
         const documents = vscode.workspace.textDocuments.filter(document => document.isDirty
             && vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath === project.root);
@@ -166,7 +220,7 @@ async function upload() {
         }
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'MiniCtrlBox: Geöffnetes Projekt hochladen',
+            title: debug ? 'MiniCtrlBox: C++-Projekt debuggen' : 'MiniCtrlBox: Geöffnetes Projekt hochladen',
             cancellable: false,
         }, async progress => {
             progress.report({ message: 'Digital Twin wird gestartet …' });
@@ -174,19 +228,64 @@ async function upload() {
             progress.report({ message: 'C++-Projekt wird gebaut und in den Twin geladen …' });
             output.show(true);
             output.appendLine(`Lade Anwenderprogramm aus ${project.root}`);
-            const result = await postAction(project.port, { action: 'program_start', path: project.root });
+            const action = { action: 'program_start', path: project.root };
+            if (debug) action.debug = true;
+            const result = await postAction(project.port, action);
             if (!result.program_running) {
                 throw new Error(result.program_error || 'Das Anwenderprogramm wurde nicht gestartet.');
             }
             output.appendLine(`Anwenderprogramm läuft: ${result.program_path || project.root}`);
+            if (debug) {
+                const target = result.program_debug;
+                if (!target?.processId || !target.program || !['cppvsdbg', 'cppdbg'].includes(target.type)) {
+                    await postAction(project.port, { action: 'program_stop' });
+                    throw new Error('Dieses Backend unterstützt kein C++-Debugging. Bitte den alten Twin stoppen und mit der aktuellen Erweiterung neu starten.');
+                }
+                debugTarget = { port: project.port, processId: target.processId };
+                const ready = { configured: false, attached: false };
+                debugReadiness.set(`${project.port}:${target.processId}`, ready);
+                const config = {
+                    name: 'MiniCtrlBox: C++ im Digital Twin',
+                    type: target.type, request: 'attach', program: target.program,
+                    processId: target.processId,
+                    mcbPort: project.port, mcbProcessId: target.processId,
+                };
+                if (target.type === 'cppdbg') {
+                    config.MIMode = 'gdb';
+                    config.miDebuggerPath = target.miDebuggerPath;
+                }
+                const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(project.root));
+                if (!await vscode.debug.startDebugging(folder, config)) {
+                    throw new Error('C++-Debugger wurde nicht gestartet. Details stehen in der Debugkonsole.');
+                }
+                // startDebugging can resolve before symbols and breakpoints
+                // are installed. Keep setup gated until attachment is complete.
+                for (let attempt = 0; !(ready.configured && ready.attached); attempt++) {
+                    if (ready.error) throw new Error(ready.error);
+                    if (attempt >= 300) throw new Error('Zeitüberschreitung beim Verbinden des C++-Debuggers.');
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                if (ready.error) throw new Error(ready.error);
+                await postAction(project.port, { action: 'program_debug_continue', processId: target.processId });
+            }
             await openAtPort(project.port);
         });
-        vscode.window.showInformationMessage(`Projekt „${project.name}“ wurde in den Digital Twin geladen.`);
+        vscode.window.showInformationMessage(debug
+            ? 'C++-Debugger verbunden. Haltepunkte, Einzelschritte und Variablen stehen in VS Code bereit.'
+            : `Projekt „${project.name}“ wurde in den Digital Twin geladen.`);
     } catch (error) {
+        if (debugTarget) {
+            if (debugSession?.configuration.mcbProcessId === debugTarget.processId) {
+                try { await vscode.debug.stopDebugging(debugSession); } catch { /* Still stop the process below. */ }
+            }
+            try { await postAction(debugTarget.port, { action: 'program_stop', processId: debugTarget.processId }); }
+            catch (cleanupError) { output.appendLine(`Debug-Prozess aufräumen: ${cleanupError.message}`); }
+        }
         output.appendLine(`Hochladen fehlgeschlagen: ${error.message}`);
         output.show(true);
         vscode.window.showErrorMessage(error.message);
     } finally {
+        if (debugTarget) debugReadiness.delete(`${debugTarget.port}:${debugTarget.processId}`);
         uploading = false;
     }
 }
@@ -219,6 +318,13 @@ function postAction(port, action) {
 }
 
 async function stop() {
+    if (debugSession) {
+        const session = debugSession;
+        await postAction(session.configuration.mcbPort, {
+            action: 'program_stop', processId: session.configuration.mcbProcessId,
+        });
+        await vscode.debug.stopDebugging(session);
+    }
     if (backendProcess && !backendProcess.killed) {
         backendProcess.kill('SIGTERM');
         backendProcess = undefined;
