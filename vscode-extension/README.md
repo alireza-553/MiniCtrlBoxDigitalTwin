@@ -1,0 +1,89 @@
+# MiniCtrlBox Digital Twin für VS Code
+
+Diese Erweiterung enthält den Python-Digitalzwilling und startet ihn für den
+aktuell geöffneten MiniCtrlBox-Projektordner. Das Projekt selbst wird dabei
+nicht verändert.
+
+## Benutzung
+
+Die Datei `mcb-digital-twin-0.4.7.vsix` über **Extensions → … → Install from
+VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
+`mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
+
+1. Den gewünschten Projektordner in VS Code öffnen.
+2. Links das MiniCtrlBox-Symbol `MiniCtrlBox Digital Twin` anklicken.
+3. **Geöffnetes Projekt hochladen** mit dem Upload-Symbol auswählen.
+
+Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
+bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
+Projektordner. In einem Workspace mit mehreren Ordnern wird das Projekt
+der aktiven Datei verwendet. Das Upload-Symbol steht auch oben in der
+Steuerungsansicht. Eine manuelle Pfadeingabe ist dafür nicht erforderlich.
+
+Es muss keine Datei in das Projekt kopiert werden.
+
+Über **Verbinden** werden Modul 1 und Modul 2 zu einer zusammengesteckten
+Einheit. Mit **Modul / Ampeln** direkt über Modul 2 lässt sich dessen Ansicht
+an derselben Stelle wechseln. Die Straßenansicht enthält zwei Fahrzeugampeln
+und zwei Fußgängerampeln. Modul 1 bleibt dabei sichtbar.
+Das OLED ist auf Modul 1 vergrößert. Ein Klick oder Enter auf dem Display
+öffnet den aktuellen Inhalt zusätzlich in einer großen Leseansicht;
+Schließen oder Escape kehrt zur Modulansicht zurück.
+Fahrtrichtungspfeile und Haltelinien zeigen die Zuordnung der Fahrzeugampeln;
+die Fußgängerampeln stehen an den beiden Überwegen.
+Je eine Fahrzeug- und Fußgängerampel bilden ein zusammengehöriges Paar.
+Beide Köpfe sind direkt nebeneinander an einem gemeinsamen Mast montiert.
+Beim Zeigen oder Fokussieren einer Ampel werden beide Gehäuse des Paars
+hervorgehoben. Die Lichtzustände werden dadurch nicht verändert.
+GPIO_0/1/2 steuern die erste Fahrzeugampel, GPIO_3/4/5 die zweite.
+
+Alle Ampeln bleiben ohne Anwenderprogramm aus. Es gibt keine manuelle
+Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
+
+## C++-Anwenderprogramm ausführen
+
+Unter **Einstellungen → Modul 1** den Projektordner mit `src/main.cpp`
+angeben und **Programm starten** wählen. Ein äußerer Ordner mit genau einem
+solchen Unterprojekt wird ebenfalls erkannt. Der aktuell in VS Code
+geöffnete Ordner wird vorbelegt.
+
+Der originale C++-Quellcode wird in einem temporären Ordner mit einem
+Desktop-Hardwareadapter gebaut. Das Quellprojekt wird nicht verändert.
+Voraussetzung: Visual Studio mit C++-Tools (Windows) oder `g++`/`clang++`.
+Dies führt `setup()` und `loop()` als Desktop-Prozess aus; es emuliert kein
+ESP32-Firmwareabbild. Der Adapter unterstützt die für `Ueb_2.7.3.4`
+benötigten GPIO-, OLED- und Tasterfunktionen. Nicht unterstützte
+Bibliotheksaufrufe führen zu einem sichtbaren Buildfehler.
+
+Für `Ueb_2.7.3.4` startet nur die erste Fahrzeugampel rot. Der linke Taster
+an Modul 1 schaltet sie aus/ein, der rechte wechselt ihre Phase. Die zweite
+Fahrzeugampel und beide Fußgängerampeln bleiben unprogrammiert und dunkel.
+**Programm stoppen** löscht alle angezeigten Ausgänge. **Trennen** trennt
+Modul 2; das Anwenderprogramm auf Modul 1 läuft weiter.
+
+## Befehle
+
+- `MiniCtrlBox: Digital Twin starten`
+- `MiniCtrlBox: Geöffnetes Projekt in den Digital Twin hochladen`
+- `MiniCtrlBox: Digital Twin stoppen`
+- `MiniCtrlBox: Digital Twin öffnen`
+- `MiniCtrlBox: Digital Twin testen`
+
+Optional kann eine Datei `mcb-digital-twin.json` Backend, Testordner und Port
+überschreiben. Für die normale Nutzung wird sie nicht benötigt.
+
+```json
+{
+  "port": 8765,
+  "autoOpen": true
+}
+```
+
+## Entwicklung
+
+Mit `python build_vsix.py` im Erweiterungsordner das installierbare Paket
+erzeugen. Der enthaltene Python-Simulator wird dabei mit eingepackt.
+
+Den Erweiterungsordner separat in VS Code öffnen und `F5` drücken. Im
+gestarteten Extension Development Host anschließend ein MiniCtrlBox-Projekt
+öffnen.

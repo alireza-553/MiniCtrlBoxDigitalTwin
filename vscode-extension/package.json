@@ -1,0 +1,99 @@
+{
+  "name": "mcb-digital-twin",
+  "displayName": "MiniCtrlBox Digital Twin",
+  "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
+  "version": "0.4.7",
+  "publisher": "itt56-local",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Education",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onCommand:mcbDigitalTwin.start",
+    "onCommand:mcbDigitalTwin.stop",
+    "onCommand:mcbDigitalTwin.open",
+    "onCommand:mcbDigitalTwin.test",
+    "onCommand:mcbDigitalTwin.upload",
+    "onView:mcbDigitalTwin.control"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mcbDigitalTwin",
+          "title": "MiniCtrlBox Digital Twin",
+          "icon": "media/mcb.svg"
+        }
+      ]
+    },
+    "views": {
+      "mcbDigitalTwin": [
+        {
+          "id": "mcbDigitalTwin.control",
+          "name": "Steuerung"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "mcbDigitalTwin.upload",
+        "title": "Geöffnetes Projekt in den Digital Twin hochladen",
+        "category": "MiniCtrlBox",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "mcbDigitalTwin.start",
+        "title": "MiniCtrlBox: Digital Twin starten",
+        "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.stop",
+        "title": "MiniCtrlBox: Digital Twin stoppen",
+        "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.open",
+        "title": "MiniCtrlBox: Digital Twin öffnen",
+        "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.test",
+        "title": "MiniCtrlBox: Digital Twin testen",
+        "category": "MiniCtrlBox"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "mcbDigitalTwin.upload",
+          "when": "view == mcbDigitalTwin.control",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MiniCtrlBox Digital Twin",
+      "properties": {
+        "mcbDigitalTwin.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python-Interpreter für den Digital Twin."
+        },
+        "mcbDigitalTwin.openInsideVSCode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Öffnet die Oberfläche im integrierten Simple Browser."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "check": "node --check extension.js",
+    "test": "node --test test/*.test.js"
+  }
+}
