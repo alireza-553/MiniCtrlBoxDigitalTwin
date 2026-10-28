@@ -31,7 +31,16 @@ inline unsigned long millis() {
  static auto start=std::chrono::steady_clock::now();
  return (unsigned long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-start).count();
 }
-inline void delay(unsigned long ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+inline void (*twinDuringDelay)()=nullptr;
+inline void delay(unsigned long ms) {
+ const auto end=std::chrono::steady_clock::now()+std::chrono::milliseconds(ms);
+ while(std::chrono::steady_clock::now()<end){
+  if(twinDuringDelay)twinDuringDelay();
+  const auto remaining=end-std::chrono::steady_clock::now();
+  if(remaining<=std::chrono::steady_clock::duration::zero())break;
+  std::this_thread::sleep_for(remaining<std::chrono::milliseconds(100)?remaining:std::chrono::milliseconds(100));
+ }
+}
 '''
 
 MINICTRLBOX = r'''
@@ -87,14 +96,15 @@ extern void loop();
 void quoted(const std::string& value){
  std::cout<<'"';for(unsigned char c:value){if(c=='"'||c=='\\')std::cout<<'\\'<<c;else if(c>=32&&c<127)std::cout<<c;else{char escaped[7];snprintf(escaped,sizeof(escaped),"\\u%04x",c);std::cout<<escaped;}}std::cout<<'"';
 }
-void snapshot(){
- std::cout<<"{\"pins\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';std::cout<<twinPins[i];}
+void snapshot(bool waiting=false){
+ std::cout<<"{\"waiting\":"<<(waiting?"true":"false")<<",\"pins\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';std::cout<<twinPins[i];}
  std::cout<<"],\"rgb\":[";for(int i=0;i<6;i++){if(i)std::cout<<',';std::cout<<twinRGB[i];}
  std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]}"<<std::endl;
 }
 void button(int pin,bool down){if(down!=twinDown[pin]){if(down)twinPressed[pin]=true;else twinReleased[pin]=true;twinDown[pin]=down;}}
 int main(int argc,char** argv){
  if(argc>1&&std::string(argv[1])=="--debug-wait"){std::string gate;if(!std::getline(std::cin,gate)||gate!="go")return 0;}
+ twinDuringDelay=[](){snapshot(true);};
  setup();snapshot();int left,right,switches,connected;
  while(std::cin>>left>>right>>switches>>connected){button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;loop();snapshot();}
 }
@@ -144,6 +154,7 @@ class NativeProgram:
         self.build = None
         self.debug = None
         self.debug_waiting = False
+        self.waiting = False
 
     @property
     def running(self):
@@ -194,14 +205,18 @@ class NativeProgram:
             for line in process.stdout:
                 messages.put(line)
         Thread(target=read, daemon=True).start()
+        initial_pending = debug
         if not debug:
             try:
-                self.snapshot = self._receive(process, messages)
+                initial = self._receive(process, messages, allow_wait=True)
+                initial_pending = initial is None
+                if initial is not None:
+                    self.snapshot = initial
             except Exception:
                 self.stop()
                 raise
         def run():
-            if debug:
+            if initial_pending:
                 try:
                     self.snapshot = self._receive(process, messages)
                 except Exception as error:
@@ -225,11 +240,20 @@ class NativeProgram:
         self.worker = Thread(target=run, daemon=True)
         self.worker.start()
 
-    def _receive(self, process, messages):
+    def _receive(self, process, messages, allow_wait=False):
         deadline = None if self.debug else time.monotonic() + 2
         while process is self.process and process.poll() is None:
             try:
-                return json.loads(messages.get(timeout=.1))
+                snapshot = json.loads(messages.get(timeout=.1))
+                self.waiting = snapshot.pop("waiting", False)
+                if self.waiting:
+                    self.snapshot = snapshot
+                    if deadline is not None:
+                        deadline = time.monotonic() + 2
+                    if allow_wait:
+                        return None
+                    continue
+                return snapshot
             except Empty:
                 if deadline is not None and time.monotonic() >= deadline:
                     break
@@ -251,17 +275,18 @@ class NativeProgram:
             self.snapshot = self._receive(self.process, self.messages)
 
     def inputs(self, left, right, switches, connected):
-        if self.debug:
-            # Keep UI requests responsive while the worker waits at a breakpoint.
-            self.buttons = [left, right]
-            self.switches = switches
-            self.connected = connected
+        self.buttons = [left, right]
+        self.switches = switches
+        self.connected = connected
+        if self.debug or self.waiting:
+            # A delay or breakpoint must not block browser requests.
             return
-        with self.lock:
-            self.buttons = [left, right]
-            self.switches = switches
-            self.connected = connected
+        if not self.lock.acquire(timeout=.05):
+            return
+        try:
             self._tick()
+        finally:
+            self.lock.release()
 
     def stop(self):
         with self.lifecycle:
@@ -282,6 +307,7 @@ class NativeProgram:
         self.snapshot = None
         self.debug = None
         self.debug_waiting = False
+        self.waiting = False
         self.buttons = [False, False]
         if self.build is not None:
             target = self.build.resolve()

@@ -1,5 +1,13 @@
 # Versionshistorie
 
+## v0.2.1 – Wartezeiten im Anwenderprogramm
+
+- `delay()` überträgt während der Wartezeit regelmäßig den aktuellen Zustand.
+- Lange Wartezeiten in `setup()` und `loop()` verursachen keinen falschen Timeout mehr.
+- Zwischenzustände von Ampeln und OLED werden bereits während `setup()` sichtbar.
+- Oberfläche und Stoppen bleiben während einer Wartezeit bedienbar.
+- Mit dem unveränderten Projekt `Ueb_2.7.3.3` geprüft.
+
 ## v0.2.0 – C++-Debugging
 
 - Debug-Befehl in Seitenleiste, Toolbar und Statusleiste.
