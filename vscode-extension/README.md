@@ -1,8 +1,7 @@
 # MiniCtrlBox Digital Twin für VS Code
 
 Diese Erweiterung enthält den Python-Digitalzwilling und startet ihn für den
-aktuell geöffneten MiniCtrlBox-Projektordner. Das Projekt selbst wird dabei
-nicht verändert.
+aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speichern geänderte Projektdateien. Hardware-Debugging ergänzt oder aktualisiert zusätzlich eine Debug-Umgebung in `platformio.ini`.
 
 ## Benutzung
 
@@ -18,6 +17,23 @@ Die Seitenleiste trennt **Digital Twin** (Simulation auf diesem PC) und **Echte 
 (MiniCtrlBox über USB). **Werkzeuge** ist anfangs eingeklappt und enthält
 **Simulator testen** und **USB-JTAG-Treiber einrichten**. Der separate Startbefehl
 bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei Bedarf selbst.
+
+### Was macht welche Schaltfläche?
+
+| Bereich / Schaltfläche | Verhalten |
+| --- | --- |
+| Digital Twin → **Projekt laden und starten** | Speichert das Projekt, startet den Simulator bei Bedarf, baut und startet das C++-Programm auf dem PC und öffnet die Oberfläche. |
+| Digital Twin → **Projekt debuggen** | Speichert und baut das Projekt auf dem PC und verbindet den C++-Debugger vor `setup()`. Haltepunkte betreffen den simulierten Prozess. |
+| Digital Twin → **Oberfläche öffnen** | Startet bei Bedarf den Simulator und öffnet seine Oberfläche. Lädt kein neues C++-Programm. |
+| Digital Twin → **Digital Twin beenden** | Stoppt die zugehörige Twin-Debugsitzung und den von der Erweiterung gestarteten Simulator. |
+| Echte Hardware → **Programm übertragen** | Speichert und baut das PlatformIO-Projekt und überträgt es über USB auf die echte MiniCtrlBox. **Ersetzt die bisherige Firmware.** |
+| Echte Hardware → **Hardware debuggen** | Speichert das Projekt, prüft den JTAG-Treiber, ergänzt oder aktualisiert die Debug-Umgebung in `platformio.ini` und baut die Debug-Firmware. **Überträgt Firmware und startet das Board neu.** Verbindet USB-JTAG und hält in `setup()`. |
+| Werkzeuge → **Simulator testen** | Führt Python-Tests aus; Ergebnisse stehen unter **Ausgabe → MiniCtrlBox Digital Twin**. |
+| Werkzeuge → **USB-JTAG-Treiber einrichten** | Prüft unter Windows den JTAG-Treiber und installiert ihn bei Bedarf nach Bestätigung der Administratorabfrage. Überträgt keine Firmware. |
+
+Die Bereichsüberschriften klappen nur die Einträge auf und zu. Upload- und Debug-Symbole in der Toolbar und Statusleiste gehören zum **Digital Twin**. Der Statusleisteneintrag **MCB Digital Twin** startet den Simulator oder öffnet seine Oberfläche, wenn er bereits läuft.
+
+Die [vollständige Beschreibung aller Schaltflächen und Debug-Tasten](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/README.md#befehle-und-einstellungen) enthält Voraussetzungen und Hinweise zum Beenden.
 
 Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
@@ -62,6 +78,10 @@ Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 `debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = thbreak setup`.
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
+
+Am Haltepunkt hält die **echte CPU** an. Ausgänge behalten normalerweise ihren letzten Zustand, und das OLED zeigt den letzten Inhalt. Eigenständig laufende Peripherie kann weiterarbeiten. **F5** setzt das Programm fort, **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion. **Umschalt+F5** beendet die Sitzung; bei Bedarf das Board anschließend zurücksetzen.
+
+Ab **0.3.4** werden laufende Hardware-Debugsitzungen auch bei einem Wechsel der ausgewählten Sitzung berücksichtigt. Unter Windows wird die vorhandene `firmware.elf` vor dem Build auf exklusiven Zugriff geprüft. Bei einer Sperre die alte Sitzung mit **Umschalt+F5** beenden, auch in anderen VS-Code-Fenstern; falls nötig das zugehörige Fenster schließen und erneut versuchen.
 
 Bei `LIBUSB_ERROR_NOT_FOUND` die [offizielle USB-JTAG-Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html) prüfen.
 Unter Windows wird die JTAG-Treiberzuordnung vor dem Hardware-Debugstart geprüft.
