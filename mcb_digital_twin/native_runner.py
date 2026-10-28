@@ -93,7 +93,9 @@ void snapshot(){
  std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]}"<<std::endl;
 }
 void button(int pin,bool down){if(down!=twinDown[pin]){if(down)twinPressed[pin]=true;else twinReleased[pin]=true;twinDown[pin]=down;}}
-int main(){setup();snapshot();int left,right,switches,connected;
+int main(int argc,char** argv){
+ if(argc>1&&std::string(argv[1])=="--debug-wait"){std::string gate;if(!std::getline(std::cin,gate)||gate!="go")return 0;}
+ setup();snapshot();int left,right,switches,connected;
  while(std::cin>>left>>right>>switches>>connected){button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;loop();snapshot();}
 }
 '''
@@ -137,14 +139,25 @@ class NativeProgram:
         self.switches = 0
         self.connected = False
         self.lock = RLock()
+        self.lifecycle = RLock()
         self.worker = None
         self.build = None
+        self.debug = None
+        self.debug_waiting = False
 
     @property
     def running(self):
         return self.process is not None and self.process.poll() is None
 
-    def start(self, project):
+    def start(self, project, debug=False):
+        with self.lifecycle:
+            try:
+                self._start(project, debug)
+            except Exception:
+                self.stop()
+                raise
+
+    def _start(self, project, debug):
         self.stop()
         root = find_project(project)
         self.project = str(root)
@@ -159,25 +172,44 @@ class NativeProgram:
         runner.write_text(RUNNER, encoding="utf-8")
         executable = build / ("program.exe" if os.name == "nt" else "program")
         compiler, environment, msvc = _compiler()
+        debugger = None if msvc else shutil.which("gdb")
+        if debug and not msvc and not debugger:
+            raise ValueError("C++-Debugging mit diesem Compiler benötigt GDB im PATH. Unter Windows alternativ Visual Studio C++ Build Tools verwenden.")
         sources = [str(runner)] + [str(source) for source in sorted((root / "src").rglob("*.cpp"))]
         flags = ["/nologo", "/EHsc", "/std:c++17", "/utf-8", f"/Fe:{executable}", f"/I{build}", f"/I{root / 'include'}"] if msvc else ["-std=c++17", "-pthread", "-o", str(executable), "-I", str(build), "-I", str(root / "include")]
-        result = subprocess.run([compiler, *flags, *sources], cwd=build, env=environment, capture_output=True, text=True, errors="replace", timeout=60)
+        if debug:
+            flags += ["/Zi", "/Od", f"/Fd:{build / 'compiler.pdb'}"] if msvc else ["-g", "-O0"]
+        link_flags = ["/link", "/DEBUG:FULL", f"/PDB:{build / 'program.pdb'}"] if debug and msvc else []
+        result = subprocess.run([compiler, *flags, *sources, *link_flags], cwd=build, env=environment, capture_output=True, text=True, errors="replace", timeout=60)
         if result.returncode:
             raise ValueError("Anwenderprogramm konnte mit dem Desktop-Adapter nicht gebaut werden:\n" + (result.stdout + result.stderr)[-6000:])
         self.messages = Queue()
-        self.process = subprocess.Popen([str(executable)], cwd=build, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        self.process = subprocess.Popen([str(executable), *(["--debug-wait"] if debug else [])], cwd=build, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         process = self.process
+        self.debug_waiting = debug
+        self.debug = {"type": "cppvsdbg" if msvc else "cppdbg", "processId": str(process.pid),
+                      "program": str(executable), "miDebuggerPath": debugger} if debug else None
         messages = self.messages
         def read():
             for line in process.stdout:
                 messages.put(line)
         Thread(target=read, daemon=True).start()
-        try:
-            self.snapshot = self._receive()
-        except Exception:
-            self.stop()
-            raise
+        if not debug:
+            try:
+                self.snapshot = self._receive(process, messages)
+            except Exception:
+                self.stop()
+                raise
         def run():
+            if debug:
+                try:
+                    self.snapshot = self._receive(process, messages)
+                except Exception as error:
+                    if process is self.process:
+                        self.error = str(error)
+                        if process.poll() is None:
+                            process.terminate()
+                    return
             while process.poll() is None:
                 try:
                     with self.lock:
@@ -185,26 +217,46 @@ class NativeProgram:
                             break
                         self._tick()
                 except Exception as error:
-                    self.error = str(error)
-                    process.terminate()
+                    if process is self.process:
+                        self.error = str(error)
+                        process.terminate()
                     break
                 time.sleep(.02)
         self.worker = Thread(target=run, daemon=True)
         self.worker.start()
 
-    def _receive(self):
-        try:
-            return json.loads(self.messages.get(timeout=2))
-        except (Empty, json.JSONDecodeError) as error:
-            raise ValueError("Anwenderprogramm liefert keine gültigen Zustände (setup/loop blockiert oder Prozess beendet).") from error
+    def _receive(self, process, messages):
+        deadline = None if self.debug else time.monotonic() + 2
+        while process is self.process and process.poll() is None:
+            try:
+                return json.loads(messages.get(timeout=.1))
+            except Empty:
+                if deadline is not None and time.monotonic() >= deadline:
+                    break
+            except json.JSONDecodeError as error:
+                raise ValueError("Anwenderprogramm liefert keine gültigen Zustände.") from error
+        raise ValueError("Anwenderprogramm liefert keine gültigen Zustände (setup/loop blockiert oder Prozess beendet).")
+
+    def release_debug(self):
+        if not self.running or not self.debug or not self.debug_waiting:
+            raise ValueError("Kein Anwenderprogramm wartet auf den Debugger.")
+        self.process.stdin.write("go\n")
+        self.process.stdin.flush()
+        self.debug_waiting = False
 
     def _tick(self):
         if self.running:
             self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)}\n")
             self.process.stdin.flush()
-            self.snapshot = self._receive()
+            self.snapshot = self._receive(self.process, self.messages)
 
     def inputs(self, left, right, switches, connected):
+        if self.debug:
+            # Keep UI requests responsive while the worker waits at a breakpoint.
+            self.buttons = [left, right]
+            self.switches = switches
+            self.connected = connected
+            return
         with self.lock:
             self.buttons = [left, right]
             self.switches = switches
@@ -212,11 +264,15 @@ class NativeProgram:
             self._tick()
 
     def stop(self):
+        with self.lifecycle:
+            self._stop()
+
+    def _stop(self):
         process = self.process
+        self.process = None
         if process is not None and process.poll() is None:
             process.terminate()
             process.wait(timeout=5)
-        self.process = None
         if self.worker is not None and self.worker.is_alive():
             self.worker.join(timeout=3)
         self.worker = None
@@ -224,6 +280,8 @@ class NativeProgram:
             process.stdin.close()
             process.stdout.close()
         self.snapshot = None
+        self.debug = None
+        self.debug_waiting = False
         self.buttons = [False, False]
         if self.build is not None:
             target = self.build.resolve()

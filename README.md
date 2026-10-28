@@ -67,6 +67,25 @@ Die orangefarbenen Taster sind Programmeingänge. Ihre Wirkung hängt vom C++-Pr
 
 Mit dem geprüften Übungsprogramm startet die erste Fahrzeugampel rot. Der linke Taster an Modul 1 schaltet sie aus/ein, der rechte wechselt die Phase. Die zweite Fahrzeugampel und beide Fußgängerampeln bleiben dunkel, solange das Programm sie nicht ansteuert.
 
+## C++ mit Haltepunkten debuggen (ab Version 0.2.0)
+
+Das [VSIX der Version 0.2.0](vscode-extension/mcb-digital-twin-0.2.0.vsix) enthält die Debug-Anbindung. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
+
+Voraussetzung ist zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`). Unter Windows wird bei einem MSVC-Build der Visual-Studio-Debugger verwendet. Bei einem Build mit `g++`/`clang++` muss **GDB** im PATH liegen; die Erweiterung verbindet sich dann über GDB.
+
+Das Betriebssystem muss das Anfügen an den Prozess erlauben. Insbesondere Linux kann GDB-Attach über seine `ptrace`-Richtlinie einschränken; die Erweiterung verändert diese Sicherheitseinstellungen nicht.
+
+1. Deinen C++-Projektordner öffnen und eine Quelldatei auswählen.
+2. Mit einem Klick links neben die Zeilennummer oder **F9** einen Haltepunkt in `setup()`, `loop()` oder einer aufgerufenen Funktion setzen.
+3. In der MiniCtrlBox-Seitenleiste **C++-Projekt debuggen** wählen. Das Debug-Symbol steht auch oben in der Steuerungsansicht und unten neben dem Upload-Symbol.
+4. Der Twin baut das Projekt mit Debug-Symbolen und ohne Optimierung. Der Debugger verbindet sich, bevor `setup()` ausgeführt wird. Eine eigene `launch.json` ist nicht erforderlich.
+5. Am Haltepunkt unter **Ausführen und Debuggen** Variablen, Überwachung und Aufrufliste ansehen. **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion und **F5** setzt das Programm fort.
+6. Mit **Umschalt+F5** die Debugsitzung beenden. Der zugehörige C++-Prozess wird gestoppt und der temporäre Build entfernt.
+
+Am Haltepunkt bleibt die Oberfläche bedienbar und zeigt den zuletzt vollständig übertragenen Zustand. Neue Ausgangswerte erscheinen nach Abschluss von `setup()` oder des jeweiligen `loop()`-Durchlaufs. Einzelschritte aktualisieren daher nicht nach jeder C++-Zeile die Ampeln. Während einer Pause werden die aktuellen Taster-/Schalterzustände für den nächsten Durchlauf übernommen; kurze Klicks, die vollständig in der Pause liegen, können nicht als Ereignis ankommen.
+
+Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programms. Ein blockierendes Programm muss über **Debuggen beenden** oder **Programm stoppen** beendet werden. Der Desktop-Adapter und seine unterstützten Hardwarefunktionen bleiben die Grundlage; dies debuggt keine Firmware auf einer echten ESP32-Platine.
+
 ## Befehle und Einstellungen
 
 Alle Befehle sind über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar.
@@ -75,6 +94,7 @@ Alle Befehle sind über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar.
 | --- | --- |
 | Digital Twin starten | Startet den Simulator für den geöffneten Ordner. |
 | Geöffnetes Projekt hochladen | Speichert, baut und startet das aktive C++-Projekt im Twin. |
+| C++-Projekt im Digital Twin debuggen | Baut mit Debug-Symbolen und verbindet den C++-Debugger. |
 | Digital Twin öffnen | öffnet die Oberfläche. |
 | Digital Twin testen | Führt die Simulator-Tests aus. |
 | Digital Twin stoppen | Beendet den von der Erweiterung gestarteten Simulator. |
@@ -132,4 +152,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.1.0.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-0.2.0.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
