@@ -5,6 +5,8 @@ const childProcess = require('child_process');
 
 const DEBUG_STARTUP_COMMANDS = [
     'monitor riscv set_maskisr off',
+    // Keep OpenOCD's watchdog shutdown and also clear pending interrupts at every halt.
+    'monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }',
     'monitor esp32c3_wdt_disable',
     // ESP32-C3 TIMG_INT_CLR (+0x7c), WDT interrupt bit 1.
     'monitor mww 0x6002007c 2',
@@ -33,6 +35,7 @@ function updateDebugSection(text, name, commands) {
 
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
+    let launchDiagnostics;
     const sessions = new Map();
     const isHardwareSession = session => session.type === 'platformio-debug'
         || session.configuration?.type === 'platformio-debug'
@@ -161,13 +164,20 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             const build = metadata[debugEnv];
             if (!build?.prog_path || !build.cc_path) throw new Error('PlatformIO liefert keine Debug-Buildinformationen.');
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
+            launchDiagnostics = { text: '' };
             const started = await vscode.debug.startDebugging(folder, {
                 name: 'MiniCtrlBox: Echte Hardware (USB-JTAG)', type: 'platformio-debug', request: 'launch',
                 cwd: root, projectEnvName: debugEnv, executable: build.prog_path,
                 toolchainBinDir: path.dirname(build.cc_path), loadMode: 'always',
                 internalConsoleOptions: 'openOnSessionStart',
+                mcbHardwareDebug: true,
             });
-            if (!started) throw new Error('Hardware-Debugger wurde nicht gestartet. Bitte die PlatformIO-Debugkonsole prüfen.');
+            if (!started) {
+                const details = launchDiagnostics.text.trim();
+                const hint = /abstract command|abstractcs|busy to go low/i.test(details)
+                    ? ' Der ESP32-C3 antwortet nicht auf USB-JTAG. Die Debugsitzung beenden, USB kurz trennen und wieder verbinden, dann erneut starten.' : '';
+                throw new Error(`Hardware-Debugger wurde nicht gestartet.${details ? `\n${details}` : ' PlatformIO hat den Start abgebrochen. Details in der Debugkonsole prüfen.'}${hint}`);
+            }
             output.appendLine('Hardware-Debugsitzung gestartet. PlatformIO überträgt die Firmware und hält in setup().');
         } catch (error) {
             output.appendLine(error.message);
@@ -178,7 +188,25 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         }
     }
 
-    return { upload: () => execute(false), debug: () => execute(true), sessionStarted,
+    function createDebugAdapterTracker(session) {
+        if (!session.configuration?.mcbHardwareDebug || !launchDiagnostics) return undefined;
+        const diagnostics = launchDiagnostics;
+        function record(text) {
+            if (!text) return;
+            diagnostics.text = (diagnostics.text + text + '\n').slice(-4000);
+            output.appendLine(`[Hardware-Debugger] ${text.trim()}`);
+        }
+        return {
+            onDidSendMessage(message) {
+                if (message.type === 'event' && message.event === 'output') record(message.body?.output);
+                if (message.type === 'response' && message.success === false) record(message.message || message.body?.error?.format);
+            },
+            onError(error) { record(error.message); },
+            onExit(code, signal) { record(`Debugadapter beendet (Code: ${code}, Signal: ${signal || 'keines'}).`); },
+        };
+    }
+
+    return { upload: () => execute(false), debug: () => execute(true), sessionStarted, createDebugAdapterTracker,
         sessionTerminated: session => sessions.delete(session.id) };
 }
 

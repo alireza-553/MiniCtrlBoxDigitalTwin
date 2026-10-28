@@ -1,5 +1,16 @@
 # Versionshistorie
 
+## v0.3.6 – Watchdog-Interrupts bei jedem Debug-Halt bereinigen
+
+- Die ESP32-C3-Haltbehandlung schaltet weiterhin die Watchdogs ab und löscht zusätzlich deren ausstehende Interrupts bei jedem Halt. Die bisherige einmalige Bereinigung beim Start reicht nach der Watchdog-Initialisierung des Programms nicht aus.
+- Bestehende generierte Debug-Umgebungen erhalten die erweiterte Haltbehandlung beim nächsten Hardware-Debugstart.
+
+## v0.3.5 – Diagnose beim Hardware-Debugstart
+
+- Die Ausgabe des PlatformIO-Debugadapters erscheint zusätzlich im MiniCtrlBox-Ausgabekanal.
+- Bei einem fehlgeschlagenen Debugstart werden die tatsächlichen Adapterfehler angezeigt. USB-JTAG-Fehler mit einem blockierten ESP32-C3-Kern enthalten einen Hinweis zum Beenden der Sitzung und erneuten Verbinden des USB-Kabels.
+- Dies verbessert die Diagnose; ein Hardware-Timeout wird dadurch nicht automatisch behoben.
+
 ## v0.3.4 – Gesperrte Firmware beim Hardware-Debugging
 
 - Hardware-Debugsitzungen bleiben auch bei einem Wechsel der ausgewählten Sitzung erfasst und verhindern einen parallelen Build.
