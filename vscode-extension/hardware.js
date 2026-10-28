@@ -33,6 +33,25 @@ function updateDebugSection(text, name, commands) {
 
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
+    const sessions = new Map();
+    const isHardwareSession = session => session.type === 'platformio-debug'
+        || session.configuration?.type === 'platformio-debug'
+        || (session.configuration?.projectEnvName && !session.configuration?.mcbProcessId);
+    const sessionStarted = session => { if (isHardwareSession(session)) sessions.set(session.id, session); };
+    if (vscode.debug.activeDebugSession) sessionStarted(vscode.debug.activeDebugSession);
+
+    async function checkFirmwareAvailable(root, environment) {
+        const file = path.join(root, '.pio', 'build', environment, 'firmware.elf');
+        if (process.platform !== 'win32' || !fs.existsSync(file)) return;
+        await new Promise((resolve, reject) => {
+            childProcess.execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+                'try { $f = [IO.File]::Open($env:MCB_FIRMWARE_PATH, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None); $f.Dispose() } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }'],
+            { windowsHide: true, timeout: 10000, env: { ...process.env, MCB_FIRMWARE_PATH: file } }, error => {
+                if (error) reject(new Error(`Die Firmware-Datei ist noch gesperrt oder nicht zugänglich: ${file}. Bitte die Hardware-Debugsitzung auch in anderen VS-Code-Fenstern beenden (Umschalt+F5) und erneut versuchen. Bleibt die Sperre bestehen, das zugehörige VS-Code-Fenster schließen. Der Build wurde nicht gestartet.`));
+                else resolve();
+            });
+        });
+    }
 
     function platformioPath() {
         const configured = vscode.workspace.getConfiguration('mcbDigitalTwin').get('platformioPath', '');
@@ -65,7 +84,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         busy = true;
         try {
             if (!vscode.workspace.isTrusted) throw new Error('Hardwarezugriff benötigt einen vertrauenswürdigen Projektordner.');
-            if (vscode.debug.activeDebugSession?.type === 'platformio-debug') {
+            if (sessions.size || (vscode.debug.activeDebugSession && isHardwareSession(vscode.debug.activeDebugSession))) {
                 throw new Error('Bitte zuerst die laufende Hardware-Debugsitzung beenden.');
             }
             const root = getRoot();
@@ -99,6 +118,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             output.appendLine(`Echte MiniCtrlBox: ${devices[0].port} · ${selected.label}`);
 
             if (!debug) {
+                await checkFirmwareAvailable(root, selected.label);
                 await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                     title: 'MiniCtrlBox: Echte Hardware programmieren', cancellable: false },
                 () => run(root, ['run', '--project-dir', root, '--environment', selected.label,
@@ -109,6 +129,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
 
             await ensureDriver();
             const debugEnv = `mcb-usb-debug-${selected.label}`;
+            await checkFirmwareAvailable(root, debugEnv);
             const iniPath = path.join(root, 'platformio.ini');
             const original = fs.readFileSync(iniPath, 'utf8');
             const section = `[env:${debugEnv}]`;
@@ -157,7 +178,8 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         }
     }
 
-    return { upload: () => execute(false), debug: () => execute(true) };
+    return { upload: () => execute(false), debug: () => execute(true), sessionStarted,
+        sessionTerminated: session => sessions.delete(session.id) };
 }
 
 module.exports = { createHardwareCommands, updateDebugSection };

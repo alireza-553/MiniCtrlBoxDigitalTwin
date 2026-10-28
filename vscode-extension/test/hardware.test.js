@@ -27,7 +27,12 @@ function harness(options = {}) {
     const fakeFS = { existsSync: () => true, readFileSync: file => {
         assert.equal(file, iniPath); return ini;
     }, writeFileSync: (file, text) => { assert.equal(file, iniPath); ini = text; } };
-    const childProcess = { spawn: (exe, args, spawnOptions) => {
+    const childProcess = { execFile: (exe, args, opts, callback) => {
+        calls.lockChecks = (calls.lockChecks || 0) + 1;
+        assert.equal(opts.windowsHide, true);
+        assert.ok(opts.env.MCB_FIRMWARE_PATH.endsWith('firmware.elf'));
+        callback(options.lockedFirmware ? new Error('File in use') : null);
+    }, spawn: (exe, args, spawnOptions) => {
         calls.processes.push({ exe, args, options: spawnOptions });
         const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
         queueMicrotask(() => {
@@ -90,6 +95,28 @@ test('hardware upload explicitly targets the detected serial device and keeps co
     assert.equal(h.ini(), h.original);
     assert.equal(h.calls.debug.length, 0);
     assert.equal(h.calls.driverChecked, undefined);
+});
+
+test('a non-selected hardware debug session blocks rebuilding until terminated', async () => {
+    const h = harness();
+    const session = { id: 'hardware-session', type: 'cppdbg', configuration: { projectEnvName: 'lesson' } };
+    h.hardware.sessionStarted(session);
+    await h.hardware.debug();
+    assert.equal(h.calls.processes.length, 0);
+    assert.match(h.calls.errors[0], /Debugsitzung beenden/);
+    h.hardware.sessionTerminated(session);
+    await h.hardware.debug();
+    assert.equal(h.calls.debug.length, 1);
+});
+
+test('a locked firmware aborts before build and before changing project configuration', { skip: process.platform !== 'win32' }, async () => {
+    const h = harness({ lockedFirmware: true });
+    await h.hardware.debug();
+    assert.equal(h.calls.lockChecks, 1);
+    assert.ok(!h.calls.processes.some(p => p.args[0] === 'run'));
+    assert.equal(h.calls.debug.length, 0);
+    assert.equal(h.ini(), h.original);
+    assert.match(h.calls.errors[0], /anderen VS-Code-Fenstern/);
 });
 
 for (const [name, options] of [
