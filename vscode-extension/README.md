@@ -6,13 +6,18 @@ nicht verändert.
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.2.1.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.2.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
 1. Den gewünschten Projektordner in VS Code öffnen.
 2. Links das MiniCtrlBox-Symbol `MiniCtrlBox Digital Twin` anklicken.
-3. **Geöffnetes Projekt hochladen** mit dem Upload-Symbol auswählen.
+3. **Digital Twin → Projekt laden und starten** mit dem Upload-Symbol auswählen.
+
+Die Seitenleiste trennt **Digital Twin** (Simulation auf diesem PC) und **Echte Hardware**
+(MiniCtrlBox über USB). **Werkzeuge** ist anfangs eingeklappt und enthält
+**Simulator testen** und **USB-JTAG-Treiber einrichten**. Der separate Startbefehl
+bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei Bedarf selbst.
 
 Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
@@ -40,11 +45,42 @@ GPIO_0/1/2 steuern die erste Fahrzeugampel, GPIO_3/4/5 die zweite.
 Alle Ampeln bleiben ohne Anwenderprogramm aus. Es gibt keine manuelle
 Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 
-## C++ debuggen (ab 0.2.1)
+## Echte Hardware programmieren und debuggen (ab 0.3.0)
+
+**Echte Hardware → Programm übertragen** überträgt das geöffnete PlatformIO-Projekt auf die
+MiniCtrlBox. **Echte Hardware → Hardware debuggen** baut und überträgt einen Debug-Build,
+verbindet PlatformIO über natives USB-JTAG und hält in `setup()`.
+Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
+
+Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`,
+genau eine direkt über natives USB angeschlossene MiniCtrlBox (C3 ab Revision 0.3)
+und ein funktionierender JTAG-Treiber. Ein USB-UART-Wandler genügt nicht.
+Den seriellen Monitor vorher schließen.
+
+Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
+`platformio.ini` angehängt. Sie erbt die bestehende Umgebung und setzt `build_type = debug`,
+`debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = tbreak setup`.
+Abweichende vorhandene Umgebungen werden nicht überschrieben.
+F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
+
+Bei `LIBUSB_ERROR_NOT_FOUND` die [offizielle USB-JTAG-Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html) prüfen.
+Unter Windows wird die JTAG-Treiberzuordnung vor dem Hardware-Debugstart geprüft.
+Bei Bedarf wird das feste Espressif-Paket geladen, per SHA-256 und Signatur geprüft
+und mit dem Windows-Treiberwerkzeug eingerichtet. Die Administratorabfrage muss
+der Nutzer selbst bestätigen. Ein korrekt eingerichteter PC benötigt keinen Download.
+Manuell starten: **USB-JTAG-Treiber einrichten**. Mit
+`mcbDigitalTwin.autoInstallJtagDriver = false` lässt sich die Automatik abschalten.
+Linux/macOS führen keine Windows-Treiberinstallation aus. Details zur Umsetzung:
+[Hardware-Debugging und Treiberautomatik](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md).
+Ein eigener PlatformIO-Core ist über
+`mcbDigitalTwin.platformioPath` einstellbar. Die Browseransicht bleibt der Simulator;
+die echte Hardware wird darin nicht live gespiegelt.
+
+## C++ debuggen (ab 0.2.0)
 
 Zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`) installieren.
 MSVC-Builds verwenden den Visual-Studio-Debugger; bei `g++`/`clang++` wird GDB im PATH benötigt.
-Im vertrauenswürdigen Projektordner Haltepunkte mit F9 setzen und **C++-Projekt debuggen**
+Im vertrauenswürdigen Projektordner Haltepunkte mit F9 setzen und **Digital Twin → Projekt debuggen**
 in der Seitenleiste, Toolbar oder Statusleiste wählen. Der Debugger verbindet sich vor `setup()`.
 Eine `launch.json` ist nicht nötig. F10: nächster Schritt, F11: hineinspringen,
 F5: fortsetzen, Umschalt+F5: beenden. Variablen und Aufrufliste stehen in der VS-Code-Debugansicht.

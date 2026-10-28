@@ -1,5 +1,28 @@
 # Versionshistorie
 
+## v0.3.2 – Übersichtliche Steuerung
+
+- Separate aufklappbare Bereiche für Digital Twin, echte Hardware und Werkzeuge.
+- Kürzere Befehle mit erklärenden Tooltips und eindeutiger Zielzuordnung.
+- Tests und Treibereinrichtung unter den zunächst eingeklappten Werkzeugen.
+- Redundanten Simulator-Start aus der Seitenleiste entfernt; in der Befehlspalette weiter verfügbar.
+
+## v0.3.1 – Automatische Windows-JTAG-Treibereinrichtung
+
+- Treiberprüfung vor dem Hardware-Debugstart und separater Einrichtungsbefehl.
+- Offizielles Espressif-Paket mit fester SHA-256-Prüfsumme und Signaturprüfung.
+- Zuordnung über Windows PnP Utility mit vom Nutzer bestätigter Administratorabfrage.
+- Bereits korrekte Einrichtungen bleiben unverändert; die Automatik ist abschaltbar.
+- Anleitung für andere PCs und technische Beschreibung des Ablaufs.
+
+## v0.3.0 – Native USB-Hardwareanbindung
+
+- Befehle zum Programmieren und Debuggen der echten MiniCtrlBox über PlatformIO.
+- ESP32-C3 mit nativem USB-JTAG und eigener geerbter Debug-Umgebung.
+- Bestehende Projektumgebungen bleiben erhalten.
+- Eindeutige Geräteauswahl vor Hardwareaktionen.
+- Keine automatische Änderung von USB-Treibern.
+
 ## v0.2.1 – Wartezeiten im Anwenderprogramm
 
 - `delay()` überträgt während der Wartezeit regelmäßig den aktuellen Zustand.
