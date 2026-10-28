@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.6 – Watchdog-Interrupts bei jedem Debug-Halt bereinigen
+
+- Die ESP32-C3-Haltbehandlung schaltet weiterhin die Watchdogs ab und löscht zusätzlich deren ausstehende Interrupts bei jedem Halt. Die bisherige einmalige Bereinigung beim Start reicht nach der Watchdog-Initialisierung des Programms nicht aus.
+- Bestehende generierte Debug-Umgebungen erhalten die erweiterte Haltbehandlung beim nächsten Hardware-Debugstart.
+
 ## v0.3.5 – Diagnose beim Hardware-Debugstart
 
 - Die Ausgabe des PlatformIO-Debugadapters erscheint zusätzlich im MiniCtrlBox-Ausgabekanal.
