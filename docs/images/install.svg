@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="310" viewBox="0 0 1120 310" role="img" aria-labelledby="title desc">
+  <title id="title">MiniCtrlBox-Erweiterung installieren</title>
+  <desc id="desc">VSIX herunterladen, Erweiterungsansicht öffnen, aus VSIX installieren und Projektordner öffnen.</desc>
+  <rect width="1120" height="310" rx="18" fill="#101820"/>
+  <g font-family="Segoe UI,Arial,sans-serif" fill="#e9f0f6">
+    <text x="32" y="44" font-size="24" font-weight="700">In vier Schritten zum Digital Twin</text>
+    <g fill="#1d2c37" stroke="#39546a">
+      <rect x="24" y="72" width="256" height="210" rx="12"/><rect x="296" y="72" width="256" height="210" rx="12"/>
+      <rect x="568" y="72" width="256" height="210" rx="12"/><rect x="840" y="72" width="256" height="210" rx="12"/>
+    </g>
+    <g fill="#62c5ff" font-size="36" font-weight="700"><text x="44" y="122">1</text><text x="316" y="122">2</text><text x="588" y="122">3</text><text x="860" y="122">4</text></g>
+    <g font-size="19" font-weight="700"><text x="44" y="164">VSIX herunterladen</text><text x="316" y="164">Erweiterungen öffnen</text><text x="588" y="164">Aus VSIX installieren</text><text x="860" y="164">Projekt öffnen</text></g>
+    <g font-size="16" fill="#b8cad8">
+      <text x="44" y="202">GitHub → Releases</text><text x="44" y="230">v0.1.0 → Assets → .vsix</text>
+      <text x="316" y="202">VS Code</text><text x="316" y="230">Strg + Umschalt + X</text>
+      <text x="588" y="202">Menü …</text><text x="588" y="230">Install from VSIX…</text>
+      <text x="860" y="202">Datei → Ordner öffnen…</text><text x="860" y="230">Dann Upload wählen</text>
+    </g>
+    <text x="44" y="265" font-size="13" fill="#86a0b3">Installationsablauf</text>
+  </g>
+</svg>
