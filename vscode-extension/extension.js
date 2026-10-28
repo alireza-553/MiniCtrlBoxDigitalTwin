@@ -65,6 +65,8 @@ function activate(context) {
         }),
         vscode.debug.registerDebugAdapterTrackerFactory('*', {
             createDebugAdapterTracker(session) {
+                const hardwareTracker = hardware.createDebugAdapterTracker(session);
+                if (hardwareTracker) return hardwareTracker;
                 const config = session.configuration;
                 const ready = debugReadiness.get(`${config.mcbPort}:${config.mcbProcessId}`);
                 if (!ready) return undefined;
