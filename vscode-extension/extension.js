@@ -5,6 +5,7 @@ const http = require('http');
 const path = require('path');
 const { createHardwareCommands } = require('./hardware');
 const { createJtagDriverSetup } = require('./jtag-driver');
+const { createVariableSearch, combineTrackers } = require('./variable-search');
 
 let backendProcess;
 let backendRoot;
@@ -44,6 +45,7 @@ function activate(context) {
     const treeProvider = new DigitalTwinTreeProvider();
     const ensureDriver = createJtagDriverSetup(vscode, output, context);
     const hardware = createHardwareCommands(vscode, output, getWorkspaceRoot, ensureDriver);
+    const variableSearch = createVariableSearch(vscode, output);
 
     context.subscriptions.push(
         output,
@@ -59,18 +61,20 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareDebug', hardware.debug),
+        vscode.commands.registerCommand('mcbDigitalTwin.searchVariables', variableSearch.search),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareDrivers', async () => {
             try { await ensureDriver(true); }
             catch (error) { output.appendLine(error.message); vscode.window.showErrorMessage(error.message); }
         }),
         vscode.debug.registerDebugAdapterTrackerFactory('*', {
             createDebugAdapterTracker(session) {
+                const variableTracker = variableSearch.createDebugAdapterTracker(session);
                 const hardwareTracker = hardware.createDebugAdapterTracker(session);
-                if (hardwareTracker) return hardwareTracker;
+                if (hardwareTracker) return combineTrackers(variableTracker, hardwareTracker);
                 const config = session.configuration;
                 const ready = debugReadiness.get(`${config.mcbPort}:${config.mcbProcessId}`);
-                if (!ready) return undefined;
-                return {
+                if (!ready) return variableTracker;
+                return combineTrackers(variableTracker, {
                     onDidSendMessage(message) {
                         if (message.type === 'response' && message.success === false) {
                             ready.error = message.message || 'Debugger-Anfrage fehlgeschlagen.';
@@ -82,7 +86,7 @@ function activate(context) {
                     },
                     onError(error) { ready.error = error.message; },
                     onExit() { ready.error = 'Debugger wurde vor dem Programmstart beendet.'; },
-                };
+                });
             },
         }),
         vscode.debug.onDidStartDebugSession(session => {
@@ -128,6 +132,8 @@ class DigitalTwinTreeProvider {
                     'Debug-Firmware auf die echte MiniCtrlBox übertragen und USB-JTAG-Debugging starten.'),
             ]),
             this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
+                this.createItem('Variable suchen und überwachen', 'mcbDigitalTwin.searchVariables', 'search',
+                    'Am Haltepunkt Variablen suchen und direkt zu Watch hinzufügen.'),
                 this.createItem('Simulator testen', 'mcbDigitalTwin.test', 'beaker',
                     'Automatisierte Tests des Python-Simulators ausführen.'),
                 this.createItem('USB-JTAG-Treiber einrichten', 'mcbDigitalTwin.hardwareDrivers', 'plug',

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Language="de-DE" Id="mcb-digital-twin" Version="0.3.6" Publisher="itt56-local" />
+    <Identity Language="de-DE" Id="mcb-digital-twin" Version="0.3.7" Publisher="itt56-local" />
     <DisplayName>MiniCtrlBox Digital Twin</DisplayName>
     <Description xml:space="preserve">Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.</Description>
     <Tags>MiniCtrlBox,Simulation,Digital Twin,PlatformIO</Tags>

@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -22,7 +22,8 @@
     "onView:mcbDigitalTwin.control",
     "onCommand:mcbDigitalTwin.hardwareUpload",
     "onCommand:mcbDigitalTwin.hardwareDebug",
-    "onCommand:mcbDigitalTwin.hardwareDrivers"
+    "onCommand:mcbDigitalTwin.hardwareDrivers",
+    "onCommand:mcbDigitalTwin.searchVariables"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -93,6 +94,13 @@
         "title": "USB-JTAG-Treiber einrichten",
         "category": "MiniCtrlBox",
         "icon": "$(tools)"
+      },
+      {
+        "command": "mcbDigitalTwin.searchVariables",
+        "title": "Variable suchen und überwachen",
+        "category": "MiniCtrlBox",
+        "icon": "$(search)",
+        "enablement": "debugState == stopped"
       }
     ],
     "menus": {
@@ -106,6 +114,11 @@
           "command": "mcbDigitalTwin.upload",
           "when": "view == mcbDigitalTwin.control",
           "group": "navigation@1"
+        },
+        {
+          "command": "mcbDigitalTwin.searchVariables",
+          "when": "(view == workbench.debug.watchExpressionsView || view == workbench.debug.variablesView) && debugState == stopped",
+          "group": "navigation@0"
         }
       ]
     },

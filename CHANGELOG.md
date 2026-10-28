@@ -1,5 +1,12 @@
 # Versionshistorie
 
+## v0.3.7 – Variablen suchen und überwachen
+
+- Suchauswahl für lokale/statische Variablen und globale Variablen der aktuellen C++-Quelldatei; weitere Debugger-Globals lassen sich ausdrücklich laden.
+- Suchsymbol bei Variables und Watch sowie ein Eintrag unter Werkzeuge und in der Befehlspalette.
+- Auswahl prüft den Ausdruck am Haltepunkt und fügt ihn zu Watch hinzu. Veraltete Suchergebnisse nach Fortsetzen oder Positionswechsel werden abgewiesen.
+- Unterstützung für PlatformIO und C++-Debugging im digitalen Zwilling.
+
 ## v0.3.6 – Watchdog-Interrupts bei jedem Debug-Halt bereinigen
 
 - Die ESP32-C3-Haltbehandlung schaltet weiterhin die Watchdogs ab und löscht zusätzlich deren ausstehende Interrupts bei jedem Halt. Die bisherige einmalige Bereinigung beim Start reicht nach der Watchdog-Initialisierung des Programms nicht aus.
