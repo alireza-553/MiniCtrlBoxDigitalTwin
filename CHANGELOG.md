@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.9 – Arduino-Framework beim Einzelschritt überspringen
+
+- Hardware-Debugsitzungen ergänzen `skip function loopTask`, damit „Step Into“ im Anwendercode bleibt und nicht die Arduino-FreeRTOS-Hülle `loopTask(void*)` öffnet.
+- Bereits vorhandene generierte Debugumgebungen erhalten die Regel beim nächsten Hardware-Debugstart genau einmal; eigene zusätzliche GDB-Befehle bleiben erhalten.
+- `loopTask()` bleibt über einen ausdrücklich gesetzten Funktionshaltepunkt weiterhin untersuchbar.
+
 ## v0.3.8 – Robuster Hardware-Debugstart unter Linux
 
 - Debug-Builds verhindern das Inlining von Anwenderfunktionen, damit Quellzeilen-Breakpoints auf ausführbare Adressen zeigen.

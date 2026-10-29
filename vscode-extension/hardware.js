@@ -4,6 +4,8 @@ const path = require('path');
 const childProcess = require('child_process');
 
 const DEBUG_STARTUP_COMMANDS = [
+    // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
+    'skip function loopTask',
     'monitor riscv set_maskisr off',
     // Keep OpenOCD's watchdog shutdown and also clear pending interrupts at every halt.
     'monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }',
