@@ -52,6 +52,10 @@ function harness(options = {}) {
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
         QuickPickItemKind: { Separator: -1 },
+        MarkdownString: class {
+            constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; }
+            appendMarkdown(value) { this.value += value; return this; }
+        },
         TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
         TreeItem: class { constructor(label) { this.label = label; } },
         ThemeIcon: class { constructor(id) { this.id = id; } },
@@ -147,28 +151,39 @@ test('status bar contains one compact menu instead of separate controls', () => 
     const h = harness();
     const items = h.calls.statusItems;
     assert.equal(items.length, 1);
-    assert.equal(items[0].command, 'mcbDigitalTwin.menu');
+    assert.equal(items[0].command, 'mcbDigitalTwin.control.focus');
     assert.ok(items[0].text.includes('MCB Digital Twin'));
     assert.ok(items[0].text.includes('$(chevron-down)'));
-    assert.ok(h.commands.has(items[0].command));
+    const tooltip = items[0].tooltip;
+    assert.ok(tooltip.value.includes('**$(vm) Digital Twin**'));
+    assert.ok(tooltip.value.includes('**$(circuit-board) Echte Hardware**'));
+    assert.equal(tooltip.supportThemeIcons, true);
+    const links = Array.from(tooltip.value.matchAll(/\]\(command:([^)]+)\)/g), match => match[1]);
+    const groups = Array.from(h.tree.getChildren()).filter(group => group.label !== 'Werkzeuge');
+    const commands = groups.flatMap(group => Array.from(group.children, item => item.command.command));
+    assert.deepEqual(links, commands);
+    assert.deepEqual(Array.from(tooltip.isTrusted.enabledCommands), commands);
+    assert.ok(commands.every(command => h.commands.has(command)));
 });
 
 test('running status retains access to the menu', async () => {
     const h = harness();
     await h.commands.get('mcbDigitalTwin.start')();
-    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.menu');
+    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.control.focus');
     assert.ok(h.calls.statusItems[0].text.startsWith('$(vm)'));
     assert.equal(h.calls.statusItems.length, 1);
+    assert.ok(h.calls.statusItems[0].tooltip.value.startsWith('Digital Twin läuft'));
 });
 
 test('menu groups program and twin actions and cancellation has no side effects', async () => {
     const h = harness();
     await h.commands.get('mcbDigitalTwin.menu')();
     const menu = h.calls.picks[0].items;
-    assert.deepEqual(menu.filter(item => item.kind === -1).map(item => item.label), ['Programm', 'Digital Twin']);
+    assert.deepEqual(menu.filter(item => item.kind === -1).map(item => item.label), ['Digital Twin', 'Echte Hardware']);
     assert.deepEqual(menu.filter(item => item.command).map(item => item.command), [
-        'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug', 'mcbDigitalTwin.start',
-        'mcbDigitalTwin.open', 'mcbDigitalTwin.restart', 'mcbDigitalTwin.stop',
+        'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug', 'mcbDigitalTwin.open',
+        'mcbDigitalTwin.stop', 'mcbDigitalTwin.restart',
+        'mcbDigitalTwin.hardwareUpload', 'mcbDigitalTwin.hardwareDebug',
     ]);
     assert.equal(h.calls.requests.length, 0);
     assert.equal(h.calls.spawned.length, 0);

@@ -91,22 +91,39 @@ function activate(context) {
 }
 
 async function showControls() {
-    const items = [
-        { label: 'Programm', kind: vscode.QuickPickItemKind.Separator },
-        { label: '$(cloud-upload) Projekt laden und starten', command: 'mcbDigitalTwin.upload' },
-        { label: '$(debug-alt) Projekt debuggen', command: 'mcbDigitalTwin.debug' },
-        { label: 'Digital Twin', kind: vscode.QuickPickItemKind.Separator },
-        { label: '$(debug-start) Digital Twin starten', command: 'mcbDigitalTwin.start' },
-        { label: '$(link-external) Oberfläche öffnen', command: 'mcbDigitalTwin.open' },
-        { label: '$(debug-restart) Digital Twin neu starten', description: 'EEPROM bleibt erhalten', command: 'mcbDigitalTwin.restart' },
-        { label: '$(debug-stop) Digital Twin beenden', command: 'mcbDigitalTwin.stop' },
-    ];
+    const items = controlGroups().flatMap(group => [
+        { label: group.label, kind: vscode.QuickPickItemKind.Separator },
+        ...group.children.map(item => ({
+            label: `$(${item.iconPath.id}) ${item.label}`,
+            command: item.command.command,
+        })),
+    ]);
     const selected = await vscode.window.showQuickPick(items, {
         title: 'MCB Digital Twin',
         placeHolder: 'Aktion auswählen',
         matchOnDescription: true,
     });
     if (selected?.command) await vscode.commands.executeCommand(selected.command);
+}
+
+function controlGroups() {
+    return new DigitalTwinTreeProvider().getChildren().filter(group => group.label !== 'Werkzeuge');
+}
+
+function controlTooltip(running) {
+    const tooltip = new vscode.MarkdownString('', true);
+    const commands = [];
+    tooltip.appendMarkdown(`${running ? 'Digital Twin läuft' : 'Digital Twin gestoppt'}\n\n`);
+    for (const group of controlGroups()) {
+        tooltip.appendMarkdown(`**$(${group.iconPath.id}) ${group.label}**\n\n`);
+        for (const item of group.children) {
+            const command = item.command.command;
+            commands.push(command);
+            tooltip.appendMarkdown(`[$(${item.iconPath.id}) ${item.label}](command:${command})\n\n`);
+        }
+    }
+    tooltip.isTrusted = { enabledCommands: commands };
+    return tooltip;
 }
 
 class DigitalTwinTreeProvider {
@@ -488,9 +505,9 @@ async function waitUntilHealthy(port) {
 
 function setRunning(running) {
     status.text = `${running ? '$(vm)' : '$(debug-start)'} MCB Digital Twin $(chevron-down)`;
-    status.tooltip = `${running ? 'Digital Twin läuft' : 'Digital Twin gestoppt'} – Steuerungsmenü öffnen`;
-    status.accessibilityInformation = { label: status.tooltip };
-    status.command = 'mcbDigitalTwin.menu';
+    status.tooltip = controlTooltip(running);
+    status.accessibilityInformation = { label: `${running ? 'Digital Twin läuft' : 'Digital Twin gestoppt'} – Aktionen beim Darüberfahren; klicken öffnet die Seitenleiste` };
+    status.command = 'mcbDigitalTwin.control.focus';
 }
 
 function deactivate() {

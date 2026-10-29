@@ -2,9 +2,10 @@
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
+- Direkt am Statusleisteneintrag erscheint beim Darüberfahren ein anklickbares Menü mit denselben Gruppen „Digital Twin“ und „Echte Hardware“ wie in der Seitenleiste. Ein Klick auf den Eintrag öffnet die Seitenleiste; das Auswahlmenü bleibt über die Befehlspalette verfügbar.
+
 - Die zusätzlichen RGB-Kanalfelder und Taster-Ereignisdiagnosen samt Reset-Button entfallen in den Moduleinstellungen. LEDs und Taster bleiben in der Modulansicht bedienbar bzw. sichtbar.
 
-- Ein einzelner Statusleisteneintrag „MCB Digital Twin ▾“ öffnet ein Auswahlmenü mit den Gruppen „Programm“ und „Digital Twin“. Die einzelnen Statusleisten-Icons entfallen; Seitenleiste und Browser behalten ihre Buttons.
 
 
 - Der Eintrag „Digital Twin neu starten“ steht zusätzlich in der VS-Code-Seitenleiste unter „Digital Twin“ und in der Befehlspalette bereit.
