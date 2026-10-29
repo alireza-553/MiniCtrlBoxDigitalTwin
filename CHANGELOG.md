@@ -2,6 +2,8 @@
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
+- Die zusätzlichen RGB-Kanalfelder und Taster-Ereignisdiagnosen samt Reset-Button entfallen in den Moduleinstellungen. LEDs und Taster bleiben in der Modulansicht bedienbar bzw. sichtbar.
+
 - Ein einzelner Statusleisteneintrag „MCB Digital Twin ▾“ öffnet ein Auswahlmenü mit den Gruppen „Programm“ und „Digital Twin“. Die einzelnen Statusleisten-Icons entfallen; Seitenleiste und Browser behalten ihre Buttons.
 
 
