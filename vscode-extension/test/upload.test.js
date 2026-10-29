@@ -141,6 +141,52 @@ test('upload is discoverable in the tree and view toolbar', () => {
     assert.ok(manifest.contributes.menus['view/title'].some(item => item.command === 'mcbDigitalTwin.upload'));
 });
 
+test('restart is discoverable in the Digital Twin group and command palette', () => {
+    const h = harness();
+    const twin = h.tree.getChildren().find(item => item.label === 'Digital Twin');
+    const item = h.tree.getChildren(twin).find(item => item.command.command === 'mcbDigitalTwin.restart');
+    assert.equal(item.label, 'Digital Twin neu starten');
+    assert.equal(item.iconPath.id, 'debug-restart');
+    const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
+    assert.ok(manifest.contributes.commands.some(command => command.command === 'mcbDigitalTwin.restart'));
+    assert.ok(manifest.activationEvents.includes('onCommand:mcbDigitalTwin.restart'));
+});
+
+test('restart uses the existing backend and opens the surface', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
+    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
+    assert.equal(h.calls.info.length, 1);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('restart starts a stopped backend and ignores duplicate clicks', async () => {
+    const h = harness({ cold: true });
+    await Promise.all([h.commands.get('mcbDigitalTwin.restart')(), h.commands.get('mcbDigitalTwin.restart')()]);
+    assert.equal(h.calls.spawned.length, 1);
+    assert.equal(h.calls.requests.length, 1);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('restart failures are shown without a success notification', async () => {
+    const h = harness({ buildFailure: true });
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.deepEqual(h.calls.errors, ['Compiler: missing header']);
+    assert.equal(h.calls.info.length, 0);
+    assert.equal(h.calls.opened.length, 0);
+});
+
+test('restart leaves an attached debug session untouched', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.debug')();
+    const requests = h.calls.requests.length;
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.equal(h.calls.requests.length, requests);
+    assert.match(h.calls.errors[0], /Debugsitzung/);
+});
+
 test('uploads the active project, saves only its documents, and opens its configured port', async () => {
     const h = harness();
     await h.commands.get('mcbDigitalTwin.upload')();

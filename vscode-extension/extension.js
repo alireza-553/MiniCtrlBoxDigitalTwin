@@ -55,6 +55,7 @@ function activate(context) {
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
         vscode.commands.registerCommand('mcbDigitalTwin.stop', stop),
+        vscode.commands.registerCommand('mcbDigitalTwin.restart', restart),
         vscode.commands.registerCommand('mcbDigitalTwin.open', open),
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
         vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
@@ -124,6 +125,8 @@ class DigitalTwinTreeProvider {
                     'Digital Twin bei Bedarf starten und seine Browseroberfläche öffnen.'),
                 this.createItem('Digital Twin beenden', 'mcbDigitalTwin.stop', 'debug-stop',
                     'Den von dieser Erweiterung gestarteten Simulator beenden.'),
+                this.createItem('Digital Twin neu starten', 'mcbDigitalTwin.restart', 'debug-restart',
+                    'Twin und zuletzt geladenes Programm neu starten. Der EEPROM-Inhalt bleibt erhalten.'),
             ]),
             this.createGroup('Echte Hardware', 'MiniCtrlBox über USB', 'circuit-board', [
                 this.createItem('Programm übertragen', 'mcbDigitalTwin.hardwareUpload', 'arrow-up',
@@ -245,6 +248,31 @@ async function start() {
     } catch (error) {
         output.show(true);
         vscode.window.showErrorMessage(error.message);
+    }
+}
+
+async function restart() {
+    if (uploading) return;
+    uploading = true;
+    try {
+        if (debugSession) throw new Error('Bitte zuerst die laufende MiniCtrlBox-Debugsitzung beenden.');
+        const project = loadProject();
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'MiniCtrlBox: Digital Twin neu starten',
+            cancellable: false,
+        }, async () => {
+            await ensureStarted(project);
+            await postAction(project.port, { action: 'twin_restart' });
+            await openAtPort(project.port);
+        });
+        vscode.window.showInformationMessage('Digital Twin neu gestartet. EEPROM bleibt erhalten.');
+    } catch (error) {
+        output.appendLine(error.message);
+        output.show(true);
+        vscode.window.showErrorMessage(error.message);
+    } finally {
+        uploading = false;
     }
 }
 

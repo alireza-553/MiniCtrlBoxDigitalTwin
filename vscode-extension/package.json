@@ -15,6 +15,7 @@
   "activationEvents": [
     "onCommand:mcbDigitalTwin.start",
     "onCommand:mcbDigitalTwin.stop",
+    "onCommand:mcbDigitalTwin.restart",
     "onCommand:mcbDigitalTwin.open",
     "onCommand:mcbDigitalTwin.test",
     "onCommand:mcbDigitalTwin.upload",
@@ -66,6 +67,12 @@
         "command": "mcbDigitalTwin.stop",
         "title": "MiniCtrlBox: Digital Twin stoppen",
         "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.restart",
+        "title": "Digital Twin neu starten",
+        "category": "MiniCtrlBox",
+        "icon": "$(debug-restart)"
       },
       {
         "command": "mcbDigitalTwin.open",
