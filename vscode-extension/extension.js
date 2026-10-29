@@ -22,43 +22,8 @@ function activate(context) {
     output = vscode.window.createOutputChannel('MiniCtrlBox Digital Twin');
     status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
     status.name = 'MiniCtrlBox: Digital Twin';
-    status.text = '$(debug-start) MCB Digital Twin';
-    status.tooltip = 'MiniCtrlBox Digital Twin starten';
-    status.command = 'mcbDigitalTwin.start';
+    setRunning(false);
     status.show();
-
-    // Keep the twin controls together, in this order, beside the named entry.
-    const uploadStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.99);
-    uploadStatus.text = '$(cloud-upload)';
-    uploadStatus.name = 'MiniCtrlBox: Projekt hochladen';
-    uploadStatus.tooltip = 'Geöffnetes Projekt in den MiniCtrlBox Digital Twin hochladen';
-    uploadStatus.accessibilityInformation = { label: uploadStatus.tooltip };
-    uploadStatus.command = 'mcbDigitalTwin.upload';
-    uploadStatus.show();
-
-    const debugStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.98);
-    debugStatus.text = '$(debug-alt)';
-    debugStatus.name = 'MiniCtrlBox: C++ debuggen';
-    debugStatus.tooltip = 'Geöffnetes C++-Projekt im Digital Twin debuggen';
-    debugStatus.accessibilityInformation = { label: debugStatus.tooltip };
-    debugStatus.command = 'mcbDigitalTwin.debug';
-    debugStatus.show();
-
-    const restartStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.97);
-    restartStatus.text = '$(debug-restart)';
-    restartStatus.name = 'MiniCtrlBox: Digital Twin neu starten';
-    restartStatus.tooltip = 'Digital Twin neu starten · EEPROM bleibt erhalten';
-    restartStatus.accessibilityInformation = { label: restartStatus.tooltip };
-    restartStatus.command = 'mcbDigitalTwin.restart';
-    restartStatus.show();
-
-    const stopStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.96);
-    stopStatus.text = '$(debug-stop)';
-    stopStatus.name = 'MiniCtrlBox: Digital Twin beenden';
-    stopStatus.tooltip = 'Digital Twin beenden';
-    stopStatus.accessibilityInformation = { label: stopStatus.tooltip };
-    stopStatus.command = 'mcbDigitalTwin.stop';
-    stopStatus.show();
 
     const treeProvider = new DigitalTwinTreeProvider();
     const ensureDriver = createJtagDriverSetup(vscode, output, context);
@@ -68,12 +33,9 @@ function activate(context) {
     context.subscriptions.push(
         output,
         status,
-        uploadStatus,
-        debugStatus,
-        restartStatus,
-        stopStatus,
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
+        vscode.commands.registerCommand('mcbDigitalTwin.menu', showControls),
         vscode.commands.registerCommand('mcbDigitalTwin.stop', stop),
         vscode.commands.registerCommand('mcbDigitalTwin.restart', restart),
         vscode.commands.registerCommand('mcbDigitalTwin.open', open),
@@ -126,6 +88,25 @@ function activate(context) {
             }
         }),
     );
+}
+
+async function showControls() {
+    const items = [
+        { label: 'Programm', kind: vscode.QuickPickItemKind.Separator },
+        { label: '$(cloud-upload) Projekt laden und starten', command: 'mcbDigitalTwin.upload' },
+        { label: '$(debug-alt) Projekt debuggen', command: 'mcbDigitalTwin.debug' },
+        { label: 'Digital Twin', kind: vscode.QuickPickItemKind.Separator },
+        { label: '$(debug-start) Digital Twin starten', command: 'mcbDigitalTwin.start' },
+        { label: '$(link-external) Oberfläche öffnen', command: 'mcbDigitalTwin.open' },
+        { label: '$(debug-restart) Digital Twin neu starten', description: 'EEPROM bleibt erhalten', command: 'mcbDigitalTwin.restart' },
+        { label: '$(debug-stop) Digital Twin beenden', command: 'mcbDigitalTwin.stop' },
+    ];
+    const selected = await vscode.window.showQuickPick(items, {
+        title: 'MCB Digital Twin',
+        placeHolder: 'Aktion auswählen',
+        matchOnDescription: true,
+    });
+    if (selected?.command) await vscode.commands.executeCommand(selected.command);
 }
 
 class DigitalTwinTreeProvider {
@@ -506,9 +487,10 @@ async function waitUntilHealthy(port) {
 }
 
 function setRunning(running) {
-    status.text = running ? '$(vm) MCB Digital Twin' : '$(debug-start) MCB Digital Twin';
-    status.tooltip = running ? 'Digital Twin läuft – klicken zum Öffnen' : 'Digital Twin starten';
-    status.command = running ? 'mcbDigitalTwin.open' : 'mcbDigitalTwin.start';
+    status.text = `${running ? '$(vm)' : '$(debug-start)'} MCB Digital Twin $(chevron-down)`;
+    status.tooltip = `${running ? 'Digital Twin läuft' : 'Digital Twin gestoppt'} – Steuerungsmenü öffnen`;
+    status.accessibilityInformation = { label: status.tooltip };
+    status.command = 'mcbDigitalTwin.menu';
 }
 
 function deactivate() {

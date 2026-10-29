@@ -10,7 +10,7 @@ const extensionRoot = path.resolve(__dirname, '..');
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
-    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [] };
+    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -51,6 +51,7 @@ function harness(options = {}) {
             stopDebugging: async session => terminated(session),
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
+        QuickPickItemKind: { Separator: -1 },
         TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
         TreeItem: class { constructor(label) { this.label = label; } },
         ThemeIcon: class { constructor(id) { this.id = id; } },
@@ -65,6 +66,10 @@ function harness(options = {}) {
             registerTreeDataProvider: (_, provider) => { tree = provider; return {}; },
             showErrorMessage: message => { calls.errors.push(message); },
             showInformationMessage: message => { calls.info.push(message); },
+            showQuickPick: async (items, pickerOptions) => {
+                calls.picks.push({ items: Array.from(items), options: pickerOptions });
+                return items.find(item => item.command === options.pickCommand);
+            },
             withProgress: async (_, run) => run({ report() {} }),
         },
         workspace: {
@@ -76,7 +81,10 @@ function harness(options = {}) {
         },
         commands: {
             registerCommand: (name, run) => { commands.set(name, run); return {}; },
-            executeCommand: async (...args) => { calls.opened.push(args); },
+            executeCommand: async (...args) => {
+                if (commands.has(args[0])) return commands.get(args[0])(...args.slice(1));
+                calls.opened.push(args);
+            },
         },
         Uri: { parse: value => ({ toString: () => value }), file: fsPath => ({ fsPath }) },
         env: { asExternalUri: async uri => uri },
@@ -135,29 +143,44 @@ function harness(options = {}) {
     return { calls, selected, commands, tree, terminate: terminated };
 }
 
-test('status bar keeps the named twin controls together in a predictable order', () => {
+test('status bar contains one compact menu instead of separate controls', () => {
     const h = harness();
     const items = h.calls.statusItems;
-    assert.deepEqual(items.map(item => item.command), [
-        'mcbDigitalTwin.start', 'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug',
-        'mcbDigitalTwin.restart', 'mcbDigitalTwin.stop',
-    ]);
-    assert.ok(items.every(item => item.alignment === items[0].alignment));
+    assert.equal(items.length, 1);
+    assert.equal(items[0].command, 'mcbDigitalTwin.menu');
     assert.ok(items[0].text.includes('MCB Digital Twin'));
-    for (let index = 1; index < items.length; index++) {
-        assert.ok(items[index - 1].priority > items[index].priority);
-        assert.ok(items[index - 1].priority - items[index].priority < .02);
-        assert.ok(items[index].tooltip);
-        assert.ok(h.commands.has(items[index].command));
-    }
+    assert.ok(items[0].text.includes('$(chevron-down)'));
+    assert.ok(h.commands.has(items[0].command));
 });
 
-test('running status opens the UI while the separate stop icon remains available', async () => {
+test('running status retains access to the menu', async () => {
     const h = harness();
     await h.commands.get('mcbDigitalTwin.start')();
-    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.open');
+    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.menu');
     assert.ok(h.calls.statusItems[0].text.startsWith('$(vm)'));
-    assert.equal(h.calls.statusItems[4].command, 'mcbDigitalTwin.stop');
+    assert.equal(h.calls.statusItems.length, 1);
+});
+
+test('menu groups program and twin actions and cancellation has no side effects', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.menu')();
+    const menu = h.calls.picks[0].items;
+    assert.deepEqual(menu.filter(item => item.kind === -1).map(item => item.label), ['Programm', 'Digital Twin']);
+    assert.deepEqual(menu.filter(item => item.command).map(item => item.command), [
+        'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug', 'mcbDigitalTwin.start',
+        'mcbDigitalTwin.open', 'mcbDigitalTwin.restart', 'mcbDigitalTwin.stop',
+    ]);
+    assert.equal(h.calls.requests.length, 0);
+    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.opened.length, 0);
+});
+
+test('menu selection invokes the real restart command', async () => {
+    const h = harness({ pickCommand: 'mcbDigitalTwin.restart' });
+    await h.commands.get('mcbDigitalTwin.menu')();
+    assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
+    assert.equal(h.calls.info.length, 1);
+    assert.equal(h.calls.errors.length, 0);
 });
 
 test('upload is discoverable in the tree and view toolbar', () => {

@@ -14,6 +14,7 @@
   ],
   "activationEvents": [
     "onCommand:mcbDigitalTwin.start",
+    "onCommand:mcbDigitalTwin.menu",
     "onCommand:mcbDigitalTwin.stop",
     "onCommand:mcbDigitalTwin.restart",
     "onCommand:mcbDigitalTwin.open",
@@ -46,6 +47,11 @@
       ]
     },
     "commands": [
+      {
+        "command": "mcbDigitalTwin.menu",
+        "title": "Digital-Twin-Steuerung öffnen",
+        "category": "MiniCtrlBox"
+      },
       {
         "command": "mcbDigitalTwin.debug",
         "title": "C++-Projekt im Digital Twin debuggen",

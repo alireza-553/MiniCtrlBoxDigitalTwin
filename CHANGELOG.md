@@ -2,7 +2,8 @@
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
-- Die Statusleiste gruppiert Laden/Starten, Debuggen, Neustarten und Beenden direkt neben „MCB Digital Twin“. Der laufende Twin verwendet ein eigenes Symbol statt des irreführenden Stoppsymbols am Öffnen-Eintrag.
+- Ein einzelner Statusleisteneintrag „MCB Digital Twin ▾“ öffnet ein Auswahlmenü mit den Gruppen „Programm“ und „Digital Twin“. Die einzelnen Statusleisten-Icons entfallen; Seitenleiste und Browser behalten ihre Buttons.
+
 
 - Der Eintrag „Digital Twin neu starten“ steht zusätzlich in der VS-Code-Seitenleiste unter „Digital Twin“ und in der Befehlspalette bereit.
 
