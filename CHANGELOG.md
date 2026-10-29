@@ -1,5 +1,13 @@
 # Versionshistorie
 
+## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
+
+- Der Desktop-Adapter stellt `EEPROM.h` und den klassischen Teil von `driver/twai.h` bereit.
+- C++ und Browser teilen Projektnamen und CAN-Nachrichten; bei laufendem Programm zeigt CAN empfangen dessen echte Antwort statt eines automatischen Echos.
+- 4096 EEPROM-Bytes werden bei `commit()` pro Projekt dauerhaft im Benutzerprofil gespeichert. Die Oberfläche zeigt die ersten 16 Bytes.
+- Die CAN-ID kann in der Oberfläche eingegeben werden. Nachrichten sind auf acht Bytes begrenzt.
+- Native Integrationstests prüfen Persistenz, Speichergrenzen und CAN-Nachrichten durch einen tatsächlich kompilierten C++-Prozess.
+
 ## v0.3.9 – Arduino-Framework beim Einzelschritt überspringen
 
 - Hardware-Debugsitzungen ergänzen `skip function loopTask`, damit „Step Into“ im Anwendercode bleibt und nicht die Arduino-FreeRTOS-Hülle `loopTask(void*)` öffnet.

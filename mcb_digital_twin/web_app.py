@@ -75,7 +75,8 @@ class SimulationController:
             "remote_switch": [bool(self.remote.getSwitchState(i)) for i in range(8)],
             "interrupt": self.remote.getInterruptFlag(),
             "oled": snapshot.get("oled", [" " * 21] * 8),
-            "project": self.eeprom.readProjectName(),
+            "project": self.program.eeprom_project if self.program.storage_path else self.eeprom.readProjectName(),
+            "eeprom_bytes": self.program.eeprom_memory[:16],
             "servo_angle": self.servo_angle,
             "servo_us": self.servo.microseconds[int(CServo.SERVO1)],
             "temperature": self.sensors.getAHT20Temperature(),
@@ -86,7 +87,7 @@ class SimulationController:
                 "buzzer": self.actors.buzzer,
                 "led": self.actors.led,
             },
-            "can": self.last_can,
+            "can": self.program.last_can if running else self.last_can,
         }
 
     def action(self, data: dict) -> None:
@@ -143,6 +144,7 @@ class SimulationController:
             self.remote.simulateSwitch(self._index(data, 4), bool(data.get("state")))
         elif action == "eeprom":
             self.eeprom.writeProjectName(str(data.get("text", "")))
+            self.program.write_project_name(str(data.get("text", "")))
         elif action == "servo":
             self.servo_angle = max(0.0, min(180.0, float(data.get("angle", 0))))
             self.servo.setMicroseconds(CServo.SERVO1,
@@ -164,8 +166,14 @@ class SimulationController:
                 raise ValueError("Unbekannter Aktor")
             setters[name](value)
         elif action == "can":
-            payload = str(data.get("text", "")).encode("utf-8")[:8]
-            if self.can_sender.transmit(CANFrame(0x1A, payload)):
+            payload = str(data.get("text", "")).encode("utf-8")
+            if len(payload) > 8:
+                raise ValueError("Eine CAN-Nachricht darf maximal 8 UTF-8-Bytes enthalten.")
+            identifier = data.get("identifier", 0x1A)
+            identifier = int(identifier, 0) if isinstance(identifier, str) else int(identifier)
+            if self.program.running:
+                self.program.send_can(identifier, payload)
+            elif self.can_sender.transmit(CANFrame(identifier, payload)):
                 frame = self.can_receiver.receive(10)
                 self.last_can = frame.data.decode("utf-8", errors="replace") if frame else ""
             else:
@@ -285,7 +293,8 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <h3>Taster</h3><div id="main-button-state" class="button-state" role="status"></div><button onclick="act('main_button_reset')">Ereignisse zurücksetzen</button>
 </div><details><summary>EEPROM und CAN-Bus</summary><div class="extra-settings"><h3>EEPROM</h3>
 <div class="buttons"><input id="project" type="text" placeholder="Projektname"><button onclick="textAct('eeprom','project')">EEPROM speichern</button></div><div id="projectState" class="status"></div>
-<h3>CAN-Bus</h3><div class="buttons"><input id="canText" maxlength="8" value="Hallo"><button onclick="textAct('can','canText')">Senden</button></div><div id="canState" class="status"></div></div></details>
+<div id="eepromBytes" class="status"></div>
+<h3>CAN-Bus</h3><div class="buttons"><label>CAN-ID <input id="canId" value="0x1A" aria-label="CAN-Identifier"></label><input id="canText" maxlength="8" value="Hallo"><button onclick="textAct('can','canText')">Senden</button></div><div id="canState" class="status"></div><p>Bei laufendem Programm wird an dessen CAN-Eingang gesendet. Empfang zeigt die Antwort des Programms.</p></div></details>
 <details><summary>Weitere Simulatorfunktionen</summary><div class="extra-settings"><h3>Servo, Sensoren und Aktoren</h3>
 <label>Servo: <input id="servo" type="range" min="0" max="180" value="90" oninput="act('servo',{angle:+this.value})"> <span id="servoState"></span></label>
 <label>Temperatur °C <input id="temp" type="number" value="20" step="0.1"></label>
@@ -329,7 +338,7 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 const $=id=>document.getElementById(id);let state={},actionQueue=Promise.resolve();
 async function api(path,body){let o={};if(body)o={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};let r=await fetch(path,o);if(!r.ok)throw Error(await r.text());return r.json()}
 function act(action,extra={}){actionQueue=actionQueue.catch(()=>{}).then(async()=>{state=await api('/api/action',{action,...extra});render()});return actionQueue}
-function textAct(action,id){act(action,{text:$(id).value})}function actor(name,v){act('actor',{name,state:v})}
+function textAct(action,id){act(action,{text:$(id).value,...(action==='can'?{identifier:$('canId').value}:{})})}function actor(name,v){act('actor',{name,state:v})}
 function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum').value,co2:+$('co2').value})}
 async function startProgram(){
  $('program-start').disabled=true;$('program-status').textContent='C++-Programm wird gebaut …';
@@ -416,6 +425,7 @@ function render(){
  $('main-button-state').textContent=['left','right'].map(side=>{const b=state.main_buttons[side];return `${side==='left'?'Links · Taster 2':'Rechts · Taster 1'}: ${b.down?'gedrückt':'losgelassen'} | Drückereignis: ${b.pressed?'ja':'nein'} | Loslassereignis: ${b.released?'ja':'nein'}`}).join('\n');
  $('local').innerHTML=state.local.map((v,i)=>`<div class="port"><div class="rgb" style="background:${v?['#f33','#3e5','#38f'][i%3]:'#333'}"></div><span>${['R','G','B'][i%3]}${Math.floor(i/3)}</span></div>`).join('');
  $('interrupt').textContent='Interrupt: 0b'+state.interrupt.toString(2).padStart(8,'0');$('oled').textContent=state.oled.join('\n');$('projectState').textContent='EEPROM: '+(state.project||'leer');$('canState').textContent='CAN empfangen: '+(state.can||'—');
+ $('eepromBytes').textContent='EEPROM Bytes 0–15: '+state.eeprom_bytes.map(value=>value.toString(16).padStart(2,'0')).join(' ');
  $('oled-zoom-text').textContent=state.oled.join('\n');
  $('servoState').textContent=`${state.servo_angle}° / ${state.servo_us} µs`;$('sensorState').textContent=`${state.temperature} °C | ${state.humidity} % | ${state.co2} ppm`;
  $('relais').checked=state.actors.relais;$('buzzer').checked=state.actors.buzzer;$('actorLed').checked=state.actors.led;

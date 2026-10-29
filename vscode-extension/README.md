@@ -9,7 +9,7 @@ aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speich
 
 **Getesteter Hardware-Stand für v0.3.7:** Espressif32 `6.10.0`, RISC-V-GCC `8.4.0` (`esp-2021r2-patch5`) und Espressif-OpenOCD `0.11.0-esp32-20220706` unter Windows. Die [vollständige Referenzumgebung und ihre Testgrenzen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md#getestete-toolchain-für-erweiterung-v037) stehen in der Hardware-Dokumentation.
 
-Die Datei `mcb-digital-twin-0.3.9.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.10.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 
@@ -114,8 +114,13 @@ Der originale C++-Quellcode wird in einem temporären Ordner mit einem
 Desktop-Hardwareadapter gebaut. Das Quellprojekt wird nicht verändert.
 Voraussetzung: Visual Studio mit C++-Tools (Windows) oder `g++`/`clang++`.
 Dies führt `setup()` und `loop()` als Desktop-Prozess aus; es emuliert kein
-ESP32-Firmwareabbild. Der Adapter unterstützt die für `Ueb_2.7.3.4`
-benötigten GPIO-, OLED- und Tasterfunktionen. Nicht unterstützte
+ESP32-Firmwareabbild. Der Adapter unterstützt GPIO, OLED, Taster und ab 0.3.10
+EEPROM (`EEPROM.h`) sowie klassische CAN-Nachrichten (`driver/twai.h`).
+EEPROM wird pro Projekt im Benutzerprofil gespeichert. Das CAN-Feld sendet bei
+laufendem Programm an dessen C++-Eingang; die Empfangsanzeige zeigt dessen Antwort.
+Die Oberfläche bietet eine CAN-ID und eine Vorschau der ersten 16 EEPROM-Bytes.
+Die unterstützten API-Teilmengen und Simulationsgrenzen stehen in der Projekt-README.
+Nicht unterstützte
 Bibliotheksaufrufe führen zu einem sichtbaren Buildfehler.
 
 Für `Ueb_2.7.3.4` startet nur die erste Fahrzeugampel rot. Der linke Taster
