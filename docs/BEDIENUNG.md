@@ -1,5 +1,9 @@
 # Bedienung der MiniCtrlBox-Erweiterung
 
+### Fotoansicht von Modul 1 (Test)
+
+Modul 1 zeigt testweise eine freigestellte, mit KI bearbeitete Ansicht der echten MiniCtrlBox. Über **Foto (Test) / Modell** direkt oberhalb der Box lässt sich die Darstellung wechseln, auch bei verbundenen Modulen. OLED-Inhalt, LEDs und Taster bleiben mit demselben Simulatorzustand verbunden. Das OLED lässt sich weiterhin durch Anklicken vergrößern. Das Bild ist eine visuelle Annäherung und kein Schaltplan.
+
 Neu beim Programmieren? Das [Begriffslexikon](begriffe/README.md) erklärt die verlinkten Fachbegriffe mit Beispielen. Ein sinnvoller Einstieg ist [Quellcode → Build → Firmware](begriffe/README.md#wo-anfangen).
 
 Die Namen in der folgenden Tabelle entsprechen den Schaltflächen der Seitenleiste. **Digital Twin**, **Echte Hardware** und **Werkzeuge** klappen ihre Einträge auf oder zu; das allein startet keine Aktion. Alle Befehle sind auch über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar, dort teilweise mit längeren Namen.

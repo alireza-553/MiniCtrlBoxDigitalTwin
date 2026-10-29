@@ -21,6 +21,7 @@ def main():
     files = [root / name for name in ("package.json", "extension.js", "hardware.js", "variable-search.js", "jtag-driver.js", "windows-jtag.ps1", "README.md")]
     files += sorted((root / "media").rglob("*.svg"))
     files += sorted((root / "python").rglob("*.py"))
+    files += sorted((root / "python").rglob("*.png"))
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:
         for name in ("[Content_Types].xml", "extension.vsixmanifest"):
             archive.write(root / name, name)

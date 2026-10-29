@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.8 – Fotoansicht für Modul 1 testen
+
+- Mit KI bearbeitete Fotoansicht der echten MiniCtrlBox als Testdarstellung; Umschalter zur bisherigen Modellansicht direkt an Modul 1.
+- OLED, LEDs und Taster verwenden weiterhin denselben Simulatorzustand, auch bei gekoppelten Modulen.
+- Bilddatei und PNG-Inhaltstyp werden mit dem VSIX ausgeliefert.
+
 ## v0.3.7 – Variablen suchen und überwachen
 
 - Suchauswahl für lokale/statische Variablen und globale Variablen der aktuellen C++-Quelldatei; weitere Debugger-Globals lassen sich ausdrücklich laden.

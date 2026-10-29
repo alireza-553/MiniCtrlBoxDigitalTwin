@@ -244,6 +244,12 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 .street-signal.pair-highlight .signal-housing{outline:2px solid #b9dfff;outline-offset:3px}.street-signal:focus{outline:none}
 .traffic-pair{position:absolute;width:12.5%;z-index:2}.traffic-pair:before{content:"";position:absolute;left:22%;top:38%;width:56%;height:4px;background:linear-gradient(#d2d7d6,#737a7e);box-shadow:0 2px 3px #0005;z-index:1}.traffic-pair>.street-signal.vehicle{position:relative;left:0;top:0;width:44%}.traffic-pair>.street-signal.pedestrian{left:56%;top:0;width:44%}.traffic-pair>.street-signal.pedestrian:after{display:none}
 .main-unit{container-type:inline-size}.main-unit .unit-oled{left:16%;top:32%;width:54%;height:32%;padding:1px;border-width:1px;font-size:3.2cqw;line-height:1.1;cursor:zoom-in;text-align:left}.main-unit .unit-oled:focus-visible{outline:2px solid #8ed2ff;outline-offset:4px}#oled-zoom{background:#1c2732;color:#e8edf2;border:1px solid #526476;border-radius:12px;padding:20px;max-width:calc(100vw - 64px)}#oled-zoom::backdrop{background:#0009}.oled-zoom-header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:16px}.oled-zoom-header h2{font-size:1.1rem;margin:0}#oled-zoom-text{margin:0;padding:18px;background:#071016;color:#b7e6ff;border:2px solid #36434e;border-radius:4px;white-space:pre;font:clamp(12px,3.2vw,24px)/1.25 monospace;min-height:10em}
+.module-one-visual-switch{position:absolute;top:-38px;left:0;z-index:2;display:flex;gap:5px;white-space:nowrap}.module-one-visual-switch button{font-size:11px;padding:5px 8px}.module-one-visual-switch button[aria-pressed=true]{background:#36546a}
+.main-unit.photo-test{background:transparent url('/assets/module-1-photo.png') center/100% 100% no-repeat;box-shadow:none;border-radius:0}
+.main-unit.photo-test>.screw,.main-unit.photo-test>.can-socket,.main-unit.photo-test>.unit-number,.main-unit.photo-test>.expansion-socket{visibility:hidden}
+.main-unit.photo-test .unit-oled{left:34.6%;top:41.4%;width:30.5%;height:14.2%;font-size:1.38cqw;line-height:1.15;padding:1px;border:0;box-shadow:none;background:#101419;color:#e9e878}
+.main-unit.photo-test .module-key{top:70%;width:7%;background:transparent;border:0;box-shadow:none}.main-unit.photo-test .key-left{left:24%}.main-unit.photo-test .key-right{left:75.6%}.main-unit.photo-test .module-key:hover{background:#ffffff30}.main-unit.photo-test .module-key[aria-pressed=true]{background:#0005;box-shadow:inset 0 0 4px #000}
+.main-unit.photo-test .unit-rgb{left:71%;width:5%;border:0;background:transparent;box-shadow:none}.main-unit.photo-test .unit-rgb.on{background:var(--rgb);box-shadow:0 0 12px var(--rgb)}.main-unit.photo-test #unit-rgb-0{top:44%!important}.main-unit.photo-test #unit-rgb-1{top:56%!important}
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
@@ -267,7 +273,8 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <button id="tab-1-view" role="tab" aria-selected="true" aria-controls="panel-1-view" tabindex="0">Ansicht</button>
 <button id="tab-1-settings" role="tab" aria-selected="false" aria-controls="panel-1-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit" role="group" aria-label="MiniCtrlBox Modul 1 nach Hardwarevorlage">
+<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit photo-test" role="group" aria-label="MiniCtrlBox Modul 1 nach Hardwarevorlage">
+<div class="module-one-visual-switch" role="group" aria-label="Ansicht von Modul 1"><button id="visual-1-photo" aria-pressed="true" onclick="chooseMainVisual(true)">Foto (Test)</button><button id="visual-1-model" aria-pressed="false" onclick="chooseMainVisual(false)">Modell</button></div>
 <span class="can-socket first" title="CAN-Anschluss"></span><span class="can-socket second" title="CAN-Anschluss"></span><span id="module-1-socket" class="expansion-socket" title="Erweiterungsanschluss zu Modul 2"></span>
 <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 <span class="unit-number">1</span><div id="oled" class="oled unit-oled" role="button" tabindex="0" aria-label="OLED-Display vergrößern" aria-haspopup="dialog" onclick="openOLED()"></div>
@@ -339,6 +346,7 @@ function chooseVisual(mode){
  document.querySelector('#module-2-visual > .module').hidden=mode==='traffic';$('panel-2-traffic').hidden=mode!=='traffic';
  $('visual-hardware').setAttribute('aria-pressed',String(mode!=='traffic'));$('visual-traffic').setAttribute('aria-pressed',String(mode==='traffic'));
 }
+function chooseMainVisual(photo){document.querySelector('.main-unit').classList.toggle('photo-test',photo);$('visual-1-photo').setAttribute('aria-pressed',String(photo));$('visual-1-model').setAttribute('aria-pressed',String(!photo))}
 function openOLED(){$('oled-zoom-text').textContent=(state.oled||[]).join('\n');if(!$('oled-zoom').open)$('oled-zoom').showModal()}
 $('oled').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openOLED()}});
 function toggleConnection(){for(const i of [...heldKeys])setKey(i,false);return act('module_connection',{state:!state.module_connected})}
@@ -433,6 +441,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, HTML.encode(), "text/html; charset=utf-8")
         elif self.path == "/api/state":
             self._json(200, CONTROLLER.state())
+        elif self.path == "/assets/module-1-photo.png":
+            self._send(200, (Path(__file__).parent / "assets" / "module-1-photo.png").read_bytes(), "image/png")
         else:
             self._json(404, {"error": "Nicht gefunden"})
 
