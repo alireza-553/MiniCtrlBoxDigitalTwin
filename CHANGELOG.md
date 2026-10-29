@@ -2,6 +2,8 @@
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
+- „Twin neu starten“ setzt den Twin direkt in der Oberfläche zurück und startet das zuletzt geladene C++-Programm erneut. EEPROM und Modulverbindung bleiben erhalten; aktive Debugsitzungen müssen vorher beendet werden.
+
 - Der projektbezogene EEPROM wird bereits beim Start des Twins geladen, bevor ein C++-Programm läuft.
 - „EEPROM speichern“ schreibt den Projektnamen auch ohne laufendes Anwenderprogramm dauerhaft auf die Festplatte.
 - `--project-root` bestimmt den Speicher von Anfang an; bereits gespeicherte Inhalte bleiben beim nächsten Start sofort sichtbar.

@@ -41,6 +41,25 @@ class EepromRestartTests(unittest.TestCase):
         restored = SimulationController(self.root)
         self.assertEqual(restored.state()["eeprom_bytes"][0], 42)
 
+    def test_restart_button_preserves_eeprom_and_resets_inputs(self):
+        controller = SimulationController(self.root)
+        controller.action({"action": "eeprom", "text": "Bleibt erhalten"})
+        controller.action({"action": "main_button", "side": "left", "state": True})
+        controller.action({"action": "module_connection", "state": True})
+        controller.action({"action": "twin_restart"})
+        state = controller.state()
+        self.assertEqual(state["project"], "Bleibt erhalten")
+        self.assertFalse(state["main_buttons"]["left"]["down"])
+        self.assertTrue(state["module_connected"])
+        self.assertFalse(state["program_running"])
+
+    def test_restart_rejects_attached_debugger(self):
+        controller = SimulationController(self.root)
+        controller.program.debug = {"processId": "test"}
+        with self.assertRaisesRegex(ValueError, "Debugsitzung"):
+            controller.action({"action": "twin_restart"})
+        self.assertEqual(controller.program.debug["processId"], "test")
+
     def test_projects_and_wrapped_project_paths(self):
         project = self.root / "exercise"
         (project / "src").mkdir(parents=True)

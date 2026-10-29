@@ -6,6 +6,7 @@ import json
 import argparse
 from pathlib import Path
 import subprocess
+from threading import RLock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -92,6 +93,19 @@ class SimulationController:
 
     def action(self, data: dict) -> None:
         action = data.get("action")
+        if action == "twin_restart":
+            if self.program.debug:
+                raise ValueError("Bitte zuerst die laufende Debugsitzung beenden.")
+            project = self.program.project or self.program_path
+            restart_program = bool(self.program.project)
+            connected = self.module_connected
+            self.program.stop()
+            replacement = SimulationController(project)
+            replacement.module_connected = connected
+            self.__dict__.update(replacement.__dict__)
+            if restart_program:
+                self.action({"action": "program_start", "path": project})
+            return
         if action == "program_start":
             self.program_path = str(data.get("path") or self.program_path)
             try:
@@ -255,6 +269,8 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
+<div class="buttons"><button id="twin-restart" onclick="restartTwin()" title="Twin und zuletzt geladenes Programm neu starten; EEPROM bleibt erhalten">Twin neu starten</button></div>
+<p id="twin-status" class="status" role="status" aria-live="polite"></p>
 <div class="connection-toolbar"><span id="connection-status" role="status">Modul 1 → Modul 2 · Getrennt</span><button id="connection-toggle" onclick="toggleConnection()">Verbinden</button></div>
 <div id="connection-layout" class="connection-layout" role="group" aria-label="Module">
 
@@ -335,11 +351,19 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 </div>
 <dialog id="oled-zoom" aria-labelledby="oled-zoom-title"><div class="oled-zoom-header"><h2 id="oled-zoom-title">OLED-Display</h2><button onclick="document.getElementById('oled-zoom').close()">Schließen</button></div><pre id="oled-zoom-text" aria-label="OLED-Inhalt"></pre></dialog>
 <script>
-const $=id=>document.getElementById(id);let state={},actionQueue=Promise.resolve();
+const $=id=>document.getElementById(id);let state={},actionQueue=Promise.resolve(),twinRestarting=false;
 async function api(path,body){let o={};if(body)o={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};let r=await fetch(path,o);if(!r.ok)throw Error(await r.text());return r.json()}
 function act(action,extra={}){actionQueue=actionQueue.catch(()=>{}).then(async()=>{state=await api('/api/action',{action,...extra});render()});return actionQueue}
 function textAct(action,id){act(action,{text:$(id).value,...(action==='can'?{identifier:$('canId').value}:{})})}function actor(name,v){act('actor',{name,state:v})}
 function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum').value,co2:+$('co2').value})}
+async function restartTwin(){
+ if(twinRestarting)return;
+ twinRestarting=true;$('twin-restart').disabled=true;$('twin-status').textContent='Twin wird neu gestartet …';
+ for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
+ try{await act('twin_restart');$('twin-status').textContent='Twin neu gestartet. EEPROM bleibt erhalten.'}
+ catch(error){$('twin-status').textContent=error.message}
+ finally{twinRestarting=false;$('twin-restart').disabled=!!state.program_debug}
+}
 async function startProgram(){
  $('program-start').disabled=true;$('program-status').textContent='C++-Programm wird gebaut …';
  try{await act('program_start',{path:$('program-path').value})}catch(error){$('program-status').textContent=error.message}finally{$('program-start').disabled=false}
@@ -418,6 +442,7 @@ function render(){
  pedestrianSignals.forEach((signal,n)=>signal.leds.forEach((led,i)=>{const lamp=$('pedestrian-'+n+'-'+i);showLamp(lamp.id,state.remote_led[led]);lamp.setAttribute('aria-pressed',String(state.remote_led[led]))}));
  if(!connected){heldKeys.clear();for(let i=0;i<4;i++)$('key-'+i).setAttribute('aria-pressed','false')}
  const programText=state.program_running?'Anwenderprogramm läuft':'Kein Anwenderprogramm läuft';$('phase').textContent=programText;$('program-banner').textContent=programText+(state.program_running?' · '+state.program_path:' · Alle Ampeln aus');$('program-status').textContent=state.program_error||programText;$('program-stop').disabled=!state.program_running;
+ $('twin-restart').disabled=twinRestarting||!!state.program_debug;
  if(!$('program-path').dataset.initialized){$('program-path').value=state.program_path;$('program-path').dataset.initialized='true'}
  state.ew.forEach((on,i)=>showLamp('lamp-h-'+i,on));state.ns.forEach((on,i)=>showLamp('lamp-v-'+i,on));
  state.remote_led.forEach((on,i)=>{$('extra-'+i).classList.toggle('on',on);$('extra-'+i).setAttribute('aria-pressed',String(on))});
@@ -435,6 +460,7 @@ async function poll(){try{state=await api('/api/state');render();}catch(e){conso
 
 
 CONTROLLER = None
+CONTROLLER_LOCK = RLock()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -442,7 +468,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/":
             self._send(200, HTML.encode(), "text/html; charset=utf-8")
         elif self.path == "/api/state":
-            self._json(200, CONTROLLER.state())
+            with CONTROLLER_LOCK:
+                state = CONTROLLER.state()
+            self._json(200, state)
         else:
             self._json(404, {"error": "Nicht gefunden"})
 
@@ -453,8 +481,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length) or b"{}")
-            CONTROLLER.action(data)
-            self._json(200, CONTROLLER.state())
+            with CONTROLLER_LOCK:
+                CONTROLLER.action(data)
+                state = CONTROLLER.state()
+            self._json(200, state)
         except (ValueError, TypeError, json.JSONDecodeError) as error:
             self._json(400, {"error": str(error)})
 

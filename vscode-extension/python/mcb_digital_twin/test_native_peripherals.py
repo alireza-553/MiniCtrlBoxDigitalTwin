@@ -73,6 +73,13 @@ void loop(){oled.printLine(1,storage.readProjectName().c_str());}
         self.assertEqual(self.controller.state()["eeprom_bytes"][0], 2)
         self.assertEqual(self.controller.state()["project"], "Test ä")
 
+        old_pid = self.controller.program.process.pid
+        self.controller.action({"action": "twin_restart"})
+        self.addCleanup(self.controller.program.stop)
+        self.assertNotEqual(self.controller.program.process.pid, old_pid)
+        self.assertEqual(self.controller.state()["eeprom_bytes"][0], 3)
+        self.assertEqual(self.controller.state()["project"], "Test ä")
+
     def test_twai_receives_web_frame_and_returns_real_program_response(self):
         self.start('''
 #include <MiniCtrlBox.h>
