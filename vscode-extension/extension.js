@@ -21,12 +21,14 @@ function activate(context) {
     extensionRoot = context.extensionPath;
     output = vscode.window.createOutputChannel('MiniCtrlBox Digital Twin');
     status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+    status.name = 'MiniCtrlBox: Digital Twin';
     status.text = '$(debug-start) MCB Digital Twin';
     status.tooltip = 'MiniCtrlBox Digital Twin starten';
     status.command = 'mcbDigitalTwin.start';
     status.show();
 
-    const uploadStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49);
+    // Keep the twin controls together, in this order, beside the named entry.
+    const uploadStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.99);
     uploadStatus.text = '$(cloud-upload)';
     uploadStatus.name = 'MiniCtrlBox: Projekt hochladen';
     uploadStatus.tooltip = 'Geöffnetes Projekt in den MiniCtrlBox Digital Twin hochladen';
@@ -34,13 +36,29 @@ function activate(context) {
     uploadStatus.command = 'mcbDigitalTwin.upload';
     uploadStatus.show();
 
-    const debugStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 48);
+    const debugStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.98);
     debugStatus.text = '$(debug-alt)';
     debugStatus.name = 'MiniCtrlBox: C++ debuggen';
     debugStatus.tooltip = 'Geöffnetes C++-Projekt im Digital Twin debuggen';
     debugStatus.accessibilityInformation = { label: debugStatus.tooltip };
     debugStatus.command = 'mcbDigitalTwin.debug';
     debugStatus.show();
+
+    const restartStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.97);
+    restartStatus.text = '$(debug-restart)';
+    restartStatus.name = 'MiniCtrlBox: Digital Twin neu starten';
+    restartStatus.tooltip = 'Digital Twin neu starten · EEPROM bleibt erhalten';
+    restartStatus.accessibilityInformation = { label: restartStatus.tooltip };
+    restartStatus.command = 'mcbDigitalTwin.restart';
+    restartStatus.show();
+
+    const stopStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49.96);
+    stopStatus.text = '$(debug-stop)';
+    stopStatus.name = 'MiniCtrlBox: Digital Twin beenden';
+    stopStatus.tooltip = 'Digital Twin beenden';
+    stopStatus.accessibilityInformation = { label: stopStatus.tooltip };
+    stopStatus.command = 'mcbDigitalTwin.stop';
+    stopStatus.show();
 
     const treeProvider = new DigitalTwinTreeProvider();
     const ensureDriver = createJtagDriverSetup(vscode, output, context);
@@ -52,6 +70,8 @@ function activate(context) {
         status,
         uploadStatus,
         debugStatus,
+        restartStatus,
+        stopStatus,
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
         vscode.commands.registerCommand('mcbDigitalTwin.stop', stop),
@@ -486,7 +506,7 @@ async function waitUntilHealthy(port) {
 }
 
 function setRunning(running) {
-    status.text = running ? '$(debug-stop) MCB Digital Twin' : '$(debug-start) MCB Digital Twin';
+    status.text = running ? '$(vm) MCB Digital Twin' : '$(debug-start) MCB Digital Twin';
     status.tooltip = running ? 'Digital Twin läuft – klicken zum Öffnen' : 'Digital Twin starten';
     status.command = running ? 'mcbDigitalTwin.open' : 'mcbDigitalTwin.start';
 }

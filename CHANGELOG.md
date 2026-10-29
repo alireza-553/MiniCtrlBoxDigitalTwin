@@ -2,6 +2,8 @@
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
+- Die Statusleiste gruppiert Laden/Starten, Debuggen, Neustarten und Beenden direkt neben „MCB Digital Twin“. Der laufende Twin verwendet ein eigenes Symbol statt des irreführenden Stoppsymbols am Öffnen-Eintrag.
+
 - Der Eintrag „Digital Twin neu starten“ steht zusätzlich in der VS-Code-Seitenleiste unter „Digital Twin“ und in der Befehlspalette bereit.
 
 - „Twin neu starten“ setzt den Twin direkt in der Oberfläche zurück und startet das zuletzt geladene C++-Programm erneut. EEPROM und Modulverbindung bleiben erhalten; aktive Debugsitzungen müssen vorher beendet werden.

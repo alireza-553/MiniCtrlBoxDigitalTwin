@@ -10,7 +10,7 @@ const extensionRoot = path.resolve(__dirname, '..');
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
-    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [] };
+    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -57,7 +57,11 @@ function harness(options = {}) {
         window: {
             activeTextEditor: { document: docs[1] },
             createOutputChannel: () => ({ clear() {}, append() {}, appendLine() {}, show() {} }),
-            createStatusBarItem: () => ({ show() {} }),
+            createStatusBarItem: (alignment, priority) => {
+                const item = { alignment, priority, show() {} };
+                calls.statusItems.push(item);
+                return item;
+            },
             registerTreeDataProvider: (_, provider) => { tree = provider; return {}; },
             showErrorMessage: message => { calls.errors.push(message); },
             showInformationMessage: message => { calls.info.push(message); },
@@ -130,6 +134,31 @@ function harness(options = {}) {
     sandbox.module.exports.activate({ extensionPath: extensionRoot, subscriptions: [] });
     return { calls, selected, commands, tree, terminate: terminated };
 }
+
+test('status bar keeps the named twin controls together in a predictable order', () => {
+    const h = harness();
+    const items = h.calls.statusItems;
+    assert.deepEqual(items.map(item => item.command), [
+        'mcbDigitalTwin.start', 'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug',
+        'mcbDigitalTwin.restart', 'mcbDigitalTwin.stop',
+    ]);
+    assert.ok(items.every(item => item.alignment === items[0].alignment));
+    assert.ok(items[0].text.includes('MCB Digital Twin'));
+    for (let index = 1; index < items.length; index++) {
+        assert.ok(items[index - 1].priority > items[index].priority);
+        assert.ok(items[index - 1].priority - items[index].priority < .02);
+        assert.ok(items[index].tooltip);
+        assert.ok(h.commands.has(items[index].command));
+    }
+});
+
+test('running status opens the UI while the separate stop icon remains available', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.start')();
+    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.open');
+    assert.ok(h.calls.statusItems[0].text.startsWith('$(vm)'));
+    assert.equal(h.calls.statusItems[4].command, 'mcbDigitalTwin.stop');
+});
 
 test('upload is discoverable in the tree and view toolbar', () => {
     const h = harness();
