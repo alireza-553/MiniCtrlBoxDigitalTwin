@@ -50,7 +50,7 @@ Für Linux und macOS ist diese Kombination hier noch nicht durch einen echten Ha
 4. `platformio device list --json-output` muss genau ein natives Espressif-USB-Gerät mit VID/PID `303A:1001` erkennen.
 5. Beim normalen Hardware-Upload wird die bestehende Umgebung über den eindeutig erkannten COM-Port übertragen. Dieser Befehl benötigt die JTAG-Treiberautomatik nicht.
 6. Vor dem Hardware-Debugging wird unter Windows der JTAG-Treiber geprüft bzw. eingerichtet.
-7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und einen temporären Hardware-Haltepunkt `setup()`. Inlining wird nur für diesen Debug-Build abgeschaltet, damit Breakpoints auf Aufrufzeilen nicht durch vollständig eingebettete Funktionen ihre ausführbare Adresse verlieren. Eine bekannte ältere generierte Umgebung mit `tbreak setup` wird auf `thbreak setup` und den neuen Debugstart aktualisiert. Abweichende bestehende Umgebungen werden nicht überschrieben; zusätzliche Befehle und Build-Flags bleiben erhalten.
+7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und einen temporären Hardware-Haltepunkt `setup()`. Inlining wird nur für diesen Debug-Build abgeschaltet, damit Breakpoints auf Aufrufzeilen nicht durch vollständig eingebettete Funktionen ihre ausführbare Adresse verlieren. `skip function loopTask` hält normale Einzelschritte im Anwendercode, statt die Arduino-FreeRTOS-Hülle zu öffnen; ein ausdrücklich gesetzter Funktionshaltepunkt kann `loopTask()` weiterhin untersuchen. Eine bekannte ältere generierte Umgebung mit `tbreak setup` wird auf `thbreak setup` und den neuen Debugstart aktualisiert. Abweichende bestehende Umgebungen werden nicht überschrieben; zusätzliche Befehle und Build-Flags bleiben erhalten.
 8. Nach dem [Build](begriffe/README.md#build) liefert `platformio project metadata --json-output` die [ELF-Datei](begriffe/README.md#elf-bin) und den [Compilerpfad](begriffe/README.md#compiler-linker). Daraus entsteht eine VS-Code-Konfiguration vom Typ `platformio-debug` mit `loadMode: always`.
 9. PlatformIO/OpenOCD übertragen die Firmware und übernehmen die Debugsitzung. Haltepunkte, Variablen, Einzelschritte und Fortsetzen gehören zum echten ESP32-Programm.
 
@@ -107,6 +107,7 @@ Ein Debugger-Reset mit deaktiviertem Debug-Watchdog, gelöschten ausstehenden Wa
 ```ini
 debug_init_break = thbreak setup
 debug_extra_cmds =
+    skip function loopTask
     monitor riscv set_maskisr off
     monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }
     monitor esp32c3_wdt_disable

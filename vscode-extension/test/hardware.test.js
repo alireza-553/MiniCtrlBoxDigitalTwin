@@ -89,6 +89,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.saves, 1);
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
+    assert.match(h.ini(), /skip function loopTask/);
     assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\nbuild_flags =\r\n    \$\{env:lesson\.build_flags\}\r\n    -fno-inline\r\n    -fno-inline-small-functions\r\n    -fno-default-inline\r\ndebug_tool = esp-builtin/);
     assert.equal(h.ini().match(/-fno-inline$/gm).length, 1);
@@ -102,6 +103,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.ok(h.calls.processes.every(p => p.options.shell === false && p.options.cwd === h.root));
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
+    assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
 });
 
 test('hardware upload explicitly targets the detected serial device and keeps configuration unchanged', async () => {
