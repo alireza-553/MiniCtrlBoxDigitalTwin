@@ -24,9 +24,10 @@ function harness(options = {}) {
             withProgress: async (_, task) => task(), showQuickPick: async () => undefined },
         debug: { startDebugging: async (folder, config) => {
             calls.debug.push({ folder, config });
-            if (options.jtagBusy) {
+            if (options.jtagBusy || options.adapterOutput) {
                 const tracker = hardware.createDebugAdapterTracker({ configuration: config });
-                tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: "Error: Abstract command ended in error 'busy' (abstractcs=0x10001102)" } });
+                tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: options.adapterOutput
+                    || "Error: Abstract command ended in error 'busy' (abstractcs=0x10001102)" } });
                 tracker.onDidSendMessage({ type: 'response', command: 'launch', success: false, message: 'Failed to launch GDB' });
                 return false;
             }
@@ -37,6 +38,12 @@ function harness(options = {}) {
         assert.equal(file, iniPath); return ini;
     }, writeFileSync: (file, text) => { assert.equal(file, iniPath); ini = text; } };
     const childProcess = { execFile: (exe, args, opts, callback) => {
+        if (args.includes('--version')) {
+            calls.gdbChecks = (calls.gdbChecks || 0) + 1;
+            callback(options.brokenGdb ? new Error('exit 127') : null, '', options.brokenGdb
+                ? 'riscv32-esp-elf-gdb: error while loading shared libraries: libpython2.7.so.1.0: cannot open shared object file' : '');
+            return;
+        }
         calls.lockChecks = (calls.lockChecks || 0) + 1;
         assert.equal(opts.windowsHide, true);
         assert.ok(opts.env.MCB_FIRMWARE_PATH.endsWith('firmware.elf'));
@@ -83,7 +90,8 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
-    assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\ndebug_tool = esp-builtin/);
+    assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\nbuild_flags =\r\n    \$\{env:lesson\.build_flags\}\r\n    -fno-inline\r\n    -fno-inline-small-functions\r\n    -fno-default-inline\r\ndebug_tool = esp-builtin/);
+    assert.equal(h.ini().match(/-fno-inline$/gm).length, 1);
     const config = h.calls.debug[0].config;
     assert.equal(config.type, 'platformio-debug');
     assert.equal(config.projectEnvName, 'mcb-usb-debug-lesson');
@@ -127,6 +135,25 @@ test('failed hardware launch reports actual adapter output and USB-JTAG recovery
     assert.match(h.calls.errors[0], /Failed to launch GDB/);
     assert.match(h.calls.errors[0], /USB kurz trennen/);
     assert.equal(h.hardware.createDebugAdapterTracker({ configuration: { mcbProcessId: 42 } }), undefined);
+});
+
+test('Linux USB access failures receive a scoped uaccess hint and no undefined path prefix', async () => {
+    const h = harness({ adapterOutput: 'undefined/home/user/openocd: LIBUSB_ERROR_ACCESS: could not find or open device' });
+    await h.hardware.debug();
+    assert.equal(h.calls.errors.length, 1);
+    assert.doesNotMatch(h.calls.errors[0], /undefined\/home/);
+    assert.match(h.calls.errors[0], /303a:1001/);
+    assert.match(h.calls.errors[0], /uaccess/);
+    assert.match(h.calls.errors[0], /keine pauschalen MODE="0666"/);
+});
+
+test('an obsolete Python-2.7 GDB is rejected before starting the debug adapter', async () => {
+    const h = harness({ brokenGdb: true });
+    await h.hardware.debug();
+    assert.equal(h.calls.gdbChecks, 1);
+    assert.equal(h.calls.debug.length, 0);
+    assert.match(h.calls.errors[0], /libpython2\.7/);
+    assert.match(h.calls.errors[0], /Python 2\.7 nicht nachinstallieren/);
 });
 
 test('a locked firmware aborts before build and before changing project configuration', { skip: process.platform !== 'win32' }, async () => {
@@ -178,11 +205,13 @@ test('legacy generated environment is upgraded without changing other environmen
     const old = '[env:mcb-usb-debug-lesson]\r\nextends = env:lesson\r\ndebug_init_break = tbreak setup\r\ndebug_extra_cmds =\r\n    monitor echo keep\r\n\r\n';
     const commands = ['monitor echo keep', 'monitor riscv set_maskisr off', 'monitor esp32c3_wdt_disable',
         'monitor mww 0x6002007c 2', 'monitor mww 0x6001f07c 2'];
-    const updated = updateDebugSection(before + old + after, 'mcb-usb-debug-lesson', commands);
+    const updated = updateDebugSection(before + old + after, 'mcb-usb-debug-lesson', commands, 'lesson');
     assert.ok(updated.startsWith(before));
     assert.ok(updated.endsWith(after));
     assert.match(updated, /debug_init_break = thbreak setup/);
     assert.match(updated, /monitor echo keep/);
+    assert.match(updated, /\$\{env:lesson\.build_flags\}/);
+    assert.match(updated, /-fno-default-inline/);
     assert.equal(updated.match(/debug_extra_cmds =/g).length, 1);
-    assert.equal(updateDebugSection(updated, 'mcb-usb-debug-lesson', commands), updated);
+    assert.equal(updateDebugSection(updated, 'mcb-usb-debug-lesson', commands, 'lesson'), updated);
 });

@@ -50,7 +50,7 @@ Für Linux und macOS ist diese Kombination hier noch nicht durch einen echten Ha
 4. `platformio device list --json-output` muss genau ein natives Espressif-USB-Gerät mit VID/PID `303A:1001` erkennen.
 5. Beim normalen Hardware-Upload wird die bestehende Umgebung über den eindeutig erkannten COM-Port übertragen. Dieser Befehl benötigt die JTAG-Treiberautomatik nicht.
 6. Vor dem Hardware-Debugging wird unter Windows der JTAG-Treiber geprüft bzw. eingerichtet.
-7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und einen temporären Hardware-Haltepunkt `setup()`. Eine bekannte ältere generierte Umgebung mit `tbreak setup` wird auf `thbreak setup` und den neuen Debugstart aktualisiert. Abweichende bestehende Umgebungen werden nicht überschrieben; zusätzliche Befehle bleiben erhalten.
+7. Eine eigene Umgebung `mcb-usb-debug-<Name>` wird an die Projektkonfiguration angehängt. Sie erbt die ursprüngliche Umgebung und setzt Debug-Build, `esp-builtin` und einen temporären Hardware-Haltepunkt `setup()`. Inlining wird nur für diesen Debug-Build abgeschaltet, damit Breakpoints auf Aufrufzeilen nicht durch vollständig eingebettete Funktionen ihre ausführbare Adresse verlieren. Eine bekannte ältere generierte Umgebung mit `tbreak setup` wird auf `thbreak setup` und den neuen Debugstart aktualisiert. Abweichende bestehende Umgebungen werden nicht überschrieben; zusätzliche Befehle und Build-Flags bleiben erhalten.
 8. Nach dem [Build](begriffe/README.md#build) liefert `platformio project metadata --json-output` die [ELF-Datei](begriffe/README.md#elf-bin) und den [Compilerpfad](begriffe/README.md#compiler-linker). Daraus entsteht eine VS-Code-Konfiguration vom Typ `platformio-debug` mit `loadMode: always`.
 9. PlatformIO/OpenOCD übertragen die Firmware und übernehmen die Debugsitzung. Haltepunkte, Variablen, Einzelschritte und Fortsetzen gehören zum echten ESP32-Programm.
 
@@ -82,9 +82,19 @@ Der offizielle Espressif-Helfer installierte das signierte Paket zunächst nur i
 
 Dieser erste Verbindungstest änderte die Firmware nicht. In späteren Tests mit Erweiterung 0.3.6 wurden außerdem Firmware-Übertragung, Halt in `setup()` und mehrere Einzelschritte im Anwendercode geprüft (siehe unten). Die [automatischen Tests](begriffe/README.md#test) prüfen auch Ablehnung, Abbruch und Fehlerpfade; sie simulieren den administrativen Installationsteil, statt einen funktionierenden Systemtreiber für Tests zu entfernen.
 
-## Weitere Betriebssysteme
+## Linux: GDB und USB-Rechte
 
-Linux benötigt passende USB-Zugriffsregeln. macOS benötigt normalerweise keinen zusätzlichen USB-JTAG-Treiber. Die Windows-Einrichtung wird auf diesen Systemen nicht aufgerufen. Andere USB-UART-Adapter oder JTAG-Probes sind nicht Teil dieser automatischen Einrichtung.
+Vor dem Start führt die Erweiterung den von PlatformIO gewählten GDB mit `--version` aus. Ein alter, an `libpython2.7.so.1.0` gebundener Debugger wird dadurch vor OpenOCD erkannt. Python 2.7 soll nicht nachinstalliert werden; stattdessen ist ein aktueller Espressif-RISC-V-GDB bzw. eine aktualisierte PlatformIO-Toolchain zu verwenden. So erscheinen keine irreführenden Folgefehler des Debugadapters.
+
+OpenOCD benötigt Lese- und Schreibzugriff auf das native USB-JTAG-Gerät `303a:1001`. Bei `LIBUSB_ERROR_ACCESS` empfiehlt die Erweiterung eine auf genau dieses Gerät begrenzte Regel für den aktiven Desktop-Benutzer:
+
+```udev
+SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ATTR{idProduct}=="1001", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_PORT_IGNORE}="1"
+```
+
+Die Regel gehört mit Administratorrechten nach `/etc/udev/rules.d/70-minictrlbox-esp32c3.rules`. Danach die Regeln neu laden und das Gerät neu verbinden. Pauschale Regeln mit `MODE="0666"` werden nicht empfohlen, weil sie jedem lokalen Benutzer Schreibzugriff auf alle passenden Geräte geben.
+
+macOS benötigt normalerweise keinen zusätzlichen USB-JTAG-Treiber. Die Windows-Einrichtung wird auf Linux und macOS nicht aufgerufen. Andere USB-UART-Adapter oder JTAG-Probes sind nicht Teil dieser automatischen Einrichtung.
 
 ## Interrupt-Watchdog und „Duplicate Breakpoint“
 
