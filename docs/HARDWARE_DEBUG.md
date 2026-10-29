@@ -2,6 +2,37 @@
 
 Für Lernende: Die Begriffe [Firmware](begriffe/README.md#firmware), [USB-JTAG](begriffe/README.md#usb-jtag), [GDB/OpenOCD](begriffe/README.md#gdb-openocd) und [Debugadapter](begriffe/README.md#debugadapter) stehen im [Begriffslexikon](begriffe/README.md). Der Weg zum Board lautet vereinfacht: VS Code → Debugadapter → GDB → OpenOCD → ESP32-C3.
 
+## Getestete Toolchain für Erweiterung v0.3.7
+
+Die Hardware-Debugfunktionen der Erweiterung **v0.3.7** wurden mit der folgenden Kombination auf **Windows** und einer MiniCtrlBox mit **ESP32-C3, Revision 0.4**, über den nativen USB-Anschluss geprüft. Diese Angaben beschreiben die getestete Referenzumgebung; sie sind keine Zusage für jede mögliche Versionskombination.
+
+| Bestandteil | Referenzversion |
+| --- | --- |
+| PlatformIO IDE für VS Code | `3.3.4` |
+| PlatformIO Core | `6.2.0` |
+| PlatformIO-Plattform `espressif32` | `6.10.0` |
+| Board / Framework | `esp32-c3-devkitm-1` / Arduino |
+| RISC-V-Toolchain `toolchain-riscv32-esp` | `8.4.0+2021r2-patch5` |
+| GCC | `8.4.0` (`crosstool-NG esp-2021r2-patch5`) |
+| GDB aus dieser Toolchain | `9.2.90.20200913-git` |
+| Arduino-Framework-Paket `framework-arduinoespressif32` | `3.20017.241212+sha.dcc1105b` |
+| OpenOCD-Paket `tool-openocd-esp32` | `2.1100.20220706` (OpenOCD `0.11.0-esp32-20220706`) |
+
+Geprüft wurden Firmware-Übertragung, Halt in `setup()`, Einzelschritte im Anwendercode und die Variablensuche mit Übergabe an Watch. Das ist kein vollständiger Dauertest aller Peripheriefunktionen. Die Versionsangaben wurden anhand der lokal installierten Paketmetadaten sowie der Ausgaben von PlatformIO, GCC und GDB kontrolliert.
+
+Für ein neues Projekt lässt sich die Plattformversion in der vorhandenen Projektumgebung ausdrücklich festlegen:
+
+```ini
+[env:esp32-c3-devkitm-1]
+platform = espressif32@6.10.0
+board = esp32-c3-devkitm-1
+framework = arduino
+```
+
+Eigene Projektoptionen und Bibliotheken beibehalten. Diese Plattformangabe allein fixiert nicht jede Unterpaket- und Bibliotheksversion; eigene `platform_packages`-Einträge können die Werkzeuge überschreiben. Die tatsächlich aufgelösten Versionen stehen im PlatformIO-Buildprotokoll. Andere Versionen werden von der Erweiterung nicht automatisch gesperrt oder heruntergestuft.
+
+Für Linux und macOS ist diese Kombination hier noch nicht durch einen echten Hardware-Debugtest bestätigt. Der Desktop-Compiler `g++` für den digitalen Zwilling ist außerdem vom RISC-V-Compiler für die echte MiniCtrlBox zu unterscheiden.
+
 ## Aufbau
 
 | Datei | Aufgabe |
