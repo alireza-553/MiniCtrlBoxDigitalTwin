@@ -198,6 +198,20 @@ class NativeProgram:
         self.can_pending = []
         self.last_can = ""
 
+    def select_storage(self, project):
+        """Load the board's EEPROM even when no native program is running."""
+        root = Path(project).expanduser().resolve()
+        try:
+            root = find_project(root)
+        except ValueError:
+            # The browser also supports EEPROM without a C++ exercise.
+            pass
+        with self.lifecycle, self.peripheral_lock:
+            if self.running:
+                raise ValueError("EEPROM-Projekt kann nicht bei laufendem Programm gewechselt werden.")
+            self._load_storage(root)
+        return root
+
     def _load_storage(self, root):
         key = hashlib.sha256(os.path.normcase(str(root)).encode("utf-8")).hexdigest()
         storage_path = _storage_directory() / (key + ".json")

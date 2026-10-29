@@ -164,7 +164,9 @@ Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner
 
 ### EEPROM und CAN im C++-Programm (ab 0.3.10)
 
-Die Entwicklungsversion 0.3.10 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.10.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
+Die Entwicklungsversion 0.3.11 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.11.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
+
+Ab 0.3.11 lädt der Twin seinen projektbezogenen EEPROM bereits beim Start. **EEPROM speichern** funktioniert auch ohne laufendes C++-Programm; nach dem vollständigen Beenden und erneuten Öffnen ist der gespeicherte Projektname sofort wieder sichtbar. Das mit `--project-root` ausgewählte Projekt bestimmt den Speicher.
 
 `#include <EEPROM.h>` unterstützt `begin(size)` (1–4096 Bytes), `read`, `write`, `get`, `put`, `length`, `commit` und `end`. Erst `commit()` oder `end()` speichert Änderungen über Programm- und Twin-Neustarts hinweg. Der Speicher ist pro aufgelöstem Projektpfad getrennt und liegt unter `%LOCALAPPDATA%/MiniCtrlBoxDigitalTwin/eeprom` (Windows) bzw. `$XDG_DATA_HOME/MiniCtrlBoxDigitalTwin/eeprom` oder `~/.local/share/MiniCtrlBoxDigitalTwin/eeprom` (Linux/macOS). Temporäre C++-Builds können gelöscht werden, ohne den EEPROM zu verlieren.
 

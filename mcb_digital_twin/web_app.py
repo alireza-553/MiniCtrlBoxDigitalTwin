@@ -25,10 +25,10 @@ except ImportError:
 
 
 class SimulationController:
-    def __init__(self):
+    def __init__(self, project_root=None):
         self.kreuzung = CKreuzung()
         self.program = NativeProgram()
-        self.program_path = str(Path.cwd())
+        self.program_path = str(self.program.select_storage(project_root or Path.cwd()))
         self.module_connected = False
         self.local = CPortExpLoc()
         self.main_buttons = {"left": CButton(0), "right": CButton(3)}
@@ -434,7 +434,7 @@ async function poll(){try{state=await api('/api/state');render();}catch(e){conso
 </script></body></html>"""
 
 
-CONTROLLER = SimulationController()
+CONTROLLER = None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -473,12 +473,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global CONTROLLER
     parser = argparse.ArgumentParser(description="MiniCtrlBox Digital Twin")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--project-root", default=str(Path.cwd()))
     args = parser.parse_args()
-    CONTROLLER.program_path = args.project_root
+    CONTROLLER = SimulationController(args.project_root)
     address = (args.host, args.port)
     print(f"Simulation laeuft auf http://{address[0]}:{address[1]}")
     print("Beenden mit Strg+C")

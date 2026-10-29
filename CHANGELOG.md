@@ -1,5 +1,12 @@
 # Versionshistorie
 
+## v0.3.11 – EEPROM beim Twin-Neustart wiederherstellen
+
+- Der projektbezogene EEPROM wird bereits beim Start des Twins geladen, bevor ein C++-Programm läuft.
+- „EEPROM speichern“ schreibt den Projektnamen auch ohne laufendes Anwenderprogramm dauerhaft auf die Festplatte.
+- `--project-root` bestimmt den Speicher von Anfang an; bereits gespeicherte Inhalte bleiben beim nächsten Start sofort sichtbar.
+- Regressionstests prüfen unabhängige Projekte und das vollständige Beenden und Neustarten des HTTP-Backends.
+
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
 - Der Desktop-Adapter stellt `EEPROM.h` und den klassischen Teil von `driver/twai.h` bereit.
