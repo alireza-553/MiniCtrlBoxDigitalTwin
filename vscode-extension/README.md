@@ -7,7 +7,7 @@ aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speich
 
 ## Benutzung
 
-Die Datei `mcb-digital-twin-0.3.7.vsix` über **Extensions → … → Install from
+Die Datei `mcb-digital-twin-0.3.8.vsix` über **Extensions → … → Install from
 VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 `mcbDigitalTwin.pythonPath` auf `python` oder den Pfad zu `python.exe` setzen.
 

@@ -1,5 +1,13 @@
 # Versionshistorie
 
+## v0.3.8 – Robuster Hardware-Debugstart unter Linux
+
+- Debug-Builds verhindern das Inlining von Anwenderfunktionen, damit Quellzeilen-Breakpoints auf ausführbare Adressen zeigen.
+- GDB wird vor dem Start geprüft. Veraltete PlatformIO-Debugger mit Python-2.7-Abhängigkeit brechen kontrolliert mit einer sicheren Aktualisierungsempfehlung ab.
+- Linux-USB-Zugriffsfehler nennen eine auf `303a:1001` begrenzte `uaccess`-Regel und warnen vor pauschalen `MODE="0666"`-Rechten.
+- Irreführende `undefined`-Präfixe werden aus Debugadapter-Diagnosen entfernt.
+- Fehlende Desktop-C++-Compiler erhalten unter Ubuntu/Debian einen konkreten Installationshinweis.
+
 ## v0.3.7 – Variablen suchen und überwachen
 
 - Suchauswahl für lokale/statische Variablen und globale Variablen der aktuellen C++-Quelldatei; weitere Debugger-Globals lassen sich ausdrücklich laden.

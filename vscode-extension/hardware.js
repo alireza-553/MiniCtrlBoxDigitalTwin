@@ -13,7 +13,13 @@ const DEBUG_STARTUP_COMMANDS = [
     'monitor mww 0x6001f07c 2',
 ];
 
-function updateDebugSection(text, name, commands) {
+const DEBUG_BUILD_FLAGS = [
+    '-fno-inline',
+    '-fno-inline-small-functions',
+    '-fno-default-inline',
+];
+
+function updateDebugSection(text, name, commands, baseName) {
     const lines = text.split(/\r?\n/);
     const start = lines.findIndex(line => line.trim() === `[env:${name}]`);
     if (start < 0) throw new Error('Die MiniCtrlBox-Debugumgebung wurde nicht gefunden.');
@@ -27,10 +33,45 @@ function updateDebugSection(text, name, commands) {
         while (index + count < section.length && /^\s+\S/.test(section[index + count])) count++;
         section.splice(index, count, ...value);
     }
+    function ensureListOption(key, values) {
+        const index = section.findIndex(line => new RegExp(`^\\s*${key}\\s*=`).test(line));
+        if (index < 0) {
+            section.push(`${key} =`, ...values.map(value => `    ${value}`));
+            return;
+        }
+        let end = index + 1;
+        while (end < section.length && /^\s+\S/.test(section[end])) end++;
+        const existing = new Set(section.slice(index, end).map(line => line.trim()));
+        section.splice(end, 0, ...values.filter(value => !existing.has(value)).map(value => `    ${value}`));
+    }
     setOption('debug_init_break', ['debug_init_break = thbreak setup']);
     setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
+    ensureListOption('build_flags', [baseName && `\${env:${baseName}.build_flags}`, ...DEBUG_BUILD_FLAGS].filter(Boolean));
     lines.splice(start, end - start, ...section);
     return lines.join(text.includes('\r\n') ? '\r\n' : '\n');
+}
+
+function debuggerPath(compiler) {
+    const name = path.basename(compiler || '');
+    const gdb = name.replace(/(?:gcc|g\+\+|cc|c\+\+)$/, 'gdb');
+    return gdb === name ? '' : path.join(path.dirname(compiler), gdb);
+}
+
+function cleanDiagnostic(text) {
+    return String(text || '').replace(/(^|\n)undefined(?=\/)/g, '$1');
+}
+
+function launchHint(details) {
+    if (/abstract command|abstractcs|busy to go low/i.test(details)) {
+        return ' Der ESP32-C3 antwortet nicht auf USB-JTAG. Die Debugsitzung beenden, USB kurz trennen und wieder verbinden, dann erneut starten.';
+    }
+    if (/LIBUSB_ERROR_ACCESS|could not find or open device/i.test(details)) {
+        return ' Linux verweigert den USB-JTAG-Zugriff. Eine auf 303a:1001 begrenzte udev-Regel mit TAG+="uaccess" einrichten, die Regeln neu laden und das Gerät neu verbinden; keine pauschalen MODE="0666"-Rechte vergeben.';
+    }
+    if (/libpython2\.7\.so\.1\.0/i.test(details)) {
+        return ' Der PlatformIO-GDB ist veraltet und verlangt Python 2.7. Einen aktuellen Espressif RISC-V-GDB verwenden; Python 2.7 nicht nachinstallieren.';
+    }
+    return '';
 }
 
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
@@ -80,6 +121,19 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 }
             });
         });
+    }
+
+    function checkDebugger(compiler) {
+        if (process.platform === 'win32') return Promise.resolve();
+        const executable = debuggerPath(compiler);
+        if (!executable || !fs.existsSync(executable)) return Promise.resolve();
+        return new Promise((resolve, reject) => childProcess.execFile(executable, ['--version'],
+            { windowsHide: true, timeout: 10000 }, (error, stdout, stderr) => {
+                if (!error) return resolve();
+                const details = cleanDiagnostic([stdout, stderr, error.message].filter(Boolean).join('\n')).trim();
+                const hint = launchHint(details);
+                reject(new Error(`Hardware-Debugger ist nicht lauffähig.${details ? `\n${details}` : ''}${hint}`));
+            }));
     }
 
     async function execute(debug) {
@@ -149,12 +203,14 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             } else {
                 const eol = original.includes('\r\n') ? '\r\n' : '\n';
                 const addition = ['', '; MiniCtrlBox: natives USB-JTAG-Debugging', section,
-                    `extends = env:${selected.label}`, 'build_type = debug', 'debug_tool = esp-builtin',
+                    `extends = env:${selected.label}`, 'build_type = debug', 'build_flags =',
+                    `    \${env:${selected.label}.build_flags}`, ...DEBUG_BUILD_FLAGS.map(flag => `    ${flag}`),
+                    'debug_tool = esp-builtin',
                     'upload_protocol = esp-builtin', 'debug_init_break = thbreak setup', ''].join(eol);
                 updated += eol + addition;
             }
             // Keep user commands; add the debug-only C3 workaround once.
-            updated = updateDebugSection(updated, debugEnv, [...new Set([...extraCommands, ...DEBUG_STARTUP_COMMANDS])]);
+            updated = updateDebugSection(updated, debugEnv, [...new Set([...extraCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label);
             if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },
@@ -163,6 +219,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 '--environment', debugEnv, '--json-output'], true);
             const build = metadata[debugEnv];
             if (!build?.prog_path || !build.cc_path) throw new Error('PlatformIO liefert keine Debug-Buildinformationen.');
+            await checkDebugger(build.cc_path);
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
             launchDiagnostics = { text: '' };
             const started = await vscode.debug.startDebugging(folder, {
@@ -174,8 +231,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             });
             if (!started) {
                 const details = launchDiagnostics.text.trim();
-                const hint = /abstract command|abstractcs|busy to go low/i.test(details)
-                    ? ' Der ESP32-C3 antwortet nicht auf USB-JTAG. Die Debugsitzung beenden, USB kurz trennen und wieder verbinden, dann erneut starten.' : '';
+                const hint = launchHint(details);
                 throw new Error(`Hardware-Debugger wurde nicht gestartet.${details ? `\n${details}` : ' PlatformIO hat den Start abgebrochen. Details in der Debugkonsole prüfen.'}${hint}`);
             }
             output.appendLine('Hardware-Debugsitzung gestartet. PlatformIO überträgt die Firmware und hält in setup().');
@@ -193,6 +249,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         const diagnostics = launchDiagnostics;
         function record(text) {
             if (!text) return;
+            text = cleanDiagnostic(text);
             diagnostics.text = (diagnostics.text + text + '\n').slice(-4000);
             output.appendLine(`[Hardware-Debugger] ${text.trim()}`);
         }
@@ -210,4 +267,4 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         sessionTerminated: session => sessions.delete(session.id) };
 }
 
-module.exports = { createHardwareCommands, updateDebugSection };
+module.exports = { cleanDiagnostic, createHardwareCommands, debuggerPath, launchHint, updateDebugSection };

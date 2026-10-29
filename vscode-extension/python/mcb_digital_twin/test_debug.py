@@ -5,9 +5,18 @@ import shutil
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
+from mcb_digital_twin import native_runner
 from mcb_digital_twin.native_runner import _compiler
 from mcb_digital_twin.web_app import SimulationController
+
+
+class CompilerDiagnosticTests(unittest.TestCase):
+    def test_linux_missing_compiler_names_the_install_command(self):
+        with patch.object(native_runner.os, "name", "posix"), patch.object(native_runner.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(ValueError, "sudo apt install build-essential"):
+                _compiler()
 
 
 class NativeDebugTests(unittest.TestCase):

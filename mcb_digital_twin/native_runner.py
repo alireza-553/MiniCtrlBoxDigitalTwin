@@ -126,7 +126,9 @@ def _compiler():
                 search_path = next((value for key, value in environment.items() if key.lower() == "path"), "")
                 if compiler := shutil.which("cl.exe", path=search_path):
                     return compiler, environment, True
-    raise ValueError("Kein Desktop-C++-Compiler gefunden. Visual Studio C++ Build Tools oder g++ erforderlich.")
+    if os.name == "nt":
+        raise ValueError("Kein Desktop-C++-Compiler gefunden. Visual Studio C++ Build Tools mit der Komponente ‚Desktopentwicklung mit C++‘ installieren.")
+    raise ValueError("Kein Desktop-C++-Compiler gefunden. Unter Ubuntu/Debian mit ‚sudo apt update‘ und ‚sudo apt install build-essential‘ installieren; alternativ clang++ im PATH bereitstellen.")
 
 
 def find_project(path):
