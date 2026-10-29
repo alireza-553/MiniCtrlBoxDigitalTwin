@@ -10,7 +10,7 @@ const extensionRoot = path.resolve(__dirname, '..');
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
-    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [] };
+    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -51,16 +51,29 @@ function harness(options = {}) {
             stopDebugging: async session => terminated(session),
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
+        QuickPickItemKind: { Separator: -1 },
+        MarkdownString: class {
+            constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; }
+            appendMarkdown(value) { this.value += value; return this; }
+        },
         TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
         TreeItem: class { constructor(label) { this.label = label; } },
         ThemeIcon: class { constructor(id) { this.id = id; } },
         window: {
             activeTextEditor: { document: docs[1] },
             createOutputChannel: () => ({ clear() {}, append() {}, appendLine() {}, show() {} }),
-            createStatusBarItem: () => ({ show() {} }),
+            createStatusBarItem: (alignment, priority) => {
+                const item = { alignment, priority, show() {} };
+                calls.statusItems.push(item);
+                return item;
+            },
             registerTreeDataProvider: (_, provider) => { tree = provider; return {}; },
             showErrorMessage: message => { calls.errors.push(message); },
             showInformationMessage: message => { calls.info.push(message); },
+            showQuickPick: async (items, pickerOptions) => {
+                calls.picks.push({ items: Array.from(items), options: pickerOptions });
+                return items.find(item => item.command === options.pickCommand);
+            },
             withProgress: async (_, run) => run({ report() {} }),
         },
         workspace: {
@@ -72,7 +85,10 @@ function harness(options = {}) {
         },
         commands: {
             registerCommand: (name, run) => { commands.set(name, run); return {}; },
-            executeCommand: async (...args) => { calls.opened.push(args); },
+            executeCommand: async (...args) => {
+                if (commands.has(args[0])) return commands.get(args[0])(...args.slice(1));
+                calls.opened.push(args);
+            },
         },
         Uri: { parse: value => ({ toString: () => value }), file: fsPath => ({ fsPath }) },
         env: { asExternalUri: async uri => uri },
@@ -131,6 +147,57 @@ function harness(options = {}) {
     return { calls, selected, commands, tree, terminate: terminated };
 }
 
+test('status bar contains one compact menu instead of separate controls', () => {
+    const h = harness();
+    const items = h.calls.statusItems;
+    assert.equal(items.length, 1);
+    assert.equal(items[0].command, 'mcbDigitalTwin.control.focus');
+    assert.ok(items[0].text.includes('MCB Digital Twin'));
+    assert.ok(items[0].text.includes('$(chevron-down)'));
+    const tooltip = items[0].tooltip;
+    assert.ok(tooltip.value.includes('**$(vm) Digital Twin**'));
+    assert.ok(tooltip.value.includes('**$(circuit-board) Echte Hardware**'));
+    assert.equal(tooltip.supportThemeIcons, true);
+    const links = Array.from(tooltip.value.matchAll(/\]\(command:([^)]+)\)/g), match => match[1]);
+    const groups = Array.from(h.tree.getChildren()).filter(group => group.label !== 'Werkzeuge');
+    const commands = groups.flatMap(group => Array.from(group.children, item => item.command.command));
+    assert.deepEqual(links, commands);
+    assert.deepEqual(Array.from(tooltip.isTrusted.enabledCommands), commands);
+    assert.ok(commands.every(command => h.commands.has(command)));
+});
+
+test('running status retains access to the menu', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.start')();
+    assert.equal(h.calls.statusItems[0].command, 'mcbDigitalTwin.control.focus');
+    assert.ok(h.calls.statusItems[0].text.startsWith('$(vm)'));
+    assert.equal(h.calls.statusItems.length, 1);
+    assert.ok(h.calls.statusItems[0].tooltip.value.startsWith('Digital Twin läuft'));
+});
+
+test('menu groups program and twin actions and cancellation has no side effects', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.menu')();
+    const menu = h.calls.picks[0].items;
+    assert.deepEqual(menu.filter(item => item.kind === -1).map(item => item.label), ['Digital Twin', 'Echte Hardware']);
+    assert.deepEqual(menu.filter(item => item.command).map(item => item.command), [
+        'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug', 'mcbDigitalTwin.open',
+        'mcbDigitalTwin.stop', 'mcbDigitalTwin.restart',
+        'mcbDigitalTwin.hardwareUpload', 'mcbDigitalTwin.hardwareDebug',
+    ]);
+    assert.equal(h.calls.requests.length, 0);
+    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.opened.length, 0);
+});
+
+test('menu selection invokes the real restart command', async () => {
+    const h = harness({ pickCommand: 'mcbDigitalTwin.restart' });
+    await h.commands.get('mcbDigitalTwin.menu')();
+    assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
+    assert.equal(h.calls.info.length, 1);
+    assert.equal(h.calls.errors.length, 0);
+});
+
 test('upload is discoverable in the tree and view toolbar', () => {
     const h = harness();
     const twin = h.tree.getChildren().find(item => item.label === 'Digital Twin');
@@ -139,6 +206,52 @@ test('upload is discoverable in the tree and view toolbar', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
     assert.ok(manifest.contributes.commands.some(command => command.command === 'mcbDigitalTwin.upload'));
     assert.ok(manifest.contributes.menus['view/title'].some(item => item.command === 'mcbDigitalTwin.upload'));
+});
+
+test('restart is discoverable in the Digital Twin group and command palette', () => {
+    const h = harness();
+    const twin = h.tree.getChildren().find(item => item.label === 'Digital Twin');
+    const item = h.tree.getChildren(twin).find(item => item.command.command === 'mcbDigitalTwin.restart');
+    assert.equal(item.label, 'Digital Twin neu starten');
+    assert.equal(item.iconPath.id, 'debug-restart');
+    const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'package.json'), 'utf8'));
+    assert.ok(manifest.contributes.commands.some(command => command.command === 'mcbDigitalTwin.restart'));
+    assert.ok(manifest.activationEvents.includes('onCommand:mcbDigitalTwin.restart'));
+});
+
+test('restart uses the existing backend and opens the surface', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
+    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
+    assert.equal(h.calls.info.length, 1);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('restart starts a stopped backend and ignores duplicate clicks', async () => {
+    const h = harness({ cold: true });
+    await Promise.all([h.commands.get('mcbDigitalTwin.restart')(), h.commands.get('mcbDigitalTwin.restart')()]);
+    assert.equal(h.calls.spawned.length, 1);
+    assert.equal(h.calls.requests.length, 1);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('restart failures are shown without a success notification', async () => {
+    const h = harness({ buildFailure: true });
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.deepEqual(h.calls.errors, ['Compiler: missing header']);
+    assert.equal(h.calls.info.length, 0);
+    assert.equal(h.calls.opened.length, 0);
+});
+
+test('restart leaves an attached debug session untouched', async () => {
+    const h = harness();
+    await h.commands.get('mcbDigitalTwin.debug')();
+    const requests = h.calls.requests.length;
+    await h.commands.get('mcbDigitalTwin.restart')();
+    assert.equal(h.calls.requests.length, requests);
+    assert.match(h.calls.errors[0], /Debugsitzung/);
 });
 
 test('uploads the active project, saves only its documents, and opens its configured port', async () => {

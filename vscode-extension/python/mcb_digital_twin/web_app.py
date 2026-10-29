@@ -6,6 +6,7 @@ import json
 import argparse
 from pathlib import Path
 import subprocess
+from threading import RLock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -25,10 +26,10 @@ except ImportError:
 
 
 class SimulationController:
-    def __init__(self):
+    def __init__(self, project_root=None):
         self.kreuzung = CKreuzung()
         self.program = NativeProgram()
-        self.program_path = str(Path.cwd())
+        self.program_path = str(self.program.select_storage(project_root or Path.cwd()))
         self.module_connected = False
         self.local = CPortExpLoc()
         self.main_buttons = {"left": CButton(0), "right": CButton(3)}
@@ -75,7 +76,8 @@ class SimulationController:
             "remote_switch": [bool(self.remote.getSwitchState(i)) for i in range(8)],
             "interrupt": self.remote.getInterruptFlag(),
             "oled": snapshot.get("oled", [" " * 21] * 8),
-            "project": self.eeprom.readProjectName(),
+            "project": self.program.eeprom_project if self.program.storage_path else self.eeprom.readProjectName(),
+            "eeprom_bytes": self.program.eeprom_memory[:16],
             "servo_angle": self.servo_angle,
             "servo_us": self.servo.microseconds[int(CServo.SERVO1)],
             "temperature": self.sensors.getAHT20Temperature(),
@@ -86,11 +88,24 @@ class SimulationController:
                 "buzzer": self.actors.buzzer,
                 "led": self.actors.led,
             },
-            "can": self.last_can,
+            "can": self.program.last_can if running else self.last_can,
         }
 
     def action(self, data: dict) -> None:
         action = data.get("action")
+        if action == "twin_restart":
+            if self.program.debug:
+                raise ValueError("Bitte zuerst die laufende Debugsitzung beenden.")
+            project = self.program.project or self.program_path
+            restart_program = bool(self.program.project)
+            connected = self.module_connected
+            self.program.stop()
+            replacement = SimulationController(project)
+            replacement.module_connected = connected
+            self.__dict__.update(replacement.__dict__)
+            if restart_program:
+                self.action({"action": "program_start", "path": project})
+            return
         if action == "program_start":
             self.program_path = str(data.get("path") or self.program_path)
             try:
@@ -143,6 +158,7 @@ class SimulationController:
             self.remote.simulateSwitch(self._index(data, 4), bool(data.get("state")))
         elif action == "eeprom":
             self.eeprom.writeProjectName(str(data.get("text", "")))
+            self.program.write_project_name(str(data.get("text", "")))
         elif action == "servo":
             self.servo_angle = max(0.0, min(180.0, float(data.get("angle", 0))))
             self.servo.setMicroseconds(CServo.SERVO1,
@@ -164,8 +180,14 @@ class SimulationController:
                 raise ValueError("Unbekannter Aktor")
             setters[name](value)
         elif action == "can":
-            payload = str(data.get("text", "")).encode("utf-8")[:8]
-            if self.can_sender.transmit(CANFrame(0x1A, payload)):
+            payload = str(data.get("text", "")).encode("utf-8")
+            if len(payload) > 8:
+                raise ValueError("Eine CAN-Nachricht darf maximal 8 UTF-8-Bytes enthalten.")
+            identifier = data.get("identifier", 0x1A)
+            identifier = int(identifier, 0) if isinstance(identifier, str) else int(identifier)
+            if self.program.running:
+                self.program.send_can(identifier, payload)
+            elif self.can_sender.transmit(CANFrame(identifier, payload)):
                 frame = self.can_receiver.receive(10)
                 self.last_can = frame.data.decode("utf-8", errors="replace") if frame else ""
             else:
@@ -219,7 +241,7 @@ label{display:block;margin:7px 0}input[type=text],input[type=number]{background:
 .main-unit .unit-oled{position:absolute;left:32%;top:38%;width:34%;height:18%;min-height:0;margin:0;padding:2px;box-sizing:border-box;border-radius:1px;border:2px solid #242322;background:linear-gradient(130deg,#1e1118,#100e14);color:#b7e6ff;box-shadow:0 0 0 2px #a99478;overflow:hidden;font:6px/1.1 monospace;white-space:pre}
 .unit-rgb{position:absolute;left:74%;width:5.5%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:var(--rgb,#262827);border:2px solid #b8a98d;box-shadow:inset 1px 2px 4px #000,1px 1px 2px #222}.unit-rgb.on{box-shadow:inset 1px 1px 3px #fffa,0 0 13px var(--rgb)}
 .main-unit .module-key{width:7%;top:69%;border:1px solid #a45215;background:radial-gradient(circle at 30% 25%,#ffb052,#ff8c27 65%,#da6718);box-shadow:0 1px 2px #382716;font-size:0}.main-unit .module-key[aria-pressed=true]{background:#cc5f0b;box-shadow:inset 1px 2px 4px #572809}.main-unit .key-left{left:19%}.main-unit .key-right{left:80%}
-.main-controls h3{margin-top:0}.main-controls .ports{grid-template-columns:repeat(3,minmax(0,1fr));max-width:390px}.main-controls .port{padding:6px}.main-controls .buttons{align-items:center}.button-state{font-size:.9rem;line-height:1.6;color:#aab7c4;margin:12px 0;white-space:pre-line}.main-controls .rgb{width:22px;height:22px;margin:4px auto}
+.main-controls h3{margin-top:0}.main-controls .buttons{align-items:center}
 @media(max-width:780px){.main-layout{grid-template-columns:minmax(0,1fr)}.main-unit{max-width:420px;margin-left:auto;margin-right:auto}.unit-number{font-size:clamp(65px,22vw,115px)}.main-unit .unit-oled{font-size:clamp(4px,1.45vw,6px)}}
 body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px solid #34495e;margin-bottom:24px}.tabs button{background:transparent;color:#aab7c4;padding:12px 20px;border-radius:7px 7px 0 0;border-bottom:3px solid transparent}.tabs button:hover{background:#1c2732;color:#fff}.tabs button[aria-selected=true]{color:#8ed2ff;background:#1c2732;border-bottom-color:#72c5ff}.tabs button:focus-visible{outline:2px solid #72c5ff;outline-offset:-4px}
 [hidden]{display:none!important}.modules-grid,.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.unit-card{min-width:0;padding:24px}.unit-card h2{display:flex;align-items:center;gap:10px;font-size:1.1rem;margin:0 0 18px}.module-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;background:#34495e;color:#b9dfff;font-size:.9rem}.unit-stage{min-height:410px;display:flex;align-items:center;justify-content:center;padding:10px 4px}.unit-stage .main-unit{max-width:340px;flex-shrink:0}.unit-stage .module{max-width:560px}.unit-stage .unit-number{font-size:90px}.unit-stage .unit-oled{font-size:5px}.settings-grid .card{min-width:0}.settings-grid .ports{max-width:none}.settings-grid input[type=text]{min-width:0;max-width:100%;box-sizing:border-box}.settings-grid .module-controls h3{margin-top:0}
@@ -247,6 +269,8 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
+<div class="buttons"><button id="twin-restart" onclick="restartTwin()" title="Twin und zuletzt geladenes Programm neu starten; EEPROM bleibt erhalten">Twin neu starten</button></div>
+<p id="twin-status" class="status" role="status" aria-live="polite"></p>
 <div class="connection-toolbar"><span id="connection-status" role="status">Modul 1 → Modul 2 · Getrennt</span><button id="connection-toggle" onclick="toggleConnection()">Verbinden</button></div>
 <div id="connection-layout" class="connection-layout" role="group" aria-label="Module">
 
@@ -280,12 +304,10 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <label>Projektordner <input id="program-path" type="text" aria-label="Projektordner des C++-Programms"></label>
 <div class="buttons"><button id="program-start" onclick="startProgram()">Programm starten</button><button id="program-stop" onclick="act('program_stop')">Programm stoppen</button></div>
 <div id="program-status" class="status" role="status"></div>
-<h3>RGB-LEDs</h3><div id="local" class="ports"></div>
-<p class="module-help">OLED und LEDs werden vom Anwenderprogramm gesteuert.</p>
-<h3>Taster</h3><div id="main-button-state" class="button-state" role="status"></div><button onclick="act('main_button_reset')">Ereignisse zurücksetzen</button>
 </div><details><summary>EEPROM und CAN-Bus</summary><div class="extra-settings"><h3>EEPROM</h3>
 <div class="buttons"><input id="project" type="text" placeholder="Projektname"><button onclick="textAct('eeprom','project')">EEPROM speichern</button></div><div id="projectState" class="status"></div>
-<h3>CAN-Bus</h3><div class="buttons"><input id="canText" maxlength="8" value="Hallo"><button onclick="textAct('can','canText')">Senden</button></div><div id="canState" class="status"></div></div></details>
+<div id="eepromBytes" class="status"></div>
+<h3>CAN-Bus</h3><div class="buttons"><label>CAN-ID <input id="canId" value="0x1A" aria-label="CAN-Identifier"></label><input id="canText" maxlength="8" value="Hallo"><button onclick="textAct('can','canText')">Senden</button></div><div id="canState" class="status"></div><p>Bei laufendem Programm wird an dessen CAN-Eingang gesendet. Empfang zeigt die Antwort des Programms.</p></div></details>
 <details><summary>Weitere Simulatorfunktionen</summary><div class="extra-settings"><h3>Servo, Sensoren und Aktoren</h3>
 <label>Servo: <input id="servo" type="range" min="0" max="180" value="90" oninput="act('servo',{angle:+this.value})"> <span id="servoState"></span></label>
 <label>Temperatur °C <input id="temp" type="number" value="20" step="0.1"></label>
@@ -326,11 +348,19 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 </div>
 <dialog id="oled-zoom" aria-labelledby="oled-zoom-title"><div class="oled-zoom-header"><h2 id="oled-zoom-title">OLED-Display</h2><button onclick="document.getElementById('oled-zoom').close()">Schließen</button></div><pre id="oled-zoom-text" aria-label="OLED-Inhalt"></pre></dialog>
 <script>
-const $=id=>document.getElementById(id);let state={},actionQueue=Promise.resolve();
+const $=id=>document.getElementById(id);let state={},actionQueue=Promise.resolve(),twinRestarting=false;
 async function api(path,body){let o={};if(body)o={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};let r=await fetch(path,o);if(!r.ok)throw Error(await r.text());return r.json()}
 function act(action,extra={}){actionQueue=actionQueue.catch(()=>{}).then(async()=>{state=await api('/api/action',{action,...extra});render()});return actionQueue}
-function textAct(action,id){act(action,{text:$(id).value})}function actor(name,v){act('actor',{name,state:v})}
+function textAct(action,id){act(action,{text:$(id).value,...(action==='can'?{identifier:$('canId').value}:{})})}function actor(name,v){act('actor',{name,state:v})}
 function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum').value,co2:+$('co2').value})}
+async function restartTwin(){
+ if(twinRestarting)return;
+ twinRestarting=true;$('twin-restart').disabled=true;$('twin-status').textContent='Twin wird neu gestartet …';
+ for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
+ try{await act('twin_restart');$('twin-status').textContent='Twin neu gestartet. EEPROM bleibt erhalten.'}
+ catch(error){$('twin-status').textContent=error.message}
+ finally{twinRestarting=false;$('twin-restart').disabled=!!state.program_debug}
+}
 async function startProgram(){
  $('program-start').disabled=true;$('program-status').textContent='C++-Programm wird gebaut …';
  try{await act('program_start',{path:$('program-path').value})}catch(error){$('program-status').textContent=error.message}finally{$('program-start').disabled=false}
@@ -409,13 +439,13 @@ function render(){
  pedestrianSignals.forEach((signal,n)=>signal.leds.forEach((led,i)=>{const lamp=$('pedestrian-'+n+'-'+i);showLamp(lamp.id,state.remote_led[led]);lamp.setAttribute('aria-pressed',String(state.remote_led[led]))}));
  if(!connected){heldKeys.clear();for(let i=0;i<4;i++)$('key-'+i).setAttribute('aria-pressed','false')}
  const programText=state.program_running?'Anwenderprogramm läuft':'Kein Anwenderprogramm läuft';$('phase').textContent=programText;$('program-banner').textContent=programText+(state.program_running?' · '+state.program_path:' · Alle Ampeln aus');$('program-status').textContent=state.program_error||programText;$('program-stop').disabled=!state.program_running;
+ $('twin-restart').disabled=twinRestarting||!!state.program_debug;
  if(!$('program-path').dataset.initialized){$('program-path').value=state.program_path;$('program-path').dataset.initialized='true'}
  state.ew.forEach((on,i)=>showLamp('lamp-h-'+i,on));state.ns.forEach((on,i)=>showLamp('lamp-v-'+i,on));
  state.remote_led.forEach((on,i)=>{$('extra-'+i).classList.toggle('on',on);$('extra-'+i).setAttribute('aria-pressed',String(on))});
  for(let i=0;i<2;i++){const channels=state.local.slice(i*3,i*3+3),color=`rgb(${channels.map(on=>on?255:0).join(',')})`,led=$('unit-rgb-'+i),on=channels.some(Boolean);led.style.setProperty('--rgb',on?color:'#262827');led.classList.toggle('on',on);led.setAttribute('aria-label',`RGB-LED ${i}: ${on?channels.map((v,j)=>v?['Rot','Grün','Blau'][j]:null).filter(Boolean).join(' + '):'aus'}`)}
- $('main-button-state').textContent=['left','right'].map(side=>{const b=state.main_buttons[side];return `${side==='left'?'Links · Taster 2':'Rechts · Taster 1'}: ${b.down?'gedrückt':'losgelassen'} | Drückereignis: ${b.pressed?'ja':'nein'} | Loslassereignis: ${b.released?'ja':'nein'}`}).join('\n');
- $('local').innerHTML=state.local.map((v,i)=>`<div class="port"><div class="rgb" style="background:${v?['#f33','#3e5','#38f'][i%3]:'#333'}"></div><span>${['R','G','B'][i%3]}${Math.floor(i/3)}</span></div>`).join('');
  $('interrupt').textContent='Interrupt: 0b'+state.interrupt.toString(2).padStart(8,'0');$('oled').textContent=state.oled.join('\n');$('projectState').textContent='EEPROM: '+(state.project||'leer');$('canState').textContent='CAN empfangen: '+(state.can||'—');
+ $('eepromBytes').textContent='EEPROM Bytes 0–15: '+state.eeprom_bytes.map(value=>value.toString(16).padStart(2,'0')).join(' ');
  $('oled-zoom-text').textContent=state.oled.join('\n');
  $('servoState').textContent=`${state.servo_angle}° / ${state.servo_us} µs`;$('sensorState').textContent=`${state.temperature} °C | ${state.humidity} % | ${state.co2} ppm`;
  $('relais').checked=state.actors.relais;$('buzzer').checked=state.actors.buzzer;$('actorLed').checked=state.actors.led;
@@ -424,7 +454,8 @@ async function poll(){try{state=await api('/api/state');render();}catch(e){conso
 </script></body></html>"""
 
 
-CONTROLLER = SimulationController()
+CONTROLLER = None
+CONTROLLER_LOCK = RLock()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -432,7 +463,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/":
             self._send(200, HTML.encode(), "text/html; charset=utf-8")
         elif self.path == "/api/state":
-            self._json(200, CONTROLLER.state())
+            with CONTROLLER_LOCK:
+                state = CONTROLLER.state()
+            self._json(200, state)
         else:
             self._json(404, {"error": "Nicht gefunden"})
 
@@ -443,8 +476,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length) or b"{}")
-            CONTROLLER.action(data)
-            self._json(200, CONTROLLER.state())
+            with CONTROLLER_LOCK:
+                CONTROLLER.action(data)
+                state = CONTROLLER.state()
+            self._json(200, state)
         except (ValueError, TypeError, json.JSONDecodeError) as error:
             self._json(400, {"error": str(error)})
 
@@ -463,12 +498,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global CONTROLLER
     parser = argparse.ArgumentParser(description="MiniCtrlBox Digital Twin")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--project-root", default=str(Path.cwd()))
     args = parser.parse_args()
-    CONTROLLER.program_path = args.project_root
+    CONTROLLER = SimulationController(args.project_root)
     address = (args.host, args.port)
     print(f"Simulation laeuft auf http://{address[0]}:{address[1]}")
     print("Beenden mit Strg+C")

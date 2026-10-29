@@ -160,7 +160,23 @@ Für die normale Nutzung ist diese Datei nicht erforderlich.
 | Ampeln bleiben dunkel | Programmstatus prüfen und Modul 2 verbinden. Nur programmierte Ausgänge leuchten. |
 | Oberfläche öffnet sich nicht | Bei Standardport `http://127.0.0.1:8765` im Browser öffnen; Ausgabe auf Startfehler prüfen. |
 
-Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind die für die geprüfte Übung benötigten GPIO-, OLED- und Tasterfunktionen. Andere Hardwarebibliotheken können Buildfehler verursachen.
+Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Andere Hardwarebibliotheken können Buildfehler verursachen.
+
+### EEPROM und CAN im C++-Programm (ab 0.3.10)
+
+Die Entwicklungsversion 0.3.10 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.10.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
+
+Der Twin lädt seinen projektbezogenen EEPROM bereits beim Start. **EEPROM speichern** funktioniert auch ohne laufendes C++-Programm; nach dem vollständigen Beenden und erneuten Öffnen ist der gespeicherte Projektname sofort wieder sichtbar. Das mit `--project-root` ausgewählte Projekt bestimmt den Speicher.
+
+`#include <EEPROM.h>` unterstützt `begin(size)` (1–4096 Bytes), `read`, `write`, `get`, `put`, `length`, `commit` und `end`. Erst `commit()` oder `end()` speichert Änderungen über Programm- und Twin-Neustarts hinweg. Der Speicher ist pro aufgelöstem Projektpfad getrennt und liegt unter `%LOCALAPPDATA%/MiniCtrlBoxDigitalTwin/eeprom` (Windows) bzw. `$XDG_DATA_HOME/MiniCtrlBoxDigitalTwin/eeprom` oder `~/.local/share/MiniCtrlBoxDigitalTwin/eeprom` (Linux/macOS). Temporäre C++-Builds können gelöscht werden, ohne den EEPROM zu verlieren.
+
+Der Desktop-Teil von `CEeprom` in `MiniCtrlBox.h` bietet `isPresent`, `getAddress`, `getFreeSpace`, `readProjectName`, `writeProjectName`, `readUserData(buffer, length)` und `writeUserData(buffer, length)`. Der Projektname ist mit dem Eingabefeld der Oberfläche verbunden. Benutzerbytes teilen denselben Speicher wie `EEPROM`; CEeprom-Schreibaufrufe speichern sofort. Die Oberfläche zeigt die Bytes 0–15 in Hexadezimaldarstellung.
+
+`#include <driver/twai.h>` unterstützt `twai_driver_install`, `twai_start`, `twai_stop`, `twai_driver_uninstall`, `twai_transmit` und `twai_receive` mit `twai_message_t`, Standard-/Extended-Identifiern und bis zu acht Datenbytes. Die unterstützte Konfiguration ist `TWAI_TIMING_CONFIG_500KBITS()` mit `TWAI_FILTER_CONFIG_ACCEPT_ALL()` und `TWAI_MODE_NORMAL` oder `TWAI_MODE_NO_ACK`. Andere Filter/Bitraten werden ausdrücklich abgewiesen. `CCanBus` bietet außerdem `Frame` (`canIdentifier`, `dlc`, `data[8]`), `start`, `stop`, `restart`, `transmit` und `receive` als einfache Desktop-Schnittstelle.
+
+Bei laufendem C++-Programm sendet das CAN-Feld an dessen Eingang; **CAN empfangen** zeigt ausschließlich dessen gesendete Antwort. Die CAN-ID kann beispielsweise als `0x101` eingegeben werden. Ohne Anwenderprogramm bleibt der bisherige Python-CAN-Test verfügbar. Das ursprüngliche Ampelprogramm bleibt unverändert und verwendet EEPROM/CAN deshalb erst, wenn es selbst entsprechende Aufrufe enthält.
+
+Dies ist eine Verhaltenssimulation: keine elektrischen Signale, Arbitration, Bus-Off-Simulation oder registergenaue ESP32-Emulation. Senden und Empfangen sind nicht blockierend; Timeout-Parameter werden nur zur Quellcodekompatibilität angenommen. Während `delay()` oder eines Debug-Halts eintreffende CAN-Frames werden bis zum nächsten `loop()`-Durchlauf gepuffert. Ein- und Ausgangspuffer halten jeweils bis zu 256 Frames. Weitere MiniCtrlBoxLib-/ESP-IDF-Aufrufe werden nicht automatisch unterstützt.
 
 ## Entwicklung
 

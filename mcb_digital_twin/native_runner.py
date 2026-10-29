@@ -1,6 +1,7 @@
 """Run the project's original setup()/loop() with a small desktop hardware adapter."""
 
 import json
+import hashlib
 import os
 from pathlib import Path
 from queue import Empty, Queue
@@ -10,6 +11,11 @@ import tempfile
 from threading import RLock, Thread
 import time
 from uuid import uuid4
+
+try:
+    from .desktop_peripherals import STORAGE, EEPROM, TWAI, MINICTRLBOX_PERIPHERALS
+except ImportError:
+    from desktop_peripherals import STORAGE, EEPROM, TWAI, MINICTRLBOX_PERIPHERALS
 
 
 ARDUINO = r'''
@@ -49,6 +55,7 @@ MINICTRLBOX = r'''
 #include <string>
 #include <cstdio>
 #include <cstdarg>
+#include "driver/twai.h"
 inline std::array<std::string,8> twinOLED;
 namespace nspMiniCtrlBox {
 constexpr int PIN_BUTTON_LEFT=0, PIN_BUTTON_RIGHT=3, PIN_BUTTON_1=3, PIN_BUTTON_2=0;
@@ -88,6 +95,8 @@ public:
 }
 '''
 
+MINICTRLBOX = MINICTRLBOX.rsplit("}", 1)[0] + MINICTRLBOX_PERIPHERALS + "}\n"
+
 RUNNER = r'''
 #include "MiniCtrlBox.h"
 #include <iostream>
@@ -99,16 +108,41 @@ void quoted(const std::string& value){
 void snapshot(bool waiting=false){
  std::cout<<"{\"waiting\":"<<(waiting?"true":"false")<<",\"pins\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';std::cout<<twinPins[i];}
  std::cout<<"],\"rgb\":[";for(int i=0;i<6;i++){if(i)std::cout<<',';std::cout<<twinRGB[i];}
- std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]}"<<std::endl;
+ std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]";
+ if(twinStorageDirty){
+  std::cout<<",\"storage\":{\"project\":";quoted(twinProjectName);std::cout<<",\"memory\":[";
+  for(size_t i=0;i<twinEEPROM.size();i++){if(i)std::cout<<',';std::cout<<unsigned(twinEEPROM[i]);}
+  std::cout<<"]}";twinStorageDirty=false;
+ }
+ std::cout<<",\"can_tx\":[";bool first=true;
+ while(!twinCANOutgoing.empty()){auto frame=twinCANOutgoing.front();twinCANOutgoing.pop_front();if(!first)std::cout<<',';first=false;
+  std::cout<<"{\"id\":"<<frame.id<<",\"extended\":"<<(frame.extended?"true":"false")<<",\"data\":[";
+  for(int i=0;i<frame.size;i++){if(i)std::cout<<',';std::cout<<unsigned(frame.data[i]);}std::cout<<"]}";
+ }
+ std::cout<<"]}"<<std::endl;
 }
+std::string unhex(const std::string& text){std::string result;if(text=="-")return result;for(size_t i=0;i+1<text.size();i+=2)result+=char(std::stoul(text.substr(i,2),nullptr,16));return result;}
 void button(int pin,bool down){if(down!=twinDown[pin]){if(down)twinPressed[pin]=true;else twinReleased[pin]=true;twinDown[pin]=down;}}
 int main(int argc,char** argv){
+ std::string memory,project;if(!(std::cin>>memory>>project))return 0;
+ auto bytes=unhex(memory);std::copy_n(bytes.begin(),std::min(bytes.size(),twinEEPROM.size()),twinEEPROM.begin());twinProjectName=unhex(project);
+ std::cin.ignore(100000,'\n');
  if(argc>1&&std::string(argv[1])=="--debug-wait"){std::string gate;if(!std::getline(std::cin,gate)||gate!="go")return 0;}
  twinDuringDelay=[](){snapshot(true);};
  setup();snapshot();int left,right,switches,connected;
- while(std::cin>>left>>right>>switches>>connected){button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;loop();snapshot();}
+ unsigned count;
+ while(std::cin>>left>>right>>switches>>connected>>project>>count){
+  button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;twinProjectName=unhex(project);
+  for(unsigned n=0;n<count;n++){TwinCANFrame frame;unsigned size;std::string payload;std::cin>>frame.id>>frame.extended>>size>>payload;auto data=unhex(payload);if(size<=8&&data.size()==size&&twinCANIncoming.size()<256&&twinCANStarted){frame.size=size;std::copy_n(data.begin(),size,frame.data);twinCANIncoming.push_back(frame);}}
+  loop();snapshot();
+ }
 }
 '''
+
+
+def _storage_directory():
+    base = os.environ.get("LOCALAPPDATA") if os.name == "nt" else os.environ.get("XDG_DATA_HOME")
+    return (Path(base) if base else Path.home() / ".local" / "share") / "MiniCtrlBoxDigitalTwin" / "eeprom"
 
 
 def _compiler():
@@ -151,12 +185,80 @@ class NativeProgram:
         self.switches = 0
         self.connected = False
         self.lock = RLock()
+        self.peripheral_lock = RLock()
         self.lifecycle = RLock()
         self.worker = None
         self.build = None
         self.debug = None
         self.debug_waiting = False
         self.waiting = False
+        self.eeprom_project = ""
+        self.eeprom_memory = [0] * 4096
+        self.storage_path = None
+        self.can_pending = []
+        self.last_can = ""
+
+    def select_storage(self, project):
+        """Load the board's EEPROM even when no native program is running."""
+        root = Path(project).expanduser().resolve()
+        try:
+            root = find_project(root)
+        except ValueError:
+            # The browser also supports EEPROM without a C++ exercise.
+            pass
+        with self.lifecycle, self.peripheral_lock:
+            if self.running:
+                raise ValueError("EEPROM-Projekt kann nicht bei laufendem Programm gewechselt werden.")
+            self._load_storage(root)
+        return root
+
+    def _load_storage(self, root):
+        key = hashlib.sha256(os.path.normcase(str(root)).encode("utf-8")).hexdigest()
+        storage_path = _storage_directory() / (key + ".json")
+        if self.storage_path and self.storage_path != storage_path:
+            self.eeprom_project = ""
+        self.storage_path = storage_path
+        self.eeprom_memory = [0] * 4096
+        if self.storage_path.exists():
+            data = json.loads(self.storage_path.read_text(encoding="utf-8"))
+            memory = data.get("memory", [])
+            if len(memory) != 4096 or any(type(value) is not int or not 0 <= value <= 255 for value in memory):
+                raise ValueError("Ungueltiger gespeicherter EEPROM-Inhalt")
+            self.eeprom_memory = memory
+            self.eeprom_project = str(data.get("project", ""))
+
+    def _save_storage(self):
+        if self.storage_path is None:
+            return
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.storage_path.with_suffix("." + uuid4().hex + ".tmp")
+        temporary.write_text(json.dumps({"memory": self.eeprom_memory, "project": self.eeprom_project}), encoding="utf-8")
+        os.replace(temporary, self.storage_path)
+
+    def write_project_name(self, value):
+        with self.peripheral_lock:
+            self.eeprom_project = str(value)
+            self._save_storage()
+
+    def send_can(self, identifier, payload):
+        payload = bytes(payload)
+        if not 0 <= identifier <= 0x1fffffff or len(payload) > 8:
+            raise ValueError("Ungueltiger CAN-Frame")
+        with self.peripheral_lock:
+            if len(self.can_pending) >= 256:
+                raise ValueError("CAN-Empfangspuffer ist voll")
+            self.can_pending.append((identifier, payload))
+
+    def _peripheral_output(self, snapshot):
+        storage = snapshot.pop("storage", None)
+        if storage is not None:
+            with self.peripheral_lock:
+                self.eeprom_memory = storage["memory"]
+                # quoted() encodes individual UTF-8 bytes as JSON code points.
+                self.eeprom_project = storage["project"].encode("latin1").decode("utf-8", errors="replace")
+                self._save_storage()
+        for frame in snapshot.pop("can_tx", []):
+            self.last_can = bytes(frame["data"]).decode("utf-8", errors="replace")
 
     @property
     def running(self):
@@ -174,6 +276,8 @@ class NativeProgram:
         self.stop()
         root = find_project(project)
         self.project = str(root)
+        self._load_storage(root)
+        self.last_can = ""
         self.error = ""
         self.build_parent = Path(tempfile.gettempdir()).resolve()
         self.build = self.build_parent / ("mcb-native-" + uuid4().hex)
@@ -181,6 +285,10 @@ class NativeProgram:
         build = self.build
         (build / "Arduino.h").write_text(ARDUINO, encoding="utf-8")
         (build / "MiniCtrlBox.h").write_text(MINICTRLBOX, encoding="utf-8")
+        (build / "TwinStorage.h").write_text(STORAGE, encoding="utf-8")
+        (build / "EEPROM.h").write_text(EEPROM, encoding="utf-8")
+        (build / "driver").mkdir()
+        (build / "driver/twai.h").write_text(TWAI, encoding="utf-8")
         runner = build / "runner.cpp"
         runner.write_text(RUNNER, encoding="utf-8")
         executable = build / ("program.exe" if os.name == "nt" else "program")
@@ -199,6 +307,8 @@ class NativeProgram:
         self.messages = Queue()
         self.process = subprocess.Popen([str(executable), *(["--debug-wait"] if debug else [])], cwd=build, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
         process = self.process
+        process.stdin.write(bytes(self.eeprom_memory).hex() + " " + (self.eeprom_project.encode("utf-8").hex() or "-") + "\n")
+        process.stdin.flush()
         self.debug_waiting = debug
         self.debug = {"type": "cppvsdbg" if msvc else "cppdbg", "processId": str(process.pid),
                       "program": str(executable), "miDebuggerPath": debugger} if debug else None
@@ -247,6 +357,7 @@ class NativeProgram:
         while process is self.process and process.poll() is None:
             try:
                 snapshot = json.loads(messages.get(timeout=.1))
+                self._peripheral_output(snapshot)
                 self.waiting = snapshot.pop("waiting", False)
                 if self.waiting:
                     self.snapshot = snapshot
@@ -272,7 +383,11 @@ class NativeProgram:
 
     def _tick(self):
         if self.running:
-            self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)}\n")
+            with self.peripheral_lock:
+                pending, self.can_pending = self.can_pending, []
+                project = self.eeprom_project.encode('utf-8').hex() or '-'
+            frames = " ".join(f"{identifier} {int(identifier > 0x7ff)} {len(payload)} {payload.hex() or '-'}" for identifier, payload in pending)
+            self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)} {project} {len(pending)} {frames}\n")
             self.process.stdin.flush()
             self.snapshot = self._receive(self.process, self.messages)
 
@@ -311,6 +426,7 @@ class NativeProgram:
         self.debug_waiting = False
         self.waiting = False
         self.buttons = [False, False]
+        self.can_pending.clear()
         if self.build is not None:
             target = self.build.resolve()
             if target.parent != self.build_parent or not target.name.startswith("mcb-native-"):

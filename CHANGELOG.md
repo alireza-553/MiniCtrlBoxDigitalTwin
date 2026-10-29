@@ -1,5 +1,28 @@
 # Versionshistorie
 
+## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
+
+- Direkt am Statusleisteneintrag erscheint beim Darüberfahren ein anklickbares Menü mit denselben Gruppen „Digital Twin“ und „Echte Hardware“ wie in der Seitenleiste. Ein Klick auf den Eintrag öffnet die Seitenleiste; das Auswahlmenü bleibt über die Befehlspalette verfügbar.
+
+- Die zusätzlichen RGB-Kanalfelder und Taster-Ereignisdiagnosen samt Reset-Button entfallen in den Moduleinstellungen. LEDs und Taster bleiben in der Modulansicht bedienbar bzw. sichtbar.
+
+
+
+- Der Eintrag „Digital Twin neu starten“ steht zusätzlich in der VS-Code-Seitenleiste unter „Digital Twin“ und in der Befehlspalette bereit.
+
+- „Twin neu starten“ setzt den Twin direkt in der Oberfläche zurück und startet das zuletzt geladene C++-Programm erneut. EEPROM und Modulverbindung bleiben erhalten; aktive Debugsitzungen müssen vorher beendet werden.
+
+- Der projektbezogene EEPROM wird bereits beim Start des Twins geladen, bevor ein C++-Programm läuft.
+- „EEPROM speichern“ schreibt den Projektnamen auch ohne laufendes Anwenderprogramm dauerhaft auf die Festplatte.
+- `--project-root` bestimmt den Speicher von Anfang an; bereits gespeicherte Inhalte bleiben beim nächsten Start sofort sichtbar.
+- Regressionstests prüfen unabhängige Projekte und das vollständige Beenden und Neustarten des HTTP-Backends.
+
+- Der Desktop-Adapter stellt `EEPROM.h` und den klassischen Teil von `driver/twai.h` bereit.
+- C++ und Browser teilen Projektnamen und CAN-Nachrichten; bei laufendem Programm zeigt CAN empfangen dessen echte Antwort statt eines automatischen Echos.
+- 4096 EEPROM-Bytes werden bei `commit()` pro Projekt dauerhaft im Benutzerprofil gespeichert. Die Oberfläche zeigt die ersten 16 Bytes.
+- Die CAN-ID kann in der Oberfläche eingegeben werden. Nachrichten sind auf acht Bytes begrenzt.
+- Native Integrationstests prüfen Persistenz, Speichergrenzen und CAN-Nachrichten durch einen tatsächlich kompilierten C++-Prozess.
+
 ## v0.3.9 – Arduino-Framework beim Einzelschritt überspringen
 
 - Hardware-Debugsitzungen ergänzen `skip function loopTask`, damit „Step Into“ im Anwendercode bleibt und nicht die Arduino-FreeRTOS-Hülle `loopTask(void*)` öffnet.

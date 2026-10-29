@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -14,7 +14,9 @@
   ],
   "activationEvents": [
     "onCommand:mcbDigitalTwin.start",
+    "onCommand:mcbDigitalTwin.menu",
     "onCommand:mcbDigitalTwin.stop",
+    "onCommand:mcbDigitalTwin.restart",
     "onCommand:mcbDigitalTwin.open",
     "onCommand:mcbDigitalTwin.test",
     "onCommand:mcbDigitalTwin.upload",
@@ -46,6 +48,11 @@
     },
     "commands": [
       {
+        "command": "mcbDigitalTwin.menu",
+        "title": "Digital-Twin-Steuerung öffnen",
+        "category": "MiniCtrlBox"
+      },
+      {
         "command": "mcbDigitalTwin.debug",
         "title": "C++-Projekt im Digital Twin debuggen",
         "category": "MiniCtrlBox",
@@ -66,6 +73,12 @@
         "command": "mcbDigitalTwin.stop",
         "title": "MiniCtrlBox: Digital Twin stoppen",
         "category": "MiniCtrlBox"
+      },
+      {
+        "command": "mcbDigitalTwin.restart",
+        "title": "Digital Twin neu starten",
+        "category": "MiniCtrlBox",
+        "icon": "$(debug-restart)"
       },
       {
         "command": "mcbDigitalTwin.open",
