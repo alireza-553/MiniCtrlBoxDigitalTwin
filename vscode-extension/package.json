@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -152,6 +152,11 @@
           "type": "string",
           "default": "",
           "description": "PlatformIO-Programmdatei. Leer: Core der PlatformIO-IDE oder platformio im PATH."
+        },
+        "mcbDigitalTwin.skipArduinoLoopTask": {
+          "type": "boolean",
+          "default": true,
+          "description": "Nach F10/F11 beim Rücksprung in Arduinos loopTask bis zum nächsten loop()-Eintritt weiterlaufen. Haltepunkte und manuelles Anhalten bleiben erhalten. Für Einzelschritte in der Arduino-Hülle abschalten und die Debugsitzung neu starten."
         },
         "mcbDigitalTwin.autoInstallJtagDriver": {
           "type": "boolean",

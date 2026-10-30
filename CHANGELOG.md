@@ -1,5 +1,15 @@
 # Versionshistorie
 
+## v0.3.11 – Nach Einzelschritten aus Arduino loopTask zurückkehren
+
+- Hardware-Debug-Build mit abschließendem `-O0 -g3 -ggdb3`: Der konkrete irreführende Zeilensprung im `OFF`-Zweig von `CAmpel::setPhase()` wurde auf echter Hardware beseitigt; geprüft wurde Zeile 87 → 89 → Aufrufer in Zeile 58. Eigene Debug-Definitionen bleiben erhalten, die normale Uploadumgebung unverändert.
+- Interruptmaskierung auf `steponly` umstellen und ältere generierte `off`-Befehle ersetzen: Im Hardwarevergleich erreichte F11 am Nutzerhaltepunkt `ampel.nextPhase()` damit direkt beim ersten Druck statt nach einem erneuten Halt an derselben Adresse.
+- Die Rückkehrbehandlung erkennt PlatformIO-Namen wie `loopTask(void*)@0x42001b9c` einschließlich Adresszusatz. Tests prüfen das tatsächliche Adapterformat, Namen ohne Adresszusatz und ähnlich benannte Funktionen.
+- Nach F10/F11 am Ende von `setup()` oder `loop()` führt ein Schritt-Halt in der Arduino-Hülle einmalig bis zum nächsten `loop()`-Eintritt weiter. `skip function loopTask` allein verhindert diesen Rücksprung nicht.
+- Haltepunkte, Fehler, manuelles Anhalten, Maschinenschritte und explizites Herausspringen bleiben erhalten. Abschaltbar über `mcbDigitalTwin.skipArduinoLoopTask`.
+- Temporärer Hardware-Haltepunkt statt `advance loop`: Der PlatformIO-Adapter stellt dessen Haltgrund `location-reached` sonst fälschlich als Ausnahme dar.
+- Automatische Tests prüfen Zielauswahl, Abbruch und Fehlerpfade. Auf echter MiniCtrlBox mit `Ueb_2.7.3.4` wurden Rückkehr aus `setup()` und `loop()`, F10/F11 sowie das Entfernen der temporären Haltepunkte geprüft.
+
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
 - Direkt am Statusleisteneintrag erscheint beim Darüberfahren ein anklickbares Menü mit denselben Gruppen „Digital Twin“ und „Echte Hardware“ wie in der Seitenleiste. Ein Klick auf den Eintrag öffnet die Seitenleiste; das Auswahlmenü bleibt über die Befehlspalette verfügbar.

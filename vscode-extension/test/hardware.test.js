@@ -12,7 +12,7 @@ function harness(options = {}) {
     let ini = original + (options.conflictingEnv ? '\r\n[env:mcb-usb-debug-lesson]\r\ndebug_tool = esp-prog\r\n' : '');
     const calls = { processes: [], debug: [], errors: [], saves: 0 };
     let extensionsActivated = 0;
-    const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']]];
+    const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']], ['debug_extra_cmds', options.extraCommands || []]];
     const vscode = {
         ProgressLocation: { Notification: 15 },
         workspace: { isTrusted: !options.untrusted, textDocuments: [{ uri: { fsPath: root }, isDirty: true,
@@ -70,8 +70,9 @@ function harness(options = {}) {
         });
         return child;
     } };
-    const sandbox = { module: { exports: {} }, process,
-        require: name => ({ fs: fakeFS, child_process: childProcess }[name] || require(name)) };
+    const sandbox = { module: { exports: {} }, process: { ...process, platform: options.platform || process.platform },
+        require: name => ({ fs: fakeFS, child_process: childProcess,
+            './arduino-stepping': require('../arduino-stepping') }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../hardware.js'), 'utf8'), sandbox);
     const output = { show() {}, append() {}, appendLine() {} };
     const hardware = sandbox.module.exports.createHardwareCommands(vscode, output, () => root, async () => {
@@ -90,6 +91,9 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /skip function loopTask/);
+    assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
+    assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
+    assert.match(h.ini(), /debug_build_flags =\r\n    -O0\r\n    -g3\r\n    -ggdb3/);
     assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\nbuild_flags =\r\n    \$\{env:lesson\.build_flags\}\r\n    -fno-inline\r\n    -fno-inline-small-functions\r\n    -fno-default-inline\r\ndebug_tool = esp-builtin/);
     assert.equal(h.ini().match(/-fno-inline$/gm).length, 1);
@@ -104,6 +108,35 @@ test('hardware debug preserves project settings, builds before launch and uses n
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
     assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
+});
+
+test('legacy interrupt masking is upgraded without losing other debug commands', async () => {
+    const h = harness({ extraCommands: ['monitor echo keep', 'monitor riscv set_maskisr off'] });
+    await h.hardware.debug();
+    await h.hardware.debug();
+    assert.deepEqual(h.calls.errors, []);
+    assert.match(h.ini(), /monitor echo keep/);
+    assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
+    assert.equal(h.ini().match(/monitor riscv set_maskisr steponly/g).length, 1);
+});
+
+test('hardware tracker handles wrapper returns without launch diagnostics and keeps diagnostic output working', async () => {
+    const h = harness();
+    const requests = [];
+    const tracker = h.hardware.createDebugAdapterTracker({ configuration: { mcbHardwareDebug: true },
+        customRequest: async (command, args) => {
+            requests.push({ command, args });
+            if (command === 'execute-command') return { results: [['bkpt', [['number', '5']]]] };
+            return { stackFrames: [{ name: 'loopTask(void*)@0x42001b9c', source: { path: '/framework/cores/esp32/main.cpp' } }] };
+        } });
+    tracker.onWillReceiveMessage({ type: 'request', command: 'next', seq: 9, arguments: { threadId: 3 } });
+    tracker.onDidSendMessage({ type: 'event', event: 'stopped', body: { reason: 'step', threadId: 3 } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(requests[1].command, 'execute-command');
+    assert.match(requests[1].args.command, /-break-insert -h -t -p 3 loop/);
+    assert.equal(requests[2].command, 'continue');
+    tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: 'hardware output' } });
+    tracker.onExit(0);
 });
 
 test('hardware upload explicitly targets the detected serial device and keeps configuration unchanged', async () => {
@@ -150,7 +183,7 @@ test('Linux USB access failures receive a scoped uaccess hint and no undefined p
 });
 
 test('an obsolete Python-2.7 GDB is rejected before starting the debug adapter', async () => {
-    const h = harness({ brokenGdb: true });
+    const h = harness({ brokenGdb: true, platform: 'linux' });
     await h.hardware.debug();
     assert.equal(h.calls.gdbChecks, 1);
     assert.equal(h.calls.debug.length, 0);
@@ -216,4 +249,14 @@ test('legacy generated environment is upgraded without changing other environmen
     assert.match(updated, /-fno-default-inline/);
     assert.equal(updated.match(/debug_extra_cmds =/g).length, 1);
     assert.equal(updateDebugSection(updated, 'mcb-usb-debug-lesson', commands, 'lesson'), updated);
+});
+
+test('source debug mode overrides optimization last while preserving custom debug flags', () => {
+    const { updateDebugSection } = require('../hardware');
+    const original = '[env:base]\nboard = esp32-c3-devkitm-1\n\n[env:twin]\nextends = env:base\ndebug_build_flags = -Og -DDEBUG_CHECK=1\n';
+    const updated = updateDebugSection(original, 'twin', [], 'base');
+    assert.match(updated, /-Og -DDEBUG_CHECK=1\n    -O0\n    -g3\n    -ggdb3/);
+    assert.equal(updateDebugSection(updated, 'twin', [], 'base'), updated);
+    const inherited = updateDebugSection('[env:twin]\n', 'twin', [], 'base', ['-DLESSON_DEBUG=1']);
+    assert.match(inherited, /debug_build_flags =\n    -DLESSON_DEBUG=1\n    -O0/);
 });

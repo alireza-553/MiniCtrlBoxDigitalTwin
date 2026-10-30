@@ -7,6 +7,8 @@ aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speich
 
 ## Benutzung
 
+Ab **0.3.11** führt ein F10-/F11-Schritt, der am Ende von `setup()` oder `loop()` in Arduinos `loopTask()` zurückkehrt, automatisch bis zum nächsten `loop()`-Eintritt weiter. Die genaue Eingrenzung und die abschaltbare Einstellung beschreibt die [Hardware-Dokumentation](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md#rücksprung-in-arduino-looptask-beim-einzelschritt-ab-0311).
+
 **Getesteter Hardware-Stand für v0.3.7:** Espressif32 `6.10.0`, RISC-V-GCC `8.4.0` (`esp-2021r2-patch5`) und Espressif-OpenOCD `0.11.0-esp32-20220706` unter Windows. Die [vollständige Referenzumgebung und ihre Testgrenzen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md#getestete-toolchain-für-erweiterung-v037) stehen in der Hardware-Dokumentation.
 
 Die Datei `mcb-digital-twin-0.3.10.vsix` über **Extensions → … → Install from
@@ -67,6 +69,8 @@ Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 `debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = thbreak setup`.
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
+
+Ab **0.3.11** setzt die generierte Hardware-Debugumgebung außerdem `debug_build_flags` mit abschließendem **`-O0 -g3 -ggdb3`**. `-O0` (großes O, Ziffer Null) schaltet die meisten Compileroptimierungen ab; die `-g`-Optionen liefern Debug-Informationen. Dies verhindert den im Übungsprojekt geprüften irreführenden Sprung vom `OFF`-`break` in Zeile 87 zur Zeile 67. Einzelschritte wurden stattdessen als **87 → 89 → Aufrufer** geprüft. Die normale Uploadumgebung bleibt unverändert. Nach Änderungen den Hardware-Debugstart neu ausführen, damit neu gebaut und übertragen wird. [Optimierungsstufen und Build-Begriffe nachschlagen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#optimierung).
 
 Am Haltepunkt hält die **echte CPU** an. Ausgänge behalten normalerweise ihren letzten Zustand, und das OLED zeigt den letzten Inhalt. Eigenständig laufende Peripherie kann weiterarbeiten. **F5** setzt das Programm fort, **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion. **Umschalt+F5** beendet die Sitzung; bei Bedarf das Board anschließend zurücksetzen.
 

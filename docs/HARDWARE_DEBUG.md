@@ -56,6 +56,40 @@ Für Linux und macOS ist diese Kombination hier noch nicht durch einen echten Ha
 
 Der Python-Simulator wird für diese Hardwarebefehle nicht gestartet. Eine Live-Synchronisierung der Browseransicht mit dem Board ist nicht Bestandteil der Anbindung.
 
+## Rücksprung in Arduino `loopTask()` beim Einzelschritt (ab 0.3.11)
+
+`setup()` und `loop()` werden von Arduinos FreeRTOS-Funktion `loopTask(void*)` aufgerufen. F10 oder F11 am Funktionsende kann deshalb in diese Hülle zurückkehren. Das allein ist kein Absturz. Der GDB-Befehl `skip function loopTask` verhindert das Hineinsteigen bei Aufrufen, verhindert aber nicht diesen Rücksprung.
+
+PlatformIO liefert Stackframe-Namen im Format `loopTask(void*)@0x…`. Die Erkennung entfernt ausschließlich einen abschließenden hexadezimalen Adresszusatz vor dem Namensvergleich; die Prüfung der Arduino-Quelldatei bleibt bestehen. Die Regressionstests verwenden dieses tatsächliche Adapterformat.
+
+Ab 0.3.11 prüft die Erweiterung nach einem solchen Quellcode-Einzelschritt den obersten Stackframe. Nur wenn der Haltgrund `step`, der Thread derselbe und die Funktion `loopTask` aus `cores/esp32/main.cpp` ist, setzt sie einen temporären, an diesen Thread gebundenen Hardware-Haltepunkt in `loop()` und setzt einmalig fort. Das Programm läuft dabei tatsächlich weiter bis zum nächsten `loop()`-Eintritt. Dazwischen können weiterhin Haltepunkte oder Fehler anhalten. Die Debugkonsole und der Ausgabekanal zeigen den automatischen Übergang; die Arduino-Datei kann dabei kurz sichtbar werden.
+
+Manuelles Anhalten, Haltepunkte, Ausnahmefehler, Maschinenschritte und ausdrücklich gewähltes Herausspringen (Umschalt+F11) werden nicht automatisch fortgesetzt. Bei einem Fehler wird kein weiterer Versuch gestartet. Unter `mcbDigitalTwin.skipArduinoLoopTask` lässt sich die Behandlung abschalten; anschließend die Debugsitzung neu starten. Dies betrifft die über **Hardware debuggen** gestarteten MiniCtrlBox-Sitzungen.
+
+Die Auswahl- und Abbruchbedingungen sind automatisiert geprüft. Der Befehl `advance loop` wird bewusst nicht verwendet: Er meldet `location-reached`, was der untersuchte PlatformIO-Adapter als unbekannten Haltgrund mit „assuming exception“ einordnet. Das wurde in der echten Debugkonsole beobachtet. Ein temporärer Haltepunkt liefert dagegen den unterstützten Haltgrund `breakpoint-hit`. Bei fehlenden Hardware-Haltepunktressourcen wird nicht fortgesetzt. Wird zuvor ein anderer Halt erreicht, entfernt die Erweiterung nur ihren eigenen temporären Haltepunkt.
+
+**Hardwaretest am 30.10.2026:** Mit dem Projekt `Ueb_2.7.3.4` auf der echten MiniCtrlBox wurde nach neuer Firmware-Übertragung in `setup()` (Zeile 12) angehalten. F10 führte über `display.begin()` (13) und `display.printfLine()` (14) nach `loop()` (17). Weitere F10-Schritte führten über die Tasterabfragen (20, 28) erneut nach `loop()` (17). Beide Übergänge hielten auf temporären Haltepunkten, ohne rote Ausnahmeanzeige. `info breakpoints` zeigte danach nur noch den bestehenden Nutzerhaltepunkt 2 in Zeile 29; die temporären Haltepunkte 3 und 4 waren entfernt. F11 stieg weiterhin in `CButton::hasButtonPressed()` (`btn.cpp:32`) ein; nach Umschalt+F11 zurück zu Zeile 28 führte F11 wieder nach `loop()` (17), ebenfalls als normaler Haltepunkt. Das bestätigt diese Schrittfolge, aber keinen vollständigen Dauertest aller Peripheriefunktionen.
+
+Siehe [GDB: skip](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Skipping-Over-Functions-and-Files.html) und [GDB: Einzelschritte](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Continuing-and-Stepping.html).
+
+## F11 muss am Hardware-Haltepunkt zweimal gedrückt werden
+
+Mit `riscv set_maskisr off` wurde auf der echten MiniCtrlBox ein zusätzlicher Halt beobachtet: F11 an `ampel.nextPhase()` in `src/main.cpp:29` hielt erneut mit Grund `breakpoint` an derselben Adresse `0x4200029a`. Erst der zweite F11-Schritt erreichte `CAmpel::nextPhase()` bei `include/CAmpel.h:40`.
+
+Die Debug-Konfiguration verwendet deshalb ab 0.3.11 `monitor riscv set_maskisr steponly`. OpenOCD maskiert Interrupts während seiner Einzelschritte; normales Fortsetzen bleibt möglich. Im direkten Vergleich am selben Nutzerhaltepunkt erreichte bereits der erste F11-Schritt `CAmpel::nextPhase()` (`0x42000154`, Zeile 40). Es wird kein zusätzlicher Schritt automatisch wiederholt und kein Nutzerhaltepunkt entfernt. Der frühere generierte Befehl `monitor riscv set_maskisr off` wird beim nächsten Hardware-Debugstart ersetzt; andere zusätzliche Befehle bleiben erhalten.
+
+Die ältere Einstellung `off` stammte aus der ursprünglichen Watchdog-Fehlersuche. Die Watchdogs werden weiterhin bei jedem Halt abgeschaltet und ihre ausstehenden Interrupts gelöscht. Einzelschritt-Maskierung ist eine Debughilfe und kein Test des Zeit- oder Interruptverhaltens im normalen Betrieb. Siehe [OpenOCD: riscv set_maskisr](https://openocd.org/doc/html/Architecture-and-Core-Commands.html).
+
+## Zeilenanzeige bei switch und break
+
+Compileroptimierung kann mehrere Quellzeilen auf ein gemeinsames Funktionsende abbilden. Im untersuchten `CAmpel::setPhase()` mit der bisherigen `-Og`-Firmware sprang `break` aus `case OFF` (Zeile 87) an Adresse `0x42000102`; die Debug-Zeilentabelle ordnete dieser Adresse sowohl Zeile 67 als auch Zeile 89 zu. GDB zeigte dadurch den `break` des `RED`-Falls, obwohl dessen Anweisungen nicht erneut ausgeführt wurden.
+
+Die generierte Hardware-Debugumgebung verwendet ab 0.3.11 ausdrücklich `debug_build_flags` mit abschließendem `-O0 -g3 -ggdb3`, zusätzlich zum abgeschalteten Inlining. Eigene Debug-Definitionen bleiben erhalten. Dies reduziert solche durch Optimierung verursachten Sprünge; eine perfekte Eins-zu-eins-Zuordnung jeder C++-Zeile ist auch damit nicht allgemein garantiert. Die normale Uploadumgebung bleibt unverändert. Debug-Firmware kann größer und langsamer sein als die normale Firmware.
+
+Nach einer Änderung der Build-Einstellungen muss die Debugsitzung beendet und **Hardware debuggen** neu gestartet werden. Ein Neuladen des Editors allein ersetzt die Firmware auf dem Board nicht. Siehe [PlatformIO: debug_build_flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/debug_build_flags.html).
+
+**Hardwarevergleich am 30.10.2026:** Die neu erzeugte `firmware.elf` ordnete Zeile 67 der Adresse `0x420002f4`, Zeile 87 der Adresse `0x42000374` und das Funktionsende in Zeile 89 der Adresse `0x42000376` zu. Nach Übertragung auf die MiniCtrlBox wurde `ampel.currentPhase` für den Test im Debugger auf `CAmpel::OFF` gesetzt und ein temporärer Hardware-Haltepunkt auf `CAmpel.h:87` angelegt. Dort führte F10 nach Zeile 89 und der nächste F10-Schritt zurück zu `CAmpel::nextPhase()` in Zeile 58. Zeile 67 wurde dabei nicht mehr angezeigt. Der temporäre Testhaltepunkt wurde beim Treffer von GDB entfernt; der Quellcode der Übung blieb unverändert.
+
 ## Windows-Treiberprüfung
 
 Die JTAG-Schnittstelle ist `USB\VID_303A&PID_1001&MI_02`. Die serielle Schnittstelle `MI_00` ist ein getrenntes Gerät. Die Prüfung verlangt genau eine vorhandene JTAG-Schnittstelle mit Status `OK`, dem Dienst `WinUSB` und der Espressif-Geräteschnittstellen-GUID `{80869ad8-c37f-476a-a6b4-ae241c30a473}`.
@@ -108,7 +142,7 @@ Ein Debugger-Reset mit deaktiviertem Debug-Watchdog, gelöschten ausstehenden Wa
 debug_init_break = thbreak setup
 debug_extra_cmds =
     skip function loopTask
-    monitor riscv set_maskisr off
+    monitor riscv set_maskisr steponly
     monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }
     monitor esp32c3_wdt_disable
     monitor mww 0x6002007c 2

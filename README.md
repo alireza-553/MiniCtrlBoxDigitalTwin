@@ -103,10 +103,15 @@ Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Ardui
 
 Die ergänzte Umgebung erbt die Projektkonfiguration:
 
+Ab **0.3.11** verwendet **Hardware debuggen** einen [Debug-Build](docs/begriffe/README.md#debug-release) mit **`-O0`** (großes O, Ziffer Null) und `-g3 -ggdb3`. Die [Compileroptionen](docs/begriffe/README.md#compileroptionen) schalten die meisten Optimierungen ab und liefern Debug-Informationen. Dadurch lassen sich Einzelschritte besser dem Quellcode zuordnen. Im geprüften `OFF`-Zweig von `setPhase()` führte F10 danach von Zeile **87 → 89 → Aufrufer**, statt irreführend Zeile 67 anzuzeigen. Die normale Uploadumgebung bleibt unverändert; nach einer Änderung ist ein neuer Hardware-Debugstart einschließlich Build und Übertragung nötig.
+
+Die [Optimierungsstufen `-O0`, `-Og`, `-O1` bis `-O3`, `-Os` und `-Ofast`](docs/begriffe/README.md#optimierung) erklärt das Begriffslexikon. Ablauf und geprüfte Grenzen stehen in der [Hardware-Anleitung](docs/HARDWARE_DEBUG.md#zeilenanzeige-bei-switch-und-break).
+
 ```ini
 [env:mcb-usb-debug-esp32-c3-devkitm-1]
 extends = env:esp32-c3-devkitm-1
 build_type = debug
+debug_build_flags = -O0 -g3 -ggdb3
 debug_tool = esp-builtin
 upload_protocol = esp-builtin
 debug_init_break = thbreak setup

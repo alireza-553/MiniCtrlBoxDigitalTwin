@@ -2,11 +2,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const childProcess = require('child_process');
+const { createArduinoStepTracker } = require('./arduino-stepping');
 
 const DEBUG_STARTUP_COMMANDS = [
     // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
     'skip function loopTask',
-    'monitor riscv set_maskisr off',
+    // Prevent a pending ISR from returning to and immediately re-hitting the
+    // same persistent hardware breakpoint during a source-level step.
+    'monitor riscv set_maskisr steponly',
     // Keep OpenOCD's watchdog shutdown and also clear pending interrupts at every halt.
     'monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }',
     'monitor esp32c3_wdt_disable',
@@ -21,7 +24,7 @@ const DEBUG_BUILD_FLAGS = [
     '-fno-default-inline',
 ];
 
-function updateDebugSection(text, name, commands, baseName) {
+function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags = []) {
     const lines = text.split(/\r?\n/);
     const start = lines.findIndex(line => line.trim() === `[env:${name}]`);
     if (start < 0) throw new Error('Die MiniCtrlBox-Debugumgebung wurde nicht gefunden.');
@@ -48,6 +51,18 @@ function updateDebugSection(text, name, commands, baseName) {
     }
     setOption('debug_init_break', ['debug_init_break = thbreak setup']);
     setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
+    // Keep custom debug definitions, then make our source-stepping mode the
+    // final compiler choice. -fno-inline alone does not disable -Og tail sharing.
+    const debugIndex = section.findIndex(line => /^\s*debug_build_flags\s*=/.test(line));
+    let debugFlags = [...inheritedDebugFlags];
+    if (debugIndex >= 0) {
+        debugFlags = [section[debugIndex].replace(/^\s*debug_build_flags\s*=\s*/, '')];
+        for (let index = debugIndex + 1; index < section.length && /^\s+\S/.test(section[index]); index++)
+            debugFlags.push(section[index].trim());
+    }
+    const sourceDebugFlags = ['-O0', '-g3', '-ggdb3'];
+    debugFlags = debugFlags.map(flag => flag.trim()).filter(flag => flag && !sourceDebugFlags.includes(flag));
+    setOption('debug_build_flags', ['debug_build_flags =', ...debugFlags.map(flag => `    ${flag}`), ...sourceDebugFlags.map(flag => `    ${flag}`)]);
     ensureListOption('build_flags', [baseName && `\${env:${baseName}.build_flags}`, ...DEBUG_BUILD_FLAGS].filter(Boolean));
     lines.splice(start, end - start, ...section);
     return lines.join(text.includes('\r\n') ? '\r\n' : '\n');
@@ -212,7 +227,9 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 updated += eol + addition;
             }
             // Keep user commands; add the debug-only C3 workaround once.
-            updated = updateDebugSection(updated, debugEnv, [...new Set([...extraCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label);
+            const preservedCommands = extraCommands.filter(command => command.trim() !== 'monitor riscv set_maskisr off');
+            updated = updateDebugSection(updated, debugEnv, [...new Set([...preservedCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label,
+                [].concat(selected.options.debug_build_flags || []));
             if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },
@@ -247,8 +264,10 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     }
 
     function createDebugAdapterTracker(session) {
-        if (!session.configuration?.mcbHardwareDebug || !launchDiagnostics) return undefined;
-        const diagnostics = launchDiagnostics;
+        if (!session.configuration?.mcbHardwareDebug) return undefined;
+        const diagnostics = launchDiagnostics || { text: '' };
+        const stepping = createArduinoStepTracker(session, output,
+            vscode.workspace.getConfiguration('mcbDigitalTwin').get('skipArduinoLoopTask', true));
         function record(text) {
             if (!text) return;
             text = cleanDiagnostic(text);
@@ -256,12 +275,14 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             output.appendLine(`[Hardware-Debugger] ${text.trim()}`);
         }
         return {
+            onWillReceiveMessage(message) { stepping?.onWillReceiveMessage(message); },
             onDidSendMessage(message) {
+                stepping?.onDidSendMessage(message);
                 if (message.type === 'event' && message.event === 'output') record(message.body?.output);
                 if (message.type === 'response' && message.success === false) record(message.message || message.body?.error?.format);
             },
             onError(error) { record(error.message); },
-            onExit(code, signal) { record(`Debugadapter beendet (Code: ${code}, Signal: ${signal || 'keines'}).`); },
+            onExit(code, signal) { stepping?.onExit(); record(`Debugadapter beendet (Code: ${code}, Signal: ${signal || 'keines'}).`); },
         };
     }
 
