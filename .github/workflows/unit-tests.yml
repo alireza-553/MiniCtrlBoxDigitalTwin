@@ -1,0 +1,83 @@
+name: Unit-Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension:
+    name: Erweiterung (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Quellcode auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: JavaScript-Syntax prüfen
+        run: node --check vscode-extension/extension.js
+
+      - name: Alle Erweiterungstests ausführen
+        env:
+          # These tests mock downloads, driver installation and UAC completely.
+          MCB_WINDOWS_DRIVER_TEST: ${{ runner.os == 'Windows' && '1' || '' }}
+        run: node --test vscode-extension/test/*.test.js
+
+  simulator:
+    name: Simulator und VSIX (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Quellcode auschecken
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Python einrichten
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Desktop-C++-Werkzeuge installieren
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential gdb
+
+      - name: Voraussetzungen für native Tests prüfen
+        run: |
+          python - <<'PY'
+          import shutil
+          from mcb_digital_twin.native_runner import _compiler
+          compiler, _, _ = _compiler()
+          assert shutil.which("gdb"), "GDB fehlt für die nativen Tests"
+          print("Desktop-Compiler:", compiler)
+          PY
+
+      - name: Simulator- und native C++-Tests ausführen
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/mcb-test-data
+        run: python -m unittest discover -s mcb_digital_twin -p "test_*.py" -v
+
+      - name: Installierbare VSIX bauen und Archiv prüfen
+        run: python vscode-extension/build_vsix.py
