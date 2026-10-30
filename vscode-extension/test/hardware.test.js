@@ -93,6 +93,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.match(h.ini(), /skip function loopTask/);
     assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
     assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
+    assert.match(h.ini(), /debug_build_flags =\r\n    -O0\r\n    -g3\r\n    -ggdb3/);
     assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\nbuild_flags =\r\n    \$\{env:lesson\.build_flags\}\r\n    -fno-inline\r\n    -fno-inline-small-functions\r\n    -fno-default-inline\r\ndebug_tool = esp-builtin/);
     assert.equal(h.ini().match(/-fno-inline$/gm).length, 1);
@@ -248,4 +249,14 @@ test('legacy generated environment is upgraded without changing other environmen
     assert.match(updated, /-fno-default-inline/);
     assert.equal(updated.match(/debug_extra_cmds =/g).length, 1);
     assert.equal(updateDebugSection(updated, 'mcb-usb-debug-lesson', commands, 'lesson'), updated);
+});
+
+test('source debug mode overrides optimization last while preserving custom debug flags', () => {
+    const { updateDebugSection } = require('../hardware');
+    const original = '[env:base]\nboard = esp32-c3-devkitm-1\n\n[env:twin]\nextends = env:base\ndebug_build_flags = -Og -DDEBUG_CHECK=1\n';
+    const updated = updateDebugSection(original, 'twin', [], 'base');
+    assert.match(updated, /-Og -DDEBUG_CHECK=1\n    -O0\n    -g3\n    -ggdb3/);
+    assert.equal(updateDebugSection(updated, 'twin', [], 'base'), updated);
+    const inherited = updateDebugSection('[env:twin]\n', 'twin', [], 'base', ['-DLESSON_DEBUG=1']);
+    assert.match(inherited, /debug_build_flags =\n    -DLESSON_DEBUG=1\n    -O0/);
 });

@@ -80,6 +80,16 @@ Die Debug-Konfiguration verwendet deshalb ab 0.3.11 `monitor riscv set_maskisr s
 
 Die ältere Einstellung `off` stammte aus der ursprünglichen Watchdog-Fehlersuche. Die Watchdogs werden weiterhin bei jedem Halt abgeschaltet und ihre ausstehenden Interrupts gelöscht. Einzelschritt-Maskierung ist eine Debughilfe und kein Test des Zeit- oder Interruptverhaltens im normalen Betrieb. Siehe [OpenOCD: riscv set_maskisr](https://openocd.org/doc/html/Architecture-and-Core-Commands.html).
 
+## Zeilenanzeige bei switch und break
+
+Compileroptimierung kann mehrere Quellzeilen auf ein gemeinsames Funktionsende abbilden. Im untersuchten `CAmpel::setPhase()` mit der bisherigen `-Og`-Firmware sprang `break` aus `case OFF` (Zeile 87) an Adresse `0x42000102`; die Debug-Zeilentabelle ordnete dieser Adresse sowohl Zeile 67 als auch Zeile 89 zu. GDB zeigte dadurch den `break` des `RED`-Falls, obwohl dessen Anweisungen nicht erneut ausgeführt wurden.
+
+Die generierte Hardware-Debugumgebung verwendet ab 0.3.11 ausdrücklich `debug_build_flags` mit abschließendem `-O0 -g3 -ggdb3`, zusätzlich zum abgeschalteten Inlining. Eigene Debug-Definitionen bleiben erhalten. Dies reduziert solche durch Optimierung verursachten Sprünge; eine perfekte Eins-zu-eins-Zuordnung jeder C++-Zeile ist auch damit nicht allgemein garantiert. Die normale Uploadumgebung bleibt unverändert. Debug-Firmware kann größer und langsamer sein als die normale Firmware.
+
+Nach einer Änderung der Build-Einstellungen muss die Debugsitzung beendet und **Hardware debuggen** neu gestartet werden. Ein Neuladen des Editors allein ersetzt die Firmware auf dem Board nicht. Siehe [PlatformIO: debug_build_flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/debug_build_flags.html).
+
+**Hardwarevergleich am 30.10.2026:** Die neu erzeugte `firmware.elf` ordnete Zeile 67 der Adresse `0x420002f4`, Zeile 87 der Adresse `0x42000374` und das Funktionsende in Zeile 89 der Adresse `0x42000376` zu. Nach Übertragung auf die MiniCtrlBox wurde `ampel.currentPhase` für den Test im Debugger auf `CAmpel::OFF` gesetzt und ein temporärer Hardware-Haltepunkt auf `CAmpel.h:87` angelegt. Dort führte F10 nach Zeile 89 und der nächste F10-Schritt zurück zu `CAmpel::nextPhase()` in Zeile 58. Zeile 67 wurde dabei nicht mehr angezeigt. Der temporäre Testhaltepunkt wurde beim Treffer von GDB entfernt; der Quellcode der Übung blieb unverändert.
+
 ## Windows-Treiberprüfung
 
 Die JTAG-Schnittstelle ist `USB\VID_303A&PID_1001&MI_02`. Die serielle Schnittstelle `MI_00` ist ein getrenntes Gerät. Die Prüfung verlangt genau eine vorhandene JTAG-Schnittstelle mit Status `OK`, dem Dienst `WinUSB` und der Espressif-Geräteschnittstellen-GUID `{80869ad8-c37f-476a-a6b4-ae241c30a473}`.
