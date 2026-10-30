@@ -12,7 +12,7 @@ function harness(options = {}) {
     let ini = original + (options.conflictingEnv ? '\r\n[env:mcb-usb-debug-lesson]\r\ndebug_tool = esp-prog\r\n' : '');
     const calls = { processes: [], debug: [], errors: [], saves: 0 };
     let extensionsActivated = 0;
-    const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']]];
+    const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']], ['debug_extra_cmds', options.extraCommands || []]];
     const vscode = {
         ProgressLocation: { Notification: 15 },
         workspace: { isTrusted: !options.untrusted, textDocuments: [{ uri: { fsPath: root }, isDirty: true,
@@ -91,6 +91,8 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /skip function loopTask/);
+    assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
+    assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
     assert.match(h.ini(), /monitor esp32c3 configure -event halted \{ esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 \}/);
     assert.match(h.ini(), /extends = env:lesson\r\nbuild_type = debug\r\nbuild_flags =\r\n    \$\{env:lesson\.build_flags\}\r\n    -fno-inline\r\n    -fno-inline-small-functions\r\n    -fno-default-inline\r\ndebug_tool = esp-builtin/);
     assert.equal(h.ini().match(/-fno-inline$/gm).length, 1);
@@ -105,6 +107,16 @@ test('hardware debug preserves project settings, builds before launch and uses n
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
     assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
+});
+
+test('legacy interrupt masking is upgraded without losing other debug commands', async () => {
+    const h = harness({ extraCommands: ['monitor echo keep', 'monitor riscv set_maskisr off'] });
+    await h.hardware.debug();
+    await h.hardware.debug();
+    assert.deepEqual(h.calls.errors, []);
+    assert.match(h.ini(), /monitor echo keep/);
+    assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
+    assert.equal(h.ini().match(/monitor riscv set_maskisr steponly/g).length, 1);
 });
 
 test('hardware tracker handles wrapper returns without launch diagnostics and keeps diagnostic output working', async () => {

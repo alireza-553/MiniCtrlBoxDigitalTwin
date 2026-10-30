@@ -72,6 +72,14 @@ Die Auswahl- und Abbruchbedingungen sind automatisiert geprüft. Der Befehl `adv
 
 Siehe [GDB: skip](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Skipping-Over-Functions-and-Files.html) und [GDB: Einzelschritte](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Continuing-and-Stepping.html).
 
+## F11 muss am Hardware-Haltepunkt zweimal gedrückt werden
+
+Mit `riscv set_maskisr off` wurde auf der echten MiniCtrlBox ein zusätzlicher Halt beobachtet: F11 an `ampel.nextPhase()` in `src/main.cpp:29` hielt erneut mit Grund `breakpoint` an derselben Adresse `0x4200029a`. Erst der zweite F11-Schritt erreichte `CAmpel::nextPhase()` bei `include/CAmpel.h:40`.
+
+Die Debug-Konfiguration verwendet deshalb ab 0.3.11 `monitor riscv set_maskisr steponly`. OpenOCD maskiert Interrupts während seiner Einzelschritte; normales Fortsetzen bleibt möglich. Im direkten Vergleich am selben Nutzerhaltepunkt erreichte bereits der erste F11-Schritt `CAmpel::nextPhase()` (`0x42000154`, Zeile 40). Es wird kein zusätzlicher Schritt automatisch wiederholt und kein Nutzerhaltepunkt entfernt. Der frühere generierte Befehl `monitor riscv set_maskisr off` wird beim nächsten Hardware-Debugstart ersetzt; andere zusätzliche Befehle bleiben erhalten.
+
+Die ältere Einstellung `off` stammte aus der ursprünglichen Watchdog-Fehlersuche. Die Watchdogs werden weiterhin bei jedem Halt abgeschaltet und ihre ausstehenden Interrupts gelöscht. Einzelschritt-Maskierung ist eine Debughilfe und kein Test des Zeit- oder Interruptverhaltens im normalen Betrieb. Siehe [OpenOCD: riscv set_maskisr](https://openocd.org/doc/html/Architecture-and-Core-Commands.html).
+
 ## Windows-Treiberprüfung
 
 Die JTAG-Schnittstelle ist `USB\VID_303A&PID_1001&MI_02`. Die serielle Schnittstelle `MI_00` ist ein getrenntes Gerät. Die Prüfung verlangt genau eine vorhandene JTAG-Schnittstelle mit Status `OK`, dem Dienst `WinUSB` und der Espressif-Geräteschnittstellen-GUID `{80869ad8-c37f-476a-a6b4-ae241c30a473}`.
@@ -124,7 +132,7 @@ Ein Debugger-Reset mit deaktiviertem Debug-Watchdog, gelöschten ausstehenden Wa
 debug_init_break = thbreak setup
 debug_extra_cmds =
     skip function loopTask
-    monitor riscv set_maskisr off
+    monitor riscv set_maskisr steponly
     monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }
     monitor esp32c3_wdt_disable
     monitor mww 0x6002007c 2

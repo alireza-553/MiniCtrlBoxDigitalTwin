@@ -7,7 +7,9 @@ const { createArduinoStepTracker } = require('./arduino-stepping');
 const DEBUG_STARTUP_COMMANDS = [
     // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
     'skip function loopTask',
-    'monitor riscv set_maskisr off',
+    // Prevent a pending ISR from returning to and immediately re-hitting the
+    // same persistent hardware breakpoint during a source-level step.
+    'monitor riscv set_maskisr steponly',
     // Keep OpenOCD's watchdog shutdown and also clear pending interrupts at every halt.
     'monitor esp32c3 configure -event halted { esp32c3_wdt_disable; mww 0x6002007c 2; mww 0x6001f07c 2 }',
     'monitor esp32c3_wdt_disable',
@@ -213,7 +215,8 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 updated += eol + addition;
             }
             // Keep user commands; add the debug-only C3 workaround once.
-            updated = updateDebugSection(updated, debugEnv, [...new Set([...extraCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label);
+            const preservedCommands = extraCommands.filter(command => command.trim() !== 'monitor riscv set_maskisr off');
+            updated = updateDebugSection(updated, debugEnv, [...new Set([...preservedCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label);
             if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },

@@ -2,6 +2,7 @@
 
 ## v0.3.11 – Nach Einzelschritten aus Arduino loopTask zurückkehren
 
+- Interruptmaskierung auf `steponly` umstellen und ältere generierte `off`-Befehle ersetzen: Im Hardwarevergleich erreichte F11 am Nutzerhaltepunkt `ampel.nextPhase()` damit direkt beim ersten Druck statt nach einem erneuten Halt an derselben Adresse.
 - Die Rückkehrbehandlung erkennt PlatformIO-Namen wie `loopTask(void*)@0x42001b9c` einschließlich Adresszusatz. Tests prüfen das tatsächliche Adapterformat, Namen ohne Adresszusatz und ähnlich benannte Funktionen.
 - Nach F10/F11 am Ende von `setup()` oder `loop()` führt ein Schritt-Halt in der Arduino-Hülle einmalig bis zum nächsten `loop()`-Eintritt weiter. `skip function loopTask` allein verhindert diesen Rücksprung nicht.
 - Haltepunkte, Fehler, manuelles Anhalten, Maschinenschritte und explizites Herausspringen bleiben erhalten. Abschaltbar über `mcbDigitalTwin.skipArduinoLoopTask`.
