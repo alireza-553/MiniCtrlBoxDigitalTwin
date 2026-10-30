@@ -21,7 +21,7 @@ VSIX…** installieren. Unter Windows bei Bedarf die Einstellung
 
 Die Seitenleiste trennt **Digital Twin** (Simulation auf diesem PC) und **Echte Hardware**
 (MiniCtrlBox über USB). **Werkzeuge** ist anfangs eingeklappt und enthält
-**Simulator testen** und **USB-JTAG-Treiber einrichten**. Der separate Startbefehl
+**Unit-Tests ausführen** und **USB-JTAG-Treiber einrichten**. Ab 0.3.12 prüfen die Unit-Tests die mitgelieferte Erweiterung und den Simulator lokal; Python muss installiert sein, Node.js wird aus VS Code verwendet. Ergebnisse und übersprungene Tests stehen in der Ausgabe. Es werden keine GitHub-Runner verwendet. [Testumfang](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/TESTS.md). Der separate Startbefehl
 bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei Bedarf selbst.
 
 Die [Bedienungsanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/BEDIENUNG.md) erklärt alle Schaltflächen und Debug-Tasten.

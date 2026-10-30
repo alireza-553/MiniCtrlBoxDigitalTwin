@@ -140,12 +140,20 @@ function harness(options = {}) {
         require: name => ({ vscode, fs: fakeFS, http: options.live ? require('node:http') : http, child_process: childProcess,
             './hardware': require(path.join(extensionRoot, 'hardware')),
             './variable-search': require(path.join(extensionRoot, 'variable-search')),
+            './local-tests': require(path.join(extensionRoot, 'local-tests')),
             './jtag-driver': require(path.join(extensionRoot, 'jtag-driver')) }[name] || require(name)),
     };
     vm.runInNewContext(fs.readFileSync(path.join(extensionRoot, 'extension.js'), 'utf8'), sandbox);
     sandbox.module.exports.activate({ extensionPath: extensionRoot, subscriptions: [] });
     return { calls, selected, commands, tree, terminate: terminated };
 }
+
+test('local unit tests are discoverable under Werkzeuge', () => {
+    const h = harness();
+    const tools = h.tree.getChildren().find(group => group.label === 'Werkzeuge');
+    assert.ok(tools.children.some(item => item.label === 'Unit-Tests ausführen' && item.command.command === 'mcbDigitalTwin.unitTests'));
+    assert.equal(typeof h.commands.get('mcbDigitalTwin.unitTests'), 'function');
+});
 
 test('status bar contains one compact menu instead of separate controls', () => {
     const h = harness();

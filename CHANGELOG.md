@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.12 – Unit-Tests lokal unter Werkzeuge
+
+- Gesamter lokaler Testlauf für Erweiterung und Simulator über **Werkzeuge → Unit-Tests ausführen**; Tests werden im VSIX mitgeliefert. Keine separate Node.js-Installation nötig.
+- Ausgabe und Ergebnis nennen auch übersprungene Tests; doppelte Starts werden verhindert und fehlendes Python gemeldet.
+- GitHub-Testworkflow deaktiviert und Workflow-Datei entfernt, damit keine weiteren GitHub-Actions-Läufe entstehen.
+
 ## v0.3.11 – Nach Einzelschritten aus Arduino loopTask zurückkehren
 
 - Hardware-Debug-Build mit abschließendem `-O0 -g3 -ggdb3`: Der konkrete irreführende Zeilensprung im `OFF`-Zweig von `CAmpel::setPhase()` wurde auf echter Hardware beseitigt; geprüft wurde Zeile 87 → 89 → Aufrufer in Zeile 58. Eigene Debug-Definitionen bleiben erhalten, die normale Uploadumgebung unverändert.

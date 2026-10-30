@@ -185,7 +185,7 @@ Dies ist eine Verhaltenssimulation: keine elektrischen Signale, Arbitration, Bus
 
 ## Entwicklung
 
-GitHub Actions prüft Pull Requests nach `main` und Änderungen auf `main` automatisch: Erweiterungstests unter Linux/Windows sowie Simulator-Tests und VSIX-Paketbau unter Linux. Ergebnisse stehen unter **Checks** bzw. **Actions**. [Umfang und lokale Testbefehle](docs/TESTS.md).
+Ab **0.3.12** führt **Werkzeuge → Unit-Tests ausführen** die Tests von Erweiterung und Simulator lokal auf deinem PC aus. Ergebnisse und übersprungene Tests stehen in der Ausgabe. Der GitHub-Workflow ist deaktiviert; dafür entstehen keine GitHub-Actions-Rechenkosten. [Umfang und Voraussetzungen](docs/TESTS.md).
 
 | Ordner | Inhalt |
 | --- | --- |
