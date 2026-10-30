@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.12",
+  "version": "0.3.11",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
