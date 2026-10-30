@@ -185,6 +185,8 @@ Dies ist eine Verhaltenssimulation: keine elektrischen Signale, Arbitration, Bus
 
 ## Entwicklung
 
+GitHub Actions prüft Pull Requests nach `main` und Änderungen auf `main` automatisch: Erweiterungstests unter Linux/Windows sowie Simulator-Tests und VSIX-Paketbau unter Linux. Ergebnisse stehen unter **Checks** bzw. **Actions**. [Umfang und lokale Testbefehle](docs/TESTS.md).
+
 | Ordner | Inhalt |
 | --- | --- |
 | `mcb_digital_twin/` | Zentraler Python-Simulator und Tests. |
