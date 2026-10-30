@@ -15,7 +15,7 @@ Die folgenden Gruppen sind das Inhaltsverzeichnis. Innerhalb jeder Gruppe führt
 | Thema | Begriffe |
 | --- | --- |
 | Programmieren | [Quellcode, C++ und Python](#quellcode) · [Variable](#variable) · [Funktion](#funktion) · [Klasse, Objekt, Methode](#klasse-objekt) · [Bibliothek und Framework](#bibliothek-framework) · [setup und loop](#setup-loop) · [delay und blockierend](#delay) |
-| Bauen und Ausführen | [Build](#build) · [Compiler und Linker](#compiler-linker) · [Firmware](#firmware) · [ELF, BIN und Debug-Symbole](#elf-bin) · [Upload und Flashen](#upload) · [RAM und Flash](#ram-flash) · [Simulator und digitaler Zwilling](#simulator) |
+| Bauen und Ausführen | [Build](#build) · [Compiler und Linker](#compiler-linker) · [Compileroptionen und Build-Flags](#compileroptionen) · [Optimierungsstufen -O](#optimierung) · [Debug- und Release-Build](#debug-release) · [Firmware](#firmware) · [ELF, BIN und Debug-Symbole](#elf-bin) · [Upload und Flashen](#upload) · [RAM und Flash](#ram-flash) · [Simulator und digitaler Zwilling](#simulator) |
 | Fehlersuche | [Debugging und Debugger](#debugger) · [Haltepunkt](#haltepunkt) · [Hardware-Haltepunkt und thbreak](#hardware-haltepunkt) · [Einzelschritt und Fortsetzen](#einzelschritt) · [Aufrufliste und Stack Frame](#aufrufliste) · [Task und Thread](#task-thread) · [Interrupt und ISR](#interrupt) · [Watchdog](#watchdog) · [Watchdog-Interrupt](#watchdog-interrupt) · [Panic-Handler](#panic-handler) · [Timeout und busy](#timeout) · [Reset](#reset) |
 | Hardware und Verbindung | [Mikrocontroller und CPU](#mikrocontroller-cpu) · [GPIO](#gpio) · [OLED und I2C](#oled-i2c) · [USB, COM-Port und serieller Monitor](#usb-com) · [USB-JTAG](#usb-jtag) · [GDB und OpenOCD](#gdb-openocd) · [Register, Adresse und Bit](#register-bit) · [Treiber und WinUSB](#treiber) |
 | Werkzeuge und Projekt | [VS Code und VSIX](#vscode-vsix) · [PlatformIO und Umgebung](#platformio) · [Debugadapter und DAP](#debugadapter) · [Workspace und Vertrauen](#workspace) · [Pfad und PATH](#pfad) · [localhost und Port](#localhost-port) · [SDK und Dateiformate](#sdk-api) · [Prozess und Dateisperre](#prozess-dateisperre) · [Test](#test) · [SHA-256 und Signatur](#hash-signatur) · [Git, Branch, PR und Tag](#git-pr) |
@@ -68,6 +68,59 @@ Ein Build erzeugt aus Quellcode und benötigten Bibliotheken ein ausführbares P
 ### Compiler, Linker und Toolchain
 
 Der Compiler übersetzt Quellcode in Maschinencode. Der Linker fügt die übersetzten Teile und Bibliotheken zusammen. Die Sammlung dieser Werkzeuge heißt Toolchain. Für die echte ESP32-C3-Hardware wird eine andere Toolchain verwendet als für den C++-Prozess auf deinem PC. Ein fehlender Funktionsname beim Linken ist deshalb ein anderer Fehler als eine unterbrochene USB-Verbindung.
+
+<a id="compileroptionen"></a>
+### Compileroptionen, Build-Flags und Debug-Informationen
+
+Flags sind zusätzliche Einstellungen für die Werkzeuge beim [Build](#build). Sie stehen außerhalb deines C++-Quellcodes. Ein Beispiel für GCC/G++ auf dem PC:
+
+```sh
+g++ -O0 -g3 main.cpp -o beispiel
+```
+
+Das übersetzt `main.cpp` mit den gewählten Einstellungen in das Programm `beispiel`. Es überträgt nichts auf die MiniCtrlBox. Dafür benötigt man die [RISC-V-Toolchain](#compiler-linker) und einen anschließenden [Upload](#upload).
+
+| Option | Bedeutung |
+| --- | --- |
+| `-O0` | Großes **O** und Ziffer **0**: die meisten Optimierungen abschalten. |
+| `-o beispiel` | Kleines **o**: Name der Ausgabedatei. `-o0` würde eine Datei namens `0` wählen und ist keine Optimierungsstufe. |
+| `-g`, `-g2` | Übliche Debug-Informationen, etwa Funktionsnamen, Variablen und Quellzeilen, erzeugen. |
+| `-g3` | Zusätzlich Informationen wie Makrodefinitionen aufnehmen. Die 3 bezeichnet die Informationsstufe, nicht die Optimierung. |
+| `-ggdb3` | Umfangreiche Debug-Informationen passend zu GDB erzeugen. Es ist keine zweite Optimierungsstufe. |
+| `-DDEBUG_CHECK=1` | Einen Präprozessor-Makrowert vorgeben, den der Quellcode abfragen kann. |
+| `-Iinclude` | Einen zusätzlichen Suchordner für Header angeben. |
+| `-fno-inline` | Das Einbetten von Funktionskörpern am Aufrufort einschränken. Das allein schaltet andere Optimierungen nicht ab. |
+
+`-g3` und `-ggdb3` sind in unserer Debugkonfiguration gemeinsam enthalten; sie bedeuten nicht zwei verschiedene Programmabläufe. Debug-Informationen stehen in der [ELF-Datei](#elf-bin) und sind nicht gleichbedeutend mit zusätzlichem Programmcode im Flash. [GCC 8.4: Debug-Optionen](https://gcc.gnu.org/onlinedocs/gcc-8.4.0/gcc/Debugging-Options.html).
+
+In `platformio.ini` gelten `build_flags` allgemein für die jeweilige Umgebung. `debug_build_flags` steuert zusätzliche Debug-Build-Einstellungen; PlatformIO verwendet dafür normalerweise `-Og -g2 -ggdb2`. Unsere erzeugte Hardware-Debugumgebung setzt ab 0.3.11 abschließend `-O0 -g3 -ggdb3`. Bereits vorhandene eigene Debug-Definitionen bleiben erhalten. Eine geänderte Einstellung wirkt erst nach erneutem Bauen und Übertragen auf der Hardware. [PlatformIO: Debug-Build-Flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/debug_build_flags.html).
+
+<a id="optimierung"></a>
+### Compileroptimierung und die verschiedenen -O-Stufen
+
+Optimierung formt den erzeugten Maschinencode um, beispielsweise für geringere Laufzeit oder weniger Speicherbedarf. Dadurch kann die Anzeige im Debugger vom Zeilenablauf des Quelltextes abweichen. Die folgenden Angaben beziehen sich auf GCC; die Wirkung hängt auch von Version, Zielprozessor und Programm ab.
+
+| Stufe | Ziel und mögliche Auswirkung |
+| --- | --- |
+| `-O0` | Die meisten Optimierungen aus. Für unsere Lernschritte meist nachvollziehbarer; Programmcode kann größer oder langsamer sein. |
+| `-Og` | Kompromiss für Debugging und Optimierung. GCC empfiehlt diese Stufe allgemein für den Entwicklungszyklus; im untersuchten `switch` war die Zeilenanzeige trotzdem verwirrend. |
+| `-O` / `-O1` | Grundlegende Optimierungen für Laufzeit und Codegröße. |
+| `-O2` | Mehr Optimierungen; im Debugger können Werte oder Zeilenschritte schwerer nachvollziehbar werden. |
+| `-O3` | Weitere Optimierungen, etwa für Schleifen. Nicht für jedes Programm schneller oder kleiner als `-O2`. |
+| `-Os` | Schwerpunkt auf kleinerem Programmcode; kann bei begrenztem Flash sinnvoll sein. |
+| `-Ofast` | Zusätzliche, teils nicht streng standardkonforme Optimierungen, etwa für Gleitkommarechnungen. Ergebnisse können sich dadurch verändern. |
+| `-Oz` | In neueren GCC-Versionen noch stärker auf Codegröße ausgerichtet. Gehört nicht zum hier getesteten GCC 8.4; dort nicht ungeprüft verwenden. |
+
+Bei mehreren `-O`-Angaben gilt in GCC die letzte. Deshalb steht unser `-O0` am Ende der Debug-Flags. Die Stufen sind Ziele und keine garantierten Geschwindigkeitswerte. Siehe [GCC 8.4: Optimierungsstufen](https://gcc.gnu.org/onlinedocs/gcc-8.4.0/gcc/Optimize-Options.html) und [aktuelle GCC-Optionen einschließlich -Oz](https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html).
+
+**Beispiel aus der MiniCtrlBox:** Das `break` im `OFF`-Zweig von `setPhase()` sprang mit der alten `-Og`-Firmware zum gemeinsamen Funktionsende. Die Debug-Informationen ordneten diesem Ende auch Zeile 67 im `RED`-Zweig zu. Die CPU führte dessen Ampelanweisungen nicht erneut aus; die Markierung war irreführend. Mit `-O0` wurden im Hardwaretest **Zeile 87 → Zeile 89 → Aufrufer in Zeile 58** angezeigt. Auch `-O0` garantiert nicht, dass jede Quellzeile eine eigene ausführbare Adresse bekommt. [Geprüfter Ablauf](../HARDWARE_DEBUG.md#zeilenanzeige-bei-switch-und-break).
+
+<a id="debug-release"></a>
+### Debug-Build und Release-Build
+
+Das sind unterschiedliche Build-Konfigurationen desselben Quellcodes. Ein **Debug-Build** erleichtert die Fehlersuche durch Debug-Informationen und passende Compileroptionen. Ein **Release-Build** richtet sich auf den normalen Betrieb aus, zum Beispiel auf Laufzeit und Speicherverbrauch. „Debug“ bedeutet nicht automatisch `-O0`, und „Release“ legt keine allgemeingültige `-O`-Stufe fest. Die tatsächlichen Flags sind entscheidend.
+
+In diesem Projekt erzeugt **Hardware debuggen** eine eigene PlatformIO-Umgebung mit `build_type = debug` und den oben erklärten Debug-Flags. **Programm übertragen** verwendet die ursprünglich ausgewählte Projektumgebung; deren Einstellungen werden dadurch nicht geändert. Ein optimierter Build kann ebenfalls Debug-Informationen enthalten. Zum Abschlusstest gehört deshalb auch die tatsächlich für den normalen Betrieb verwendete Firmware, besonders wenn Zeitverhalten oder Interrupts eine Rolle spielen.
 
 <a id="firmware"></a>
 ### Firmware

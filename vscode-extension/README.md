@@ -70,6 +70,8 @@ Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
 
+Ab **0.3.11** setzt die generierte Hardware-Debugumgebung außerdem `debug_build_flags` mit abschließendem **`-O0 -g3 -ggdb3`**. `-O0` (großes O, Ziffer Null) schaltet die meisten Compileroptimierungen ab; die `-g`-Optionen liefern Debug-Informationen. Dies verhindert den im Übungsprojekt geprüften irreführenden Sprung vom `OFF`-`break` in Zeile 87 zur Zeile 67. Einzelschritte wurden stattdessen als **87 → 89 → Aufrufer** geprüft. Die normale Uploadumgebung bleibt unverändert. Nach Änderungen den Hardware-Debugstart neu ausführen, damit neu gebaut und übertragen wird. [Optimierungsstufen und Build-Begriffe nachschlagen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#optimierung).
+
 Am Haltepunkt hält die **echte CPU** an. Ausgänge behalten normalerweise ihren letzten Zustand, und das OLED zeigt den letzten Inhalt. Eigenständig laufende Peripherie kann weiterarbeiten. **F5** setzt das Programm fort, **F10** führt den nächsten Schritt aus, **F11** springt in eine Funktion. **Umschalt+F5** beendet die Sitzung; bei Bedarf das Board anschließend zurücksetzen.
 
 Ab **0.3.4** werden laufende Hardware-Debugsitzungen auch bei einem Wechsel der ausgewählten Sitzung berücksichtigt. Unter Windows wird die vorhandene `firmware.elf` vor dem Build auf exklusiven Zugriff geprüft. Bei einer Sperre die alte Sitzung mit **Umschalt+F5** beenden, auch in anderen VS-Code-Fenstern; falls nötig das zugehörige Fenster schließen und erneut versuchen.
