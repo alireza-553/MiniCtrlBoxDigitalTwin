@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.11 – Nach Einzelschritten aus Arduino loopTask zurückkehren
+
+- Nach F10/F11 am Ende von `setup()` oder `loop()` führt ein Schritt-Halt in der Arduino-Hülle einmalig bis zum nächsten `loop()`-Eintritt weiter. `skip function loopTask` allein verhindert diesen Rücksprung nicht.
+- Haltepunkte, Fehler, manuelles Anhalten, Maschinenschritte und explizites Herausspringen bleiben erhalten. Abschaltbar über `mcbDigitalTwin.skipArduinoLoopTask`.
+- Automatische Tests prüfen Zielauswahl, Abbruch und Fehlerpfade; der erneute echte Hardwaretest dieses Übergangs steht noch aus.
+
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 
 - Direkt am Statusleisteneintrag erscheint beim Darüberfahren ein anklickbares Menü mit denselben Gruppen „Digital Twin“ und „Echte Hardware“ wie in der Seitenleiste. Ein Klick auf den Eintrag öffnet die Seitenleiste; das Auswahlmenü bleibt über die Befehlspalette verfügbar.

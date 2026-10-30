@@ -56,6 +56,16 @@ Für Linux und macOS ist diese Kombination hier noch nicht durch einen echten Ha
 
 Der Python-Simulator wird für diese Hardwarebefehle nicht gestartet. Eine Live-Synchronisierung der Browseransicht mit dem Board ist nicht Bestandteil der Anbindung.
 
+## Rücksprung in Arduino `loopTask()` beim Einzelschritt (ab 0.3.11)
+
+`setup()` und `loop()` werden von Arduinos FreeRTOS-Funktion `loopTask(void*)` aufgerufen. F10 oder F11 am Funktionsende kann deshalb in diese Hülle zurückkehren. Das allein ist kein Absturz. Der GDB-Befehl `skip function loopTask` verhindert das Hineinsteigen bei Aufrufen, verhindert aber nicht diesen Rücksprung.
+
+Ab 0.3.11 prüft die Erweiterung nach einem solchen Quellcode-Einzelschritt den obersten Stackframe. Nur wenn der Haltgrund `step`, der Thread derselbe und die Funktion `loopTask` aus `cores/esp32/main.cpp` ist, führt sie einmalig GDB `advance loop` aus. Das Programm läuft dabei tatsächlich weiter bis zum nächsten `loop()`-Eintritt. Dazwischen können weiterhin Haltepunkte oder Fehler anhalten. Die Debugkonsole und der Ausgabekanal zeigen den automatischen Übergang; die Arduino-Datei kann dabei kurz sichtbar werden.
+
+Manuelles Anhalten, Haltepunkte, Ausnahmefehler, Maschinenschritte und ausdrücklich gewähltes Herausspringen (Umschalt+F11) werden nicht automatisch fortgesetzt. Bei einem Fehler wird kein weiterer Versuch gestartet. Unter `mcbDigitalTwin.skipArduinoLoopTask` lässt sich die Behandlung abschalten; anschließend die Debugsitzung neu starten. Dies betrifft die über **Hardware debuggen** gestarteten MiniCtrlBox-Sitzungen.
+
+Die Auswahl- und Abbruchbedingungen sind automatisiert geprüft. Ein erneuter Test dieses Übergangs auf echter Hardware ist für diese Änderung noch ausstehend. Siehe [GDB: skip](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Skipping-Over-Functions-and-Files.html) und [GDB: Einzelschritte und advance](https://www.sourceware.org/gdb/current/onlinedocs/gdb.html/Continuing-and-Stepping.html).
+
 ## Windows-Treiberprüfung
 
 Die JTAG-Schnittstelle ist `USB\VID_303A&PID_1001&MI_02`. Die serielle Schnittstelle `MI_00` ist ein getrenntes Gerät. Die Prüfung verlangt genau eine vorhandene JTAG-Schnittstelle mit Status `OK`, dem Dienst `WinUSB` und der Espressif-Geräteschnittstellen-GUID `{80869ad8-c37f-476a-a6b4-ae241c30a473}`.

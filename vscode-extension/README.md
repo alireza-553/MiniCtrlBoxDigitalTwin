@@ -7,6 +7,8 @@ aktuell geöffneten MiniCtrlBox-Projektordner. Lade- und Hardwareaktionen speich
 
 ## Benutzung
 
+Ab **0.3.11** führt ein F10-/F11-Schritt, der am Ende von `setup()` oder `loop()` in Arduinos `loopTask()` zurückkehrt, automatisch bis zum nächsten `loop()`-Eintritt weiter. Die genaue Eingrenzung und die abschaltbare Einstellung beschreibt die [Hardware-Dokumentation](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md#rücksprung-in-arduino-looptask-beim-einzelschritt-ab-0311).
+
 **Getesteter Hardware-Stand für v0.3.7:** Espressif32 `6.10.0`, RISC-V-GCC `8.4.0` (`esp-2021r2-patch5`) und Espressif-OpenOCD `0.11.0-esp32-20220706` unter Windows. Die [vollständige Referenzumgebung und ihre Testgrenzen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md#getestete-toolchain-für-erweiterung-v037) stehen in der Hardware-Dokumentation.
 
 Die Datei `mcb-digital-twin-0.3.10.vsix` über **Extensions → … → Install from

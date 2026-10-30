@@ -70,8 +70,9 @@ function harness(options = {}) {
         });
         return child;
     } };
-    const sandbox = { module: { exports: {} }, process,
-        require: name => ({ fs: fakeFS, child_process: childProcess }[name] || require(name)) };
+    const sandbox = { module: { exports: {} }, process: { ...process, platform: options.platform || process.platform },
+        require: name => ({ fs: fakeFS, child_process: childProcess,
+            './arduino-stepping': require('../arduino-stepping') }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../hardware.js'), 'utf8'), sandbox);
     const output = { show() {}, append() {}, appendLine() {} };
     const hardware = sandbox.module.exports.createHardwareCommands(vscode, output, () => root, async () => {
@@ -104,6 +105,23 @@ test('hardware debug preserves project settings, builds before launch and uses n
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
     assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
+});
+
+test('hardware tracker handles wrapper returns without launch diagnostics and keeps diagnostic output working', async () => {
+    const h = harness();
+    const requests = [];
+    const tracker = h.hardware.createDebugAdapterTracker({ configuration: { mcbHardwareDebug: true },
+        customRequest: async (command, args) => {
+            requests.push({ command, args });
+            return { stackFrames: [{ name: 'loopTask(void*)', source: { path: '/framework/cores/esp32/main.cpp' } }] };
+        } });
+    tracker.onWillReceiveMessage({ type: 'request', command: 'next', seq: 9, arguments: { threadId: 3 } });
+    tracker.onDidSendMessage({ type: 'event', event: 'stopped', body: { reason: 'step', threadId: 3 } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(requests[1].command, 'evaluate');
+    assert.match(requests[1].args.expression, /advance loop/);
+    tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: 'hardware output' } });
+    tracker.onExit(0);
 });
 
 test('hardware upload explicitly targets the detected serial device and keeps configuration unchanged', async () => {
@@ -150,7 +168,7 @@ test('Linux USB access failures receive a scoped uaccess hint and no undefined p
 });
 
 test('an obsolete Python-2.7 GDB is rejected before starting the debug adapter', async () => {
-    const h = harness({ brokenGdb: true });
+    const h = harness({ brokenGdb: true, platform: 'linux' });
     await h.hardware.debug();
     assert.equal(h.calls.gdbChecks, 1);
     assert.equal(h.calls.debug.length, 0);

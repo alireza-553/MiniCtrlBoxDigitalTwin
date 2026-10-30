@@ -2,6 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const childProcess = require('child_process');
+const { createArduinoStepTracker } = require('./arduino-stepping');
 
 const DEBUG_STARTUP_COMMANDS = [
     // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
@@ -247,8 +248,10 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     }
 
     function createDebugAdapterTracker(session) {
-        if (!session.configuration?.mcbHardwareDebug || !launchDiagnostics) return undefined;
-        const diagnostics = launchDiagnostics;
+        if (!session.configuration?.mcbHardwareDebug) return undefined;
+        const diagnostics = launchDiagnostics || { text: '' };
+        const stepping = createArduinoStepTracker(session, output,
+            vscode.workspace.getConfiguration('mcbDigitalTwin').get('skipArduinoLoopTask', true));
         function record(text) {
             if (!text) return;
             text = cleanDiagnostic(text);
@@ -256,12 +259,14 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             output.appendLine(`[Hardware-Debugger] ${text.trim()}`);
         }
         return {
+            onWillReceiveMessage(message) { stepping?.onWillReceiveMessage(message); },
             onDidSendMessage(message) {
+                stepping?.onDidSendMessage(message);
                 if (message.type === 'event' && message.event === 'output') record(message.body?.output);
                 if (message.type === 'response' && message.success === false) record(message.message || message.body?.error?.format);
             },
             onError(error) { record(error.message); },
-            onExit(code, signal) { record(`Debugadapter beendet (Code: ${code}, Signal: ${signal || 'keines'}).`); },
+            onExit(code, signal) { stepping?.onExit(); record(`Debugadapter beendet (Code: ${code}, Signal: ${signal || 'keines'}).`); },
         };
     }
 
