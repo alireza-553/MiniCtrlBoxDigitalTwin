@@ -48,8 +48,6 @@ jobs:
     name: Simulator und VSIX (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      XDG_DATA_HOME: ${{ runner.temp }}/mcb-test-data
     steps:
       - name: Quellcode auschecken
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -77,6 +75,8 @@ jobs:
           PY
 
       - name: Simulator- und native C++-Tests ausführen
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/mcb-test-data
         run: python -m unittest discover -s mcb_digital_twin -p "test_*.py" -v
 
       - name: Installierbare VSIX bauen und Archiv prüfen
