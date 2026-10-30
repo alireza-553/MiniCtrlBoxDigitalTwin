@@ -14,7 +14,9 @@ function createArduinoStepTracker(session, output, enabled) {
             if (!current()) return;
             const frame = stack.stackFrames?.[0];
             const source = frame?.source?.path?.replace(/\\/g, '/');
-            if (!/^loopTask\s*(?:\(.*\))?$/.test(frame?.name || '') || !/\/cores\/esp32\/main\.cpp$/i.test(source || '')) return;
+            // PlatformIO's stackTraceRequest appends `@${address}` to every frame name.
+            const functionName = (frame?.name || '').replace(/@0x[0-9a-f]+$/i, '');
+            if (!/^loopTask\s*(?:\(.*\))?$/.test(functionName) || !/\/cores\/esp32\/main\.cpp$/i.test(source || '')) return;
             output.appendLine('[Hardware-Debugger] Einzelschritt aus Arduino loopTask zurück zum nächsten loop()-Eintritt.');
             // Select the stopped thread and its innermost frame explicitly. PlatformIO's
             // REPL does not use DAP frameId and wraps plain text in unescaped quotes.

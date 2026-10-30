@@ -3,7 +3,8 @@ const test = require('node:test');
 const { createArduinoStepTracker } = require('../arduino-stepping');
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
-const wrapper = { name: 'loopTask(void*)', source: { path: 'C:\\.platformio\\packages\\framework-arduinoespressif32\\cores\\esp32\\main.cpp' } };
+// Actual PlatformIO stackTraceRequest format: function name + '@' + address.
+const wrapper = { name: 'loopTask(void*)@0x42001b9c', source: { path: 'C:\\.platformio\\packages\\framework-arduinoespressif32\\cores\\esp32\\main.cpp' } };
 function harness(frame = wrapper, stackRequest) {
     const calls = [], logs = [];
     const session = { configuration: { mcbHardwareDebug: true }, customRequest: async (command, args) => {
@@ -35,6 +36,14 @@ for (const command of ['next', 'stepIn']) {
     });
 }
 
+test('plain and address-suffixed loopTask names on Linux and Windows are recognized', async () => {
+    for (const name of ['loopTask', 'loopTask(void*)', 'loopTask@0x42001b9c', 'loopTask(void*)@0x42001b9c']) {
+        const h = harness({ name, source: { path: '/home/student/.platformio/packages/framework-arduinoespressif32/cores/esp32/main.cpp' } });
+        h.request(); h.stop(); await tick();
+        assert.equal(h.calls.length, 2, name);
+    }
+});
+
 test('breakpoints, exceptions and manual pause remain stopped even inside loopTask', async () => {
     for (const reason of ['breakpoint', 'exception', 'pause', 'entry', 'data breakpoint', 'function breakpoint']) {
         const h = harness(); h.request(); h.stop(reason); await tick();
@@ -48,6 +57,8 @@ test('user functions named loopTask and other framework functions are not skippe
     for (const frame of [
         { name: 'loopTask(void*)', source: { path: '/project/src/main.cpp' } },
         { name: 'setup()', source: wrapper.source },
+        { name: 'loopTaskHelper@0x42001b9c', source: wrapper.source },
+        { name: 'loopTask(void*)@invalid', source: wrapper.source },
         { name: 'loopTask(void*)' },
     ]) {
         const h = harness(frame); h.request(); h.stop(); await tick();

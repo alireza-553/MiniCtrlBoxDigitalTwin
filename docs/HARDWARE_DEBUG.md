@@ -60,6 +60,8 @@ Der Python-Simulator wird für diese Hardwarebefehle nicht gestartet. Eine Live-
 
 `setup()` und `loop()` werden von Arduinos FreeRTOS-Funktion `loopTask(void*)` aufgerufen. F10 oder F11 am Funktionsende kann deshalb in diese Hülle zurückkehren. Das allein ist kein Absturz. Der GDB-Befehl `skip function loopTask` verhindert das Hineinsteigen bei Aufrufen, verhindert aber nicht diesen Rücksprung.
 
+**Korrektur ab 0.3.12:** PlatformIO liefert Stackframe-Namen im Format `loopTask(void*)@0x…`. Die erste Umsetzung in 0.3.11 erkannte den Adresszusatz nicht und griff deshalb beim PlatformIO-Adapter nicht. Ab 0.3.12 wird ausschließlich ein abschließender hexadezimaler Adresszusatz vor dem Namensvergleich entfernt; die Prüfung der Arduino-Quelldatei bleibt bestehen.
+
 Ab 0.3.11 prüft die Erweiterung nach einem solchen Quellcode-Einzelschritt den obersten Stackframe. Nur wenn der Haltgrund `step`, der Thread derselbe und die Funktion `loopTask` aus `cores/esp32/main.cpp` ist, führt sie einmalig GDB `advance loop` aus. Das Programm läuft dabei tatsächlich weiter bis zum nächsten `loop()`-Eintritt. Dazwischen können weiterhin Haltepunkte oder Fehler anhalten. Die Debugkonsole und der Ausgabekanal zeigen den automatischen Übergang; die Arduino-Datei kann dabei kurz sichtbar werden.
 
 Manuelles Anhalten, Haltepunkte, Ausnahmefehler, Maschinenschritte und ausdrücklich gewähltes Herausspringen (Umschalt+F11) werden nicht automatisch fortgesetzt. Bei einem Fehler wird kein weiterer Versuch gestartet. Unter `mcbDigitalTwin.skipArduinoLoopTask` lässt sich die Behandlung abschalten; anschließend die Debugsitzung neu starten. Dies betrifft die über **Hardware debuggen** gestarteten MiniCtrlBox-Sitzungen.

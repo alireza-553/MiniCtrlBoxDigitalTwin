@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.12 – PlatformIO-Stackframes mit Adresse erkennen
+
+- Die Rückkehrbehandlung erkennt jetzt auch PlatformIO-Namen wie `loopTask(void*)@0x42001b9c`. Der Adapter hängt die Adresse an den Funktionsnamen an; dadurch griff die Prüfung in 0.3.11 nicht.
+- Tests verwenden das tatsächliche Format des PlatformIO-Adapters und prüfen zusätzlich Namen ohne Adresszusatz sowie ähnlich benannte Funktionen.
+
 ## v0.3.11 – Nach Einzelschritten aus Arduino loopTask zurückkehren
 
 - Nach F10/F11 am Ende von `setup()` oder `loop()` führt ein Schritt-Halt in der Arduino-Hülle einmalig bis zum nächsten `loop()`-Eintritt weiter. `skip function loopTask` allein verhindert diesen Rücksprung nicht.

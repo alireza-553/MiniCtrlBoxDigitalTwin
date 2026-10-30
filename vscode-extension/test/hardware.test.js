@@ -113,7 +113,7 @@ test('hardware tracker handles wrapper returns without launch diagnostics and ke
     const tracker = h.hardware.createDebugAdapterTracker({ configuration: { mcbHardwareDebug: true },
         customRequest: async (command, args) => {
             requests.push({ command, args });
-            return { stackFrames: [{ name: 'loopTask(void*)', source: { path: '/framework/cores/esp32/main.cpp' } }] };
+            return { stackFrames: [{ name: 'loopTask(void*)@0x42001b9c', source: { path: '/framework/cores/esp32/main.cpp' } }] };
         } });
     tracker.onWillReceiveMessage({ type: 'request', command: 'next', seq: 9, arguments: { threadId: 3 } });
     tracker.onDidSendMessage({ type: 'event', event: 'stopped', body: { reason: 'step', threadId: 3 } });
