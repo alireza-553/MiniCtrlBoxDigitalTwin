@@ -5,7 +5,8 @@
 - Die Rückkehrbehandlung erkennt PlatformIO-Namen wie `loopTask(void*)@0x42001b9c` einschließlich Adresszusatz. Tests prüfen das tatsächliche Adapterformat, Namen ohne Adresszusatz und ähnlich benannte Funktionen.
 - Nach F10/F11 am Ende von `setup()` oder `loop()` führt ein Schritt-Halt in der Arduino-Hülle einmalig bis zum nächsten `loop()`-Eintritt weiter. `skip function loopTask` allein verhindert diesen Rücksprung nicht.
 - Haltepunkte, Fehler, manuelles Anhalten, Maschinenschritte und explizites Herausspringen bleiben erhalten. Abschaltbar über `mcbDigitalTwin.skipArduinoLoopTask`.
-- Automatische Tests prüfen Zielauswahl, Abbruch und Fehlerpfade; der erneute echte Hardwaretest dieses Übergangs steht noch aus.
+- Temporärer Hardware-Haltepunkt statt `advance loop`: Der PlatformIO-Adapter stellt dessen Haltgrund `location-reached` sonst fälschlich als Ausnahme dar.
+- Automatische Tests prüfen Zielauswahl, Abbruch und Fehlerpfade. Auf echter MiniCtrlBox mit `Ueb_2.7.3.4` wurden Rückkehr aus `setup()` und `loop()`, F10/F11 sowie das Entfernen der temporären Haltepunkte geprüft.
 
 ## v0.3.10 – EEPROM und CAN im Desktop-Anwenderprogramm
 

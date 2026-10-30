@@ -5,10 +5,30 @@ function createArduinoStepTracker(session, output, enabled) {
     let pendingStep;
     let revision = 0;
     let ended = false;
+    let temporaryBreakpoint;
     const controls = new Set(['next', 'stepIn', 'stepOut', 'continue', 'pause', 'restart', 'restartFrame', 'goto', 'disconnect', 'terminate']);
+
+    async function deleteTemporary(number) {
+        if (ended) return;
+        try {
+            const listing = await session.customRequest('execute-command', { command: '-break-list' });
+            const table = listing?.results?.find(pair => pair[0] === 'BreakpointTable')?.[1];
+            const body = table?.find(pair => pair[0] === 'body')?.[1];
+            if (!Array.isArray(body)) throw new Error('GDB-Haltepunktliste konnte nicht gelesen werden.');
+            if (body.some(pair => pair[0] === 'bkpt' && pair[1]?.some(field => field[0] === 'number' && field[1] === number)))
+                await session.customRequest('execute-command', { command: `-break-delete ${number}` });
+        }
+        catch (error) {
+            // A hit temporary breakpoint has already been deleted by GDB.
+            if (!/no breakpoint|not found|does not exist/i.test(error.message || ''))
+                output.appendLine(`[Hardware-Debugger] Temporären Haltepunkt ${number} prüfen: ${error.message}`);
+        }
+    }
 
     async function returnToLoop(threadId, stoppedRevision) {
         const current = () => !ended && revision === stoppedRevision;
+        let inserted;
+        let resuming = false;
         try {
             const stack = await session.customRequest('stackTrace', { threadId, startFrame: 0, levels: 1 });
             if (!current()) return;
@@ -18,14 +38,23 @@ function createArduinoStepTracker(session, output, enabled) {
             const functionName = (frame?.name || '').replace(/@0x[0-9a-f]+$/i, '');
             if (!/^loopTask\s*(?:\(.*\))?$/.test(functionName) || !/\/cores\/esp32\/main\.cpp$/i.test(source || '')) return;
             output.appendLine('[Hardware-Debugger] Einzelschritt aus Arduino loopTask zurück zum nächsten loop()-Eintritt.');
-            // Select the stopped thread and its innermost frame explicitly. PlatformIO's
-            // REPL does not use DAP frameId and wraps plain text in unescaped quotes.
-            await session.customRequest('evaluate', {
-                expression: `-interpreter-exec --thread ${threadId} --frame 0 console "advance loop"`,
-                context: 'repl',
-            });
+            // `advance` reports location-reached, which PlatformIO maps to exception.
+            // Its execute-command request returns MI resultRecords directly. Use a
+            // thread-specific temporary hardware breakpoint and standard DAP continue.
+            const result = await session.customRequest('execute-command', { command: `-break-insert -h -t -p ${threadId} loop` });
+            const breakpoint = result?.results?.find(pair => pair[0] === 'bkpt')?.[1];
+            inserted = breakpoint?.find(pair => pair[0] === 'number')?.[1];
+            if (!/^\d+$/.test(inserted || '')) throw new Error('GDB hat keine eindeutige Nummer für den temporären Haltepunkt geliefert. Nicht automatisch fortgesetzt.');
+            if (!current()) { await deleteTemporary(inserted); return; }
+            temporaryBreakpoint = inserted;
+            resuming = true;
+            await session.customRequest('continue', { threadId });
         } catch (error) {
-            if (current()) output.appendLine(`[Hardware-Debugger] Automatischer Wechsel zu loop() nicht möglich: ${error.message}. Debugkonsole prüfen; keine Wiederholung.`);
+            if (inserted && temporaryBreakpoint === inserted) {
+                temporaryBreakpoint = undefined;
+                await deleteTemporary(inserted);
+            }
+            if (!ended && (current() || resuming)) output.appendLine(`[Hardware-Debugger] Automatischer Wechsel zu loop() nicht möglich: ${error.message}. Debugkonsole prüfen; keine Wiederholung.`);
         }
     }
 
@@ -43,6 +72,11 @@ function createArduinoStepTracker(session, output, enabled) {
             if (['terminated', 'exited'].includes(message.event)) { ended = true; revision++; pendingStep = undefined; }
             if (message.event === 'continued') revision++;
             if (message.event !== 'stopped') return;
+            if (temporaryBreakpoint) {
+                const number = temporaryBreakpoint;
+                temporaryBreakpoint = undefined;
+                void deleteTemporary(number);
+            }
             const step = pendingStep;
             pendingStep = undefined;
             const stoppedRevision = ++revision;
