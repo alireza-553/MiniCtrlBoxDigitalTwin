@@ -6,6 +6,7 @@ const path = require('path');
 const { createHardwareCommands } = require('./hardware');
 const { createJtagDriverSetup } = require('./jtag-driver');
 const { createVariableSearch, combineTrackers } = require('./variable-search');
+const { createLocalTests } = require('./local-tests');
 
 let backendProcess;
 let backendRoot;
@@ -29,6 +30,7 @@ function activate(context) {
     const ensureDriver = createJtagDriverSetup(vscode, output, context);
     const hardware = createHardwareCommands(vscode, output, getWorkspaceRoot, ensureDriver);
     const variableSearch = createVariableSearch(vscode, output);
+    const localTests = createLocalTests(vscode, output, extensionRoot);
 
     context.subscriptions.push(
         output,
@@ -40,6 +42,7 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.restart', restart),
         vscode.commands.registerCommand('mcbDigitalTwin.open', open),
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
+        vscode.commands.registerCommand('mcbDigitalTwin.unitTests', localTests.run),
         vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
@@ -155,8 +158,8 @@ class DigitalTwinTreeProvider {
             this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
                 this.createItem('Variable suchen und überwachen', 'mcbDigitalTwin.searchVariables', 'search',
                     'Am Haltepunkt Variablen suchen und direkt zu Watch hinzufügen.'),
-                this.createItem('Simulator testen', 'mcbDigitalTwin.test', 'beaker',
-                    'Automatisierte Tests des Python-Simulators ausführen.'),
+                this.createItem('Unit-Tests ausführen', 'mcbDigitalTwin.unitTests', 'beaker',
+                    'Erweiterung und Python-Simulator lokal testen. Keine GitHub-Runner und keine echte Hardware.'),
                 this.createItem('USB-JTAG-Treiber einrichten', 'mcbDigitalTwin.hardwareDrivers', 'plug',
                     'Windows-Treiber für das Debuggen der echten MiniCtrlBox prüfen und bei Bedarf einrichten.'),
             ], false),

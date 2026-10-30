@@ -1,21 +1,23 @@
-# Automatische Tests mit GitHub Actions
+# Unit-Tests lokal unter Werkzeuge
 
-Der Workflow [Unit-Tests](../.github/workflows/unit-tests.yml) startet bei Pull Requests mit Ziel `main` und bei Pushes auf `main`. Nach dem Merge der Workflow-Datei lässt er sich außerdem unter **Actions → Unit-Tests → Run workflow** manuell starten. Ein neuer Commit in derselben PR ersetzt einen noch laufenden älteren Prüflauf.
+Ab Erweiterung **0.3.12** startet **Werkzeuge → Unit-Tests ausführen** den vollständigen lokalen Testlauf. Alternativ in der Befehlspalette **MiniCtrlBox: Unit-Tests lokal ausführen** wählen. Ergebnisse erscheinen unter **Ausgabe → MiniCtrlBox Digital Twin**. Der abschließende Hinweis nennt Erfolg bzw. Fehler und die Anzahl übersprungener Tests.
 
-| Prüfung | Umfang |
+| Teil | Verhalten |
 | --- | --- |
-| Erweiterung unter Linux | Alle `vscode-extension/test/*.test.js` mit Node.js 24 sowie Syntaxprüfung von `extension.js`. |
-| Erweiterung unter Windows | Dieselben Tests und zusätzlich die fünf PowerShell-Treiberfälle mit `MCB_WINDOWS_DRIVER_TEST=1`. Downloads, Windows-Gerätezugriff, Installation und UAC sind dabei nachgebildet; es wird kein echter Treiber installiert. |
-| Simulator unter Linux | Python 3.12, vollständige `unittest`-Testsuite einschließlich selbst erzeugter nativer C++-Testprojekte. `build-essential` und GDB werden installiert und vor dem Test geprüft. |
-| VSIX-Paket | Baut das Erweiterungspaket und prüft Manifest-Version sowie Archivintegrität. Es wird kein Release veröffentlicht und keine generierte VSIX eingecheckt. |
+| Erweiterung | Alle mitgelieferten JavaScript-Tests laufen mit der Node-Laufzeit von VS Code. Eine separate Node.js-Installation und ein geklontes Repository sind dafür nicht nötig. |
+| Windows-Treiberfälle | Die fünf PowerShell-Fälle verwenden nachgebildete Geräte-, Download-, Installations- und UAC-Aufrufe. Es wird kein echter Treiber installiert. |
+| Simulator | Die mitgelieferten Python-Tests laufen mit `mcbDigitalTwin.pythonPath`. Python muss installiert sein. |
+| Native C++-Tests | Erzeugen eigene temporäre Testprojekte. Benötigen einen Desktop-Compiler und bei GNU-/Clang-Debug-Builds zusätzlich GDB; fehlen Voraussetzungen, werden entsprechende Tests als übersprungen gemeldet. |
 
-Die beiden Tests, die ein externes Übungsprojekt über `MCB_NATIVE_TEST_PROJECT` bzw. `MCB_UPLOAD_INTEGRATION_ROOT` benötigen, bleiben ohne dieses Projekt übersprungen. Die übrigen nativen Simulator-Tests erzeugen ihre eigenen C++-Projekte. Ein echter USB-JTAG-Hardwaretest ist auf den GitHub-Runnern nicht enthalten.
+Es wird kein Anwenderprojekt geladen, keine Firmware übertragen und keine echte Hardware angesprochen. Der Testlauf benötigt keinen geöffneten Übungsordner. Die Integrationen mit externen Übungsprojekten werden bei diesem Befehl ausdrücklich nicht aktiviert. Ein zweiter Klick startet keinen parallelen Lauf. Ein Fehler der JavaScript-Suite verhindert nicht die anschließende Python-Prüfung.
 
-Die Ergebnisse stehen in der PR unter **Checks** und im Repository unter **Actions**. Ein roter Lauf zeigt im betroffenen Schritt die Fehlermeldung. Auch übersprungene Tests werden im Protokoll genannt. Der Workflow benötigt keine zusätzlichen Repository-Secrets und veröffentlicht oder merged keine Änderungen. Die verwendeten offiziellen GitHub-Actions sind auf konkrete Commitstände festgelegt.
+**GitHub Actions ist deaktiviert.** Die bisherige Workflow-Datei wird aus dem Repository entfernt. Die lokalen Testläufe verwenden nur deinen PC und verursachen keine GitHub-Actions-Rechenkosten. Alte GitHub-Prüfprotokolle bleiben als Historie sichtbar.
 
-Die Einrichtung dieser Tests erzwingt noch keine neue Merge-Regel. Die drei Prüfnamen können nach dem ersten Lauf separat als erforderliche Statusprüfungen in den Regeln für `main` ausgewählt werden.
+Ein grüner lokaler Testlauf ersetzt keinen USB-JTAG-Test auf einer echten MiniCtrlBox. Übersprungene Tests und fehlende Voraussetzungen stehen im Ausgabeprotokoll. Bei fehlendem Python den Interpreter unter `mcbDigitalTwin.pythonPath` einstellen.
 
-## Lokal prüfen
+## Im Quellrepository prüfen
+
+Mit separat installiertem Node.js und Python:
 
 ```sh
 node --check vscode-extension/extension.js
@@ -24,4 +26,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py" -v
 python vscode-extension/build_vsix.py
 ```
 
-Für die nativen Tests einen Desktop-C++-Compiler und bei GNU-/Clang-Builds GDB bereitstellen. Die Windows-PowerShell-Fälle lassen sich in PowerShell mit `$env:MCB_WINDOWS_DRIVER_TEST = '1'` vor dem Node-Testlauf aktivieren.
+Die Windows-PowerShell-Fälle lassen sich im Repository mit `$env:MCB_WINDOWS_DRIVER_TEST = '1'` vor dem Node-Testlauf aktivieren. Der VS-Code-Befehl übernimmt das unter Windows automatisch.
