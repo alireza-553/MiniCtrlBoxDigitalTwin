@@ -2,6 +2,7 @@
 
 ## v0.3.14 – MiniCtrlBoxLib 6.12 und SwitchLEDBoard
 
+- Die vier Taster des Kreuzungsmoduls verwenden dieselbe orangefarbene Oberfläche und denselben Druckzustand wie die MiniCtrlBox. Auch getrennte, nicht bedienbare Taster behalten ihre Hardwarefarbe; der Verbindungsstatus bleibt separat sichtbar.
 - Das Tastaturmodul besitzt den Koppelanschluss links und wird beim Verbinden zusammen mit der MiniCtrlBox in einer gemeinsamen Karte angezeigt. Ansicht und Einstellungen bleiben beim Wechsel der Erweiterung erhalten.
 - Eine kompakte Verbindungsleiste ersetzt die drei großen Einzelkarten. Die Auswahl und die Einstellungsansichten nennen MiniCtrlBox, Kreuzungsmodul, SwitchLEDBoard und Tastaturmodul statt Modulnummern. Ein Klick verbindet die Erweiterung, ein erneuter Klick trennt sie.
 - SwitchLEDBoard nach Hardwarefoto ausgerichtet: acht Schalter oben, acht LEDs darunter, waagerechte Beschriftung und ausschließlich der seitliche Koppelanschluss links. Die gekoppelte Ansicht berücksichtigt die breite Bauform.
