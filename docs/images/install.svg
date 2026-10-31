@@ -11,7 +11,7 @@
     <g fill="#62c5ff" font-size="36" font-weight="700"><text x="44" y="122">1</text><text x="316" y="122">2</text><text x="588" y="122">3</text><text x="860" y="122">4</text></g>
     <g font-size="19" font-weight="700"><text x="44" y="164">VSIX herunterladen</text><text x="316" y="164">Erweiterungen öffnen</text><text x="588" y="164">Aus VSIX installieren</text><text x="860" y="164">Projekt öffnen</text></g>
     <g font-size="16" fill="#b8cad8">
-      <text x="44" y="202">GitHub → Releases</text><text x="44" y="230">v0.1.0 → Assets → .vsix</text>
+      <text x="44" y="202">GitHub → neuester Release</text><text x="44" y="230">Assets → .vsix</text>
       <text x="316" y="202">VS Code</text><text x="316" y="230">Strg + Umschalt + X</text>
       <text x="588" y="202">Menü …</text><text x="588" y="230">Install from VSIX…</text>
       <text x="860" y="202">Datei → Ordner öffnen…</text><text x="860" y="230">Dann Upload wählen</text>
