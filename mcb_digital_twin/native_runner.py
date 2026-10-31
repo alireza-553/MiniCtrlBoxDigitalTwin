@@ -47,6 +47,24 @@ inline void delay(unsigned long ms) {
   std::this_thread::sleep_for(remaining<std::chrono::milliseconds(100)?remaining:std::chrono::milliseconds(100));
  }
 }
+using TaskFunction_t=void (*)(void*);
+using TaskHandle_t=void*;
+using BaseType_t=int;
+using UBaseType_t=unsigned;
+constexpr BaseType_t pdPASS=1, pdFAIL=0;
+inline void vTaskDelay(unsigned long ms) {
+ std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+inline BaseType_t xTaskCreate(TaskFunction_t function,const char*,uint32_t,void* parameter,UBaseType_t,TaskHandle_t* handle) {
+ if(!function)return pdFAIL;
+ try {
+  std::thread(function,parameter).detach();
+  if(handle)*handle=nullptr;
+  return pdPASS;
+ } catch(...) {
+  return pdFAIL;
+ }
+}
 '''
 
 MINICTRLBOX = r'''

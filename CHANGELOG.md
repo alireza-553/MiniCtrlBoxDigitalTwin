@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.13 – FreeRTOS-Tasks im Digital Twin
+
+- Der Desktop-Adapter stellt `xTaskCreate()` und `vTaskDelay()` automatisch bereit, sodass ESP32-Übungen mit separaten FreeRTOS-Tasks ohne projektspezifischen Simulationscode gebaut werden.
+- Desktop-Tasks laufen als C++-Threads; `vTaskDelay()` wartet nur im aufrufenden Task. Auf echter Hardware bleiben die FreeRTOS-Funktionen des Arduino-ESP32-Frameworks unverändert.
+- Ein nativer Integrationstest kompiliert und startet ein unverändertes Task-Beispiel und prüft den LED-Zustandswechsel im Digital Twin.
+
 ## v0.3.12 – Unit-Tests lokal unter Werkzeuge
 
 - Gesamter lokaler Testlauf für Erweiterung und Simulator über **Werkzeuge → Unit-Tests ausführen**; Tests werden im VSIX mitgeliefert. Keine separate Node.js-Installation nötig.

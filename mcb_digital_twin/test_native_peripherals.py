@@ -120,6 +120,27 @@ void loop(){CCanBus::Frame frame;if(bus.receive(frame,0))bus.transmit(frame,0);}
         self.wait_for(lambda state: state["can"] == "12345678")
         self.assertEqual(self.controller.program.eeprom_memory[4], 0)
 
+    def test_freertos_task_blinks_without_project_compatibility_code(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CPortExpLoc port;
+void blink(void*){
+ bool state=false;
+ while(1){state=!state;port.setColor(CPortExpLoc::RED0,state);vTaskDelay(pdMS_TO_TICKS(20));}
+}
+void setup(){port.begin();xTaskCreate(blink,"blink",1024,NULL,1,NULL);}
+void loop(){}
+''')
+        observed = set()
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and observed != {False, True}:
+            state = self.controller.state()
+            self.assertEqual(state["program_error"], "")
+            observed.add(state["local"][0])
+            time.sleep(.02)
+        self.assertEqual(observed, {False, True})
+
 
 if __name__ == "__main__":
     unittest.main()
