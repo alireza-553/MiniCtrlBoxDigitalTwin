@@ -113,6 +113,11 @@ class MiniCtrlBoxTests(unittest.TestCase):
     def test_switch_led_board_controls_are_present_in_browser_ui(self):
         self.assertIn('id="module-3"', HTML)
         self.assertIn('id="slb-connection-toggle"', HTML)
+        self.assertIn('id="module-3-visual"', HTML)
+        self.assertIn('id="module-3-socket"', HTML)
+        self.assertIn("state.slb_connected?'module3'", HTML)
+        self.assertIn("kind==='module3'", HTML)
+        self.assertIn("['blue','green','yellow','red','blue','green','yellow','red']", HTML)
         self.assertIn("Array.from({length:8}", HTML)
         self.assertIn("act('slb_switch'", HTML)
         self.assertIn('id="module-4"', HTML)
