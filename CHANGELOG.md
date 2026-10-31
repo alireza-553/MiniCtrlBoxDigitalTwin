@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.14 – Übersprungene Tests korrekt zählen
+
+- Die lokale Testzusammenfassung erkennt übersprungene Python- und JavaScript-Tests auch bei farbiger ANSI-Ausgabe. Zuvor konnte Python fälschlich „übersprungen: 0“ melden.
+- Farbausgabe wird für beide Testprozesse ausgeschaltet, damit im VS-Code-Ausgabefenster keine ANSI-Farbcodes erscheinen.
+
 ## v0.3.13 – FreeRTOS-Tasks im Digital Twin
 
 - Der Desktop-Adapter stellt `xTaskCreate()` und `vTaskDelay()` automatisch bereit, sodass ESP32-Übungen mit separaten FreeRTOS-Tasks ohne projektspezifischen Simulationscode gebaut werden.
