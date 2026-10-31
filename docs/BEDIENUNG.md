@@ -2,6 +2,8 @@
 
 Neu beim Programmieren? Das [Begriffslexikon](begriffe/README.md) erklärt die verlinkten Fachbegriffe mit Beispielen. Ein sinnvoller Einstieg ist [Quellcode → Build → Firmware](begriffe/README.md#wo-anfangen).
 
+Für kurze LED-Impulse siehe [Blinken mit 20 ms im Digital Twin](BLINKEN.md): Ab 0.3.15 werden Änderungen über eine dauerhafte Verbindung übertragen. Bildschirm und Betriebssystem begrenzen weiterhin die sichtbare zeitliche Genauigkeit.
+
 Die Namen in der folgenden Tabelle entsprechen den Schaltflächen der Seitenleiste. **Digital Twin**, **Echte Hardware** und **Werkzeuge** klappen ihre Einträge auf oder zu; das allein startet keine Aktion. Alle Befehle sind auch über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar, dort teilweise mit längeren Namen.
 
 | Bereich / Schaltfläche | Ablauf und Ergebnis |

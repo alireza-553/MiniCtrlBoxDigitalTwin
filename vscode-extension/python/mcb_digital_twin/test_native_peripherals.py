@@ -120,6 +120,51 @@ void loop(){CCanBus::Frame frame;if(bus.receive(frame,0))bus.transmit(frame,0);}
         self.wait_for(lambda state: state["can"] == "12345678")
         self.assertEqual(self.controller.program.eeprom_memory[4], 0)
 
+    def test_freertos_task_blinks_without_project_compatibility_code(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CPortExpLoc port;
+void blink(void*){
+ bool state=false;
+ while(1){state=!state;port.setColor(CPortExpLoc::RED0,state);vTaskDelay(pdMS_TO_TICKS(20));}
+}
+void setup(){port.begin();xTaskCreate(blink,"blink",1024,NULL,1,NULL);}
+void loop(){}
+''')
+        observed = set()
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and observed != {False, True}:
+            state = self.controller.state()
+            self.assertEqual(state["program_error"], "")
+            observed.add(state["local"][0])
+            time.sleep(.02)
+        self.assertEqual(observed, {False, True})
+
+    def test_twenty_ms_delay_exposes_both_levels_in_each_loop(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CPortExpLoc port;
+void setup(){port.begin();}
+void loop(){
+ port.setColor(CPortExpLoc::RED0,true);delay(20);
+ port.setColor(CPortExpLoc::RED0,false);delay(20);
+}
+''')
+        previous = None
+        changes = 0
+        deadline = time.monotonic() + 1.2
+        while time.monotonic() < deadline:
+            state = self.controller.state()
+            self.assertEqual(state["program_error"], "")
+            level = state["local"][0]
+            if previous is not None and level != previous:
+                changes += 1
+            previous = level
+            time.sleep(.002)
+        self.assertGreaterEqual(changes, 20, "20-ms blink phases were lost or heavily slowed")
+
 
 if __name__ == "__main__":
     unittest.main()

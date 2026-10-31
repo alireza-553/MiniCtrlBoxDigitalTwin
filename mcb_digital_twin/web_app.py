@@ -6,7 +6,8 @@ import json
 import argparse
 from pathlib import Path
 import subprocess
-from threading import RLock
+import time
+from threading import Event, RLock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -450,7 +451,9 @@ function render(){
  $('servoState').textContent=`${state.servo_angle}° / ${state.servo_us} µs`;$('sensorState').textContent=`${state.temperature} °C | ${state.humidity} % | ${state.co2} ppm`;
  $('relais').checked=state.actors.relais;$('buzzer').checked=state.actors.buzzer;$('actorLed').checked=state.actors.led;
 }
-async function poll(){try{state=await api('/api/state');render();}catch(e){console.error(e)}setTimeout(poll,250)}poll();
+const liveStates=new EventSource('/api/events');
+liveStates.onmessage=event=>{state=JSON.parse(event.data);render()};
+// EventSource reconnects automatically; no independent slow polling clock.
 </script></body></html>"""
 
 
@@ -458,7 +461,20 @@ CONTROLLER = None
 CONTROLLER_LOCK = RLock()
 
 
+class SimulationServer(ThreadingHTTPServer):
+    def __init__(self, *args, **kwargs):
+        self.stream_stop = Event()
+        super().__init__(*args, **kwargs)
+
+    def server_close(self):
+        self.stream_stop.set()
+        super().server_close()
+
+
 class Handler(BaseHTTPRequestHandler):
+    # Small live updates must not wait for TCP packet batching.
+    disable_nagle_algorithm = True
+
     def do_GET(self):
         if self.path == "/":
             self._send(200, HTML.encode(), "text/html; charset=utf-8")
@@ -466,8 +482,34 @@ class Handler(BaseHTTPRequestHandler):
             with CONTROLLER_LOCK:
                 state = CONTROLLER.state()
             self._json(200, state)
+        elif self.path == "/api/events":
+            self._events()
         else:
             self._json(404, {"error": "Nicht gefunden"})
+
+    def _events(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        previous = None
+        heartbeat = time.monotonic()
+        try:
+            while not self.server.stream_stop.is_set():
+                with CONTROLLER_LOCK:
+                    payload = json.dumps(CONTROLLER.state(), separators=(",", ":")).encode()
+                if payload != previous:
+                    self.wfile.write(b"data: " + payload + b"\n\n")
+                    self.wfile.flush()
+                    previous = payload
+                    heartbeat = time.monotonic()
+                elif time.monotonic() - heartbeat >= 15:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                    heartbeat = time.monotonic()
+                self.server.stream_stop.wait(.005)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
 
     def do_POST(self):
         if self.path != "/api/action":
@@ -508,7 +550,7 @@ def main() -> None:
     address = (args.host, args.port)
     print(f"Simulation laeuft auf http://{address[0]}:{address[1]}")
     print("Beenden mit Strg+C")
-    server = ThreadingHTTPServer(address, Handler)
+    server = SimulationServer(address, Handler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
