@@ -17,15 +17,21 @@ function harness(options = {}) {
             if (options.missingPython && index === 1) {
                 child.emit('error', new Error('ENOENT')); child.emit('close', -1); return;
             }
-            child.stdout.emit('data', index === 0 ? 'ℹ pass 80\nℹ skipped 1\n' : '');
-            child.stderr.emit('data', index === 1 ? 'OK (skipped=2)\n' : '');
-            child.emit('close', options.nodeFailure && index === 0 ? 1 : 0);
+            if (options.colored) {
+                const summary = index === 0 ? '\x1b[36mℹ skipped\x1b[0m 1\n' : '\x1b[32mOK\x1b[0m (\x1b[33mskipped\x1b[0m=2)\n';
+                child.stderr.emit('data', summary.slice(0, 3));
+                child.stderr.emit('data', summary.slice(3));
+            } else {
+                child.stdout.emit('data', index === 0 ? 'ℹ pass 80\nℹ skipped 1\n' : '');
+                child.stderr.emit('data', index === 1 ? 'OK (skipped=2)\n' : '');
+            }
+            child.emit('close', (options.nodeFailure && index === 0) || (options.pythonFailure && index === 1) ? 1 : 0);
         });
         return child;
     } };
     const fakeFS = { readdirSync: () => options.noFiles ? [] : ['z.test.js', 'README.md', 'a.test.js'] };
     const sandbox = { module: { exports: {} }, process: { execPath: '/vscode/Code.exe', platform: 'win32', env: {
-        MCB_NATIVE_TEST_PROJECT: '/unrelated/exercise', MCB_UPLOAD_INTEGRATION_ROOT: '/unrelated/live', ELECTRON_RUN_AS_NODE: '1',
+        MCB_NATIVE_TEST_PROJECT: '/unrelated/exercise', MCB_UPLOAD_INTEGRATION_ROOT: '/unrelated/live', ELECTRON_RUN_AS_NODE: '1', FORCE_COLOR: '1', PYTHON_COLORS: '1',
     } }, require: name => ({ fs: fakeFS, child_process: childProcess }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../local-tests.js'), 'utf8'), sandbox);
     const runner = sandbox.module.exports.createLocalTests({
@@ -49,11 +55,28 @@ test('runs packaged suites locally with the VS Code runtime and reports skipped 
     assert.equal(h.calls[1].settings.env.PYTHONPATH, path.join(h.root, 'python'));
     assert.equal(h.calls[1].settings.env.ELECTRON_RUN_AS_NODE, undefined);
     for (const call of h.calls) {
+        assert.equal(call.settings.env.FORCE_COLOR, undefined);
+        assert.equal(call.settings.env.NO_COLOR, '1');
+        assert.equal(call.settings.env.PYTHON_COLORS, '0');
         assert.equal(call.settings.env.MCB_NATIVE_TEST_PROJECT, undefined);
         assert.equal(call.settings.env.MCB_UPLOAD_INTEGRATION_ROOT, undefined);
     }
     assert.equal(h.errors.length, 0);
     assert.match(h.messages[0], /Übersprungen: 3/);
+});
+
+test('colored summaries and split ANSI sequences preserve skipped counts', async () => {
+    const h = harness({ colored: true }); await h.runner.run();
+    assert.equal(h.errors.length, 0);
+    assert.match(h.messages[0], /Übersprungen: 3/);
+    assert.ok(h.logs.some(line => /Python-Simulator-Tests: erfolgreich; übersprungen: 2/.test(line)));
+});
+
+test('colored Python failure is not reported as success and keeps skipped count', async () => {
+    const h = harness({ colored: true, pythonFailure: true }); await h.runner.run();
+    assert.equal(h.messages.length, 0);
+    assert.match(h.errors[0], /Python-Simulator-Tests/);
+    assert.ok(h.logs.some(line => /Python-Simulator-Tests: fehlgeschlagen; übersprungen: 2/.test(line)));
 });
 
 test('failed JS suite still runs Python and reports failure', async () => {

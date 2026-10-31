@@ -14,15 +14,15 @@ try:
     from .native_runner import NativeProgram
     from .crossing import CKreuzung
     from .mcb_simulation import (
-        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, COLed,
-        CPortExpLoc, CPortExpOOPExp, CServo, SimulatedCANNetwork,
+        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, CKeyPad, COLed,
+        CPortExpLoc, CPortExpOOPExp, CPortExpRem, CServo, SimulatedCANNetwork,
     )
 except ImportError:
     from native_runner import NativeProgram
     from crossing import CKreuzung
     from mcb_simulation import (
-        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, COLed,
-        CPortExpLoc, CPortExpOOPExp, CServo, SimulatedCANNetwork,
+        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, CKeyPad, COLed,
+        CPortExpLoc, CPortExpOOPExp, CPortExpRem, CServo, SimulatedCANNetwork,
     )
 
 
@@ -32,10 +32,15 @@ class SimulationController:
         self.program = NativeProgram()
         self.program_path = str(self.program.select_storage(project_root or Path.cwd()))
         self.module_connected = False
+        self.slb_connected = False
+        self.keypad_connected = False
         self.local = CPortExpLoc()
         self.main_buttons = {"left": CButton(0), "right": CButton(3)}
         self.remote = CPortExpOOPExp()
         self.remote.setInterruptMask(0xFF)
+        self.slb = CPortExpRem()
+        self.slb.setInterruptMask(0xFF)
+        self.keypad = CKeyPad()
         self.display = COLed()
         self.eeprom = CEeprom()
         self.servo = CServo()
@@ -57,12 +62,16 @@ class SimulationController:
         snapshot = self.program.snapshot if running and self.program.snapshot else {}
         pins = snapshot.get("pins", [0] * 8) if self.module_connected else [0] * 8
         remote = snapshot.get("remote", 0) if self.module_connected else 0
+        slb = snapshot.get("slb", 0) if self.slb_connected else 0
+        keypad_leds = snapshot.get("keypad_leds", 0) if self.keypad_connected else 0
         return {
             "program_running": running,
             "program_path": self.program.project or self.program_path,
             "program_error": self.program.error,
             "program_debug": self.program.debug if running else None,
             "module_connected": self.module_connected,
+            "slb_connected": self.slb_connected,
+            "keypad_connected": self.keypad_connected,
             "phase": "PROGRAM" if running else "OFF",
             "ew": [bool(pins[i]) for i in (0, 1, 4)],
             "ns": [bool(pins[i]) for i in (5, 6, 7)],
@@ -76,6 +85,12 @@ class SimulationController:
             "remote_led": [bool(remote & (1 << i)) for i in range(8)],
             "remote_switch": [bool(self.remote.getSwitchState(i)) for i in range(8)],
             "interrupt": self.remote.getInterruptFlag(),
+            "slb_led": [bool(slb & (1 << i)) for i in range(8)],
+            "slb_switch": [bool(self.slb.getSwitchState(i)) for i in range(8)],
+            "slb_interrupt": self.slb.interrupt_flag,
+            "keypad_led": [bool(keypad_leds & mask) for mask in (CKeyPad.LEDBMRE, CKeyPad.LEDBMGN)],
+            "keypad_key": self.keypad.getKey(),
+            "keypad_beeper": bool(snapshot.get("keypad_beeper", False)) if self.keypad_connected else False,
             "oled": snapshot.get("oled", [" " * 21] * 8),
             "project": self.program.eeprom_project if self.program.storage_path else self.eeprom.readProjectName(),
             "eeprom_bytes": self.program.eeprom_memory[:16],
@@ -100,9 +115,13 @@ class SimulationController:
             project = self.program.project or self.program_path
             restart_program = bool(self.program.project)
             connected = self.module_connected
+            slb_connected = self.slb_connected
+            keypad_connected = self.keypad_connected
             self.program.stop()
             replacement = SimulationController(project)
             replacement.module_connected = connected
+            replacement.slb_connected = slb_connected
+            replacement.keypad_connected = keypad_connected
             self.__dict__.update(replacement.__dict__)
             if restart_program:
                 self.action({"action": "program_start", "path": project})
@@ -134,14 +153,56 @@ class SimulationController:
             if not isinstance(connected, bool):
                 raise ValueError("Verbindungszustand muss true oder false sein")
             self.module_connected = connected
+            if connected:
+                self.slb_connected = False
+                self.keypad_connected = False
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
             if not connected:
                 self.kreuzung.off()
                 self.remote = CPortExpOOPExp()
                 self.remote.setInterruptMask(0xFF)
             self._program_inputs()
             return
+        if action == "slb_connection":
+            connected = data.get("state")
+            if not isinstance(connected, bool):
+                raise ValueError("Verbindungszustand muss true oder false sein")
+            self.slb_connected = connected
+            if connected:
+                self.module_connected = False
+                self.keypad_connected = False
+                self.kreuzung.off()
+                self.remote = CPortExpOOPExp()
+                self.remote.setInterruptMask(0xFF)
+            else:
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
+            self._program_inputs()
+            return
+        if action == "keypad_connection":
+            connected = data.get("state")
+            if not isinstance(connected, bool):
+                raise ValueError("Verbindungszustand muss true oder false sein")
+            self.keypad_connected = connected
+            if connected:
+                self.module_connected = False
+                self.slb_connected = False
+                self.kreuzung.off()
+                self.remote = CPortExpOOPExp()
+                self.remote.setInterruptMask(0xFF)
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
+            else:
+                self.keypad = CKeyPad()
+            self._program_inputs()
+            return
         if action in ("on", "off", "next", "remote_led", "remote_switch") and not self.module_connected:
-            raise ValueError("Modul 2 ist nicht mit Modul 1 verbunden.")
+            raise ValueError("Kreuzungsmodul ist nicht mit MiniCtrlBox verbunden.")
+        if action == "slb_switch" and not self.slb_connected:
+            raise ValueError("SwitchLEDBoard ist nicht mit MiniCtrlBox verbunden.")
+        if action == "keypad_key" and not self.keypad_connected:
+            raise ValueError("Tastaturmodul ist nicht mit MiniCtrlBox verbunden.")
         if action == "main_button":
             side = data.get("side")
             if side not in self.main_buttons:
@@ -157,6 +218,10 @@ class SimulationController:
                 button.resetReleasedFlag()
         elif action == "remote_switch":
             self.remote.simulateSwitch(self._index(data, 4), bool(data.get("state")))
+        elif action == "slb_switch":
+            self.slb.simulateSwitch(self._index(data, 8), bool(data.get("state")))
+        elif action == "keypad_key":
+            self.keypad.simulateKey(self._index(data, 16), bool(data.get("state")))
         elif action == "eeprom":
             self.eeprom.writeProjectName(str(data.get("text", "")))
             self.program.write_project_name(str(data.get("text", "")))
@@ -199,7 +264,9 @@ class SimulationController:
 
     def _program_inputs(self):
         self.program.inputs(self.main_buttons["left"].state, self.main_buttons["right"].state,
-                            self.remote.getSwitchState(), self.module_connected)
+                            self.remote.getSwitchState(), self.module_connected,
+                            self.slb.getSwitchState(), self.slb_connected,
+                            self.keypad.getKey(), self.keypad_connected)
 
     @staticmethod
     def _index(data: dict, size: int) -> int:
@@ -226,8 +293,8 @@ button{background:#2878bd;color:white;border:0;border-radius:7px;padding:8px 13p
 .board-lamp{position:absolute;width:4.6%;aspect-ratio:1;border-radius:50%;padding:0;min-width:0;border:2px solid #8e8574;transform:translate(-50%,-50%);box-shadow:inset 2px 2px 5px #0009,1px 2px 2px #fff9;background:var(--off)}
 .board-lamp.red{--off:#590e14;--lit:#ff303a}.board-lamp.yellow{--off:#82520b;--lit:#ffc127}.board-lamp.green{--off:#123d24;--lit:#40e66e}.board-lamp.orange{--off:#885209;--lit:#ffa51f}.board-lamp.blue{--off:#183e65;--lit:#53afff}
 .board-lamp.small{width:3.1%}.board-lamp.indicator{width:2.5%}.board-lamp.on{background:var(--lit);box-shadow:inset 1px 1px 3px #fff8,0 0 14px var(--lit)}button.board-lamp:hover{background:var(--lit)}button.board-lamp:focus-visible,.module-key:focus-visible{outline:3px solid #1166bf;outline-offset:4px}
-.module-label{position:absolute;font-size:clamp(9px,1.1vw,13px);font-weight:600;letter-spacing:.02em;white-space:nowrap}.module-key{position:absolute;left:80%;width:5.5%;aspect-ratio:1;border-radius:50%;padding:0;transform:translate(-50%,-50%);border:2px solid #bb710f;background:radial-gradient(circle at 35% 30%,#ffc047,#ee8e0a);box-shadow:0 3px 0 #a46716;color:#452c0d;font-size:clamp(9px,1.3vw,14px);font-weight:700;touch-action:none;user-select:none}
-.module-key:hover{background:#ffb62d}.module-key[aria-pressed=true]{background:#d77e09;box-shadow:inset 0 2px 4px #6d400b}.module-help{color:#aab7c4;font-size:.9rem;line-height:1.6}.module-help strong{color:#e8edf2}.module-controls h3{margin-top:0}.module-controls input[type=number]{width:95px}
+.module-label{position:absolute;font-size:clamp(9px,1.1vw,13px);font-weight:600;letter-spacing:.02em;white-space:nowrap}.module-key{position:absolute;left:80%;width:5.5%;aspect-ratio:1;border-radius:50%;padding:0;transform:translate(-50%,-50%);border:1px solid #a45215;background:radial-gradient(circle at 30% 25%,#ffb052,#ff8c27 65%,#da6718);box-shadow:0 1px 2px #382716;color:#452c0d;font-size:clamp(9px,1.3vw,14px);font-weight:700;touch-action:none;user-select:none}
+.module-key:hover:not(:disabled){filter:brightness(1.08)}.module-key[aria-pressed=true]{background:#cc5f0b;box-shadow:inset 1px 2px 4px #572809}.module-help{color:#aab7c4;font-size:.9rem;line-height:1.6}.module-help strong{color:#e8edf2}.module-controls h3{margin-top:0}.module-controls input[type=number]{width:95px}
 @media(max-width:780px){.module-layout{grid-template-columns:minmax(0,1fr)}.module-controls{min-width:0}.grid{grid-template-columns:minmax(0,1fr)}body{padding:12px}.card{padding:14px;min-width:0}.module-label{font-size:10px}.buttons input{min-width:0;max-width:100%;box-sizing:border-box}.oled{overflow-x:auto}}
 .ports{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.port{background:#273747;border-radius:8px;padding:8px;text-align:center}
 .led{width:25px;height:25px;border-radius:50%;background:#333;margin:5px auto}.led.on{background:#2ee46a;box-shadow:0 0 10px #2e6}
@@ -241,7 +308,7 @@ label{display:block;margin:7px 0}input[type=text],input[type=number]{background:
 .expansion-socket{position:absolute;right:-5%;top:50%;transform:translateY(-50%);width:5%;height:48%;background:repeating-linear-gradient(0deg,#c6aa7c 0 4px,#74583e 4px 6px);border-radius:0 6px 6px 0;box-shadow:2px 0 0 #292825}
 .main-unit .unit-oled{position:absolute;left:32%;top:38%;width:34%;height:18%;min-height:0;margin:0;padding:2px;box-sizing:border-box;border-radius:1px;border:2px solid #242322;background:linear-gradient(130deg,#1e1118,#100e14);color:#b7e6ff;box-shadow:0 0 0 2px #a99478;overflow:hidden;font:6px/1.1 monospace;white-space:pre}
 .unit-rgb{position:absolute;left:74%;width:5.5%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:var(--rgb,#262827);border:2px solid #b8a98d;box-shadow:inset 1px 2px 4px #000,1px 1px 2px #222}.unit-rgb.on{box-shadow:inset 1px 1px 3px #fffa,0 0 13px var(--rgb)}
-.main-unit .module-key{width:7%;top:69%;border:1px solid #a45215;background:radial-gradient(circle at 30% 25%,#ffb052,#ff8c27 65%,#da6718);box-shadow:0 1px 2px #382716;font-size:0}.main-unit .module-key[aria-pressed=true]{background:#cc5f0b;box-shadow:inset 1px 2px 4px #572809}.main-unit .key-left{left:19%}.main-unit .key-right{left:80%}
+.main-unit .module-key{width:7%;top:69%;font-size:0}.main-unit .key-left{left:19%}.main-unit .key-right{left:80%}
 .main-controls h3{margin-top:0}.main-controls .buttons{align-items:center}
 @media(max-width:780px){.main-layout{grid-template-columns:minmax(0,1fr)}.main-unit{max-width:420px;margin-left:auto;margin-right:auto}.unit-number{font-size:clamp(65px,22vw,115px)}.main-unit .unit-oled{font-size:clamp(4px,1.45vw,6px)}}
 body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px solid #34495e;margin-bottom:24px}.tabs button{background:transparent;color:#aab7c4;padding:12px 20px;border-radius:7px 7px 0 0;border-bottom:3px solid transparent}.tabs button:hover{background:#1c2732;color:#fff}.tabs button[aria-selected=true]{color:#8ed2ff;background:#1c2732;border-bottom-color:#72c5ff}.tabs button:focus-visible{outline:2px solid #72c5ff;outline-offset:-4px}
@@ -249,13 +316,13 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 @media(max-width:780px){.modules-grid,.settings-grid{grid-template-columns:minmax(0,1fr)}.unit-card{padding:18px}.unit-stage{min-height:0;padding:10px 0}.unit-stage .main-unit{max-width:340px}.unit-stage .unit-number{font-size:clamp(65px,22vw,90px)}.unit-stage .unit-oled{font-size:clamp(4px,1.2vw,5px)}.tabs{margin-bottom:16px}.tabs button{flex:1;padding:12px}}
 .modules-grid{align-items:start}.module-settings{min-height:410px}.module-settings h3{margin-top:0}.module-settings .ports{max-width:none}.module-settings input[type=text]{min-width:0;max-width:100%;box-sizing:border-box}.module-settings details{border-top:1px solid #34495e;margin-top:22px;padding-top:16px}.module-settings summary{cursor:pointer;color:#b9dfff;padding:5px 0;font-weight:600}.extra-settings{padding-top:18px}.extra-settings h3:not(:first-child){margin-top:24px}.unit-card>.tabs{margin-bottom:18px}.unit-card>.tabs button[aria-selected=true]{background:#273747}.unit-card>.tabs button{padding:10px 16px}
 @media(max-width:780px){.module-settings{min-height:0}}
-.connection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;margin-bottom:20px;border:1px solid #34495e;border-radius:9px;background:#1c2732;color:#aab7c4;font-size:.95rem}.connection-toolbar.connected{border-color:#3f977d;color:#8ee9c2}.connection-layout{position:relative}
-.module:before{display:none}.module-input{position:absolute;left:-10px;top:28%;height:48%;width:10px;background:repeating-linear-gradient(#302a22 0 9px,#b89a6b 9px 12px);border-radius:3px 0 0 3px}.module-link-status{font-size:.85rem;color:#aab7c4;margin:-8px 0 16px}.linked .module-link-status{color:#8ee9c2}.unlinked .module{filter:saturate(.35)}button:disabled,input:disabled{cursor:not-allowed;opacity:.45}.board-lamp:disabled:hover{background:var(--off)}.module-key:disabled:hover{background:#bb8d40}
-@media(max-width:520px){.connection-toolbar{align-items:flex-start;font-size:.85rem}.connection-toolbar button{flex-shrink:0}}
+.connection-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 14px;margin-bottom:18px;border:1px solid #34495e;border-radius:10px;background:#17222c;color:#aab7c4;font-size:.85rem}.connection-source{font-weight:650;color:#e1eaf1;white-space:nowrap}.connection-arrow{color:#718393}.connection-options{display:flex;flex-wrap:wrap;gap:6px}.connection-option{display:flex;align-items:center;gap:10px;padding:7px 11px;border:1px solid #3c4c5b;border-radius:7px;background:#202d39;color:#c7d3dd;font-size:.82rem;white-space:nowrap}.connection-state{font-size:.7rem;color:#8c9dab;display:inline-flex;align-items:center;gap:5px}.connection-state:before{content:"";width:5px;height:5px;border-radius:50%;background:#71818f}.connection-option[aria-pressed=true]{background:#173e35;border-color:#419c7f;color:#c8f8e6}.connection-option[aria-pressed=true] .connection-state{color:#8ee9c2}.connection-option[aria-pressed=true] .connection-state:before{background:#7de2b7;box-shadow:0 0 5px #7de2b74d}.connection-option:focus-visible{outline:2px solid #8ed2ff;outline-offset:2px}.connection-layout{position:relative}
+.module:before{display:none}.module-input{position:absolute;left:-10px;top:28%;height:48%;width:10px;background:repeating-linear-gradient(#302a22 0 9px,#b89a6b 9px 12px);border-radius:3px 0 0 3px}.module-link-status{font-size:.85rem;color:#aab7c4;margin:-8px 0 16px}.linked .module-link-status{color:#8ee9c2}.unlinked .board-lamp{filter:saturate(.35)}button:disabled,input:disabled{cursor:not-allowed;opacity:.45}.board-lamp:disabled:hover{background:var(--off)}.module-key:disabled{opacity:1}.module-key:disabled:hover{background:radial-gradient(circle at 30% 25%,#ffb052,#ff8c27 65%,#da6718)}
+@media(max-width:520px){.connection-toolbar{gap:8px;padding:10px}.connection-options{width:100%}.connection-option{flex:1;justify-content:space-between}}
 .unit-stage{height:450px;min-height:0;box-sizing:border-box}.unit-stage .main-unit,.unit-stage .module{margin:28px 0 35px}.module-input{top:50%;transform:translateY(-50%)}#module-1 .unit-stage{justify-content:flex-end}#module-2 .unit-stage{justify-content:flex-start}
 @media(max-width:780px){.unit-stage{height:auto;padding-left:8px;padding-right:18px}#module-1 .unit-stage,#module-2 .unit-stage{justify-content:center}.unit-stage .main-unit,.unit-stage .module{margin-top:28px;margin-bottom:24px}}
 
-.coupled-card{padding:24px;border-color:#3f977d;min-width:0}.coupled-card>h2{font-size:1.15rem;margin:0 0 18px}.assembly-stage{padding:36px 8px 26px;container-type:inline-size}.assembly-rig{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5454545fr);gap:3.78007%;align-items:center;width:100%;max-width:1020px;margin:auto}.assembly-rig .main-unit,.assembly-rig .module{width:100%;margin:0;max-width:none;min-width:0}.assembly-rig .main-unit{container-type:inline-size}.assembly-rig .unit-number{font-size:26cqw}.assembly-rig .unit-oled{font-size:1.7cqw}.assembly-rig .module-input{width:3.235294%;left:-3.235294%;box-shadow:0 0 0 1px #80d2b4}.assembly-rig .expansion-socket{box-shadow:0 0 0 1px #80d2b4}.assembly-rig .module-label{font-size:clamp(5px,.9vw,12px)}.assembly-rig .module-key{font-size:clamp(6px,1vw,13px)}.assembly-rig .main-unit .module-key{font-size:0}.assembly-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}.assembly-settings>section{min-width:0}.assembly-settings>section>h3{color:#8ee9c2;margin-top:0}.assembly-settings .module-settings{min-height:0}
+.coupled-card{padding:24px;border-color:#3f977d;min-width:0}.coupled-card>h2{font-size:1.15rem;margin:0 0 18px}.assembly-stage{padding:36px 8px 26px;container-type:inline-size}.assembly-rig{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5454545fr);gap:3.78007%;align-items:center;width:100%;max-width:1020px;margin:auto}.assembly-rig.slb-coupling{grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);gap:3.72%;max-width:1020px}.assembly-rig .main-unit,.assembly-rig .module{width:100%;margin:0;max-width:none;min-width:0}.assembly-rig .main-unit{container-type:inline-size}.assembly-rig .unit-number{font-size:26cqw}.assembly-rig .unit-oled{font-size:1.7cqw}.assembly-rig .module-input{width:3.235294%;left:-3.235294%;box-shadow:0 0 0 1px #80d2b4}.assembly-rig .expansion-socket{box-shadow:0 0 0 1px #80d2b4}.assembly-rig .module-label{font-size:clamp(5px,.9vw,12px)}.assembly-rig .module-key{font-size:clamp(6px,1vw,13px)}.assembly-rig .main-unit .module-key{font-size:0}.assembly-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}.assembly-settings>section{min-width:0}.assembly-settings>section>h3{color:#8ee9c2;margin-top:0}.assembly-settings .module-settings{min-height:0}
 @media(max-width:780px){.coupled-card{padding:18px}.assembly-stage{padding:28px 0 20px}.assembly-settings{grid-template-columns:minmax(0,1fr)}}
 .street-scene{position:relative;width:100%;max-width:900px;aspect-ratio:760/460;margin:16px auto 24px;overflow:hidden;border-radius:12px;background:radial-gradient(ellipse at 20% 20%,#75935c,#4b6c42);box-shadow:inset 0 0 45px #17392477;container-type:inline-size}.road{position:absolute;background:#414951;box-shadow:0 0 0 5px #bfc1b9,0 0 0 9px #6f7975}.road.horizontal{left:0;top:38%;width:100%;height:24%}.road.vertical{left:39%;top:0;width:22%;height:100%}.lane{position:absolute;opacity:.85}.lane.horizontal{left:0;top:49.5%;width:100%;height:1%;background:repeating-linear-gradient(90deg,#eee9ca 0 4%,transparent 4% 8%)}.lane.vertical{left:49.5%;top:0;height:100%;width:.7%;background:repeating-linear-gradient(0deg,#eee9ca 0 18px,transparent 18px 36px)}.junction{position:absolute;left:39%;top:38%;width:22%;height:24%;background:#414951}.crosswalk{position:absolute;background:repeating-linear-gradient(90deg,#f0eee3 0 9%,transparent 9% 17%)}.crosswalk.north{left:40%;top:29%;width:20%;height:5%}.crosswalk.south{left:40%;top:67%;width:20%;height:5%}.crosswalk.west{left:31%;top:39%;width:4%;height:22%;background:repeating-linear-gradient(0deg,#f0eee3 0 9%,transparent 9% 17%)}.crosswalk.east{left:65%;top:39%;width:4%;height:22%;background:repeating-linear-gradient(0deg,#f0eee3 0 9%,transparent 9% 17%)}
 .street-signal{position:absolute;width:5.5%;z-index:2;filter:drop-shadow(5px 7px 4px #0006)}.street-signal:after{content:"";position:absolute;left:44%;top:100%;width:12%;height:35%;background:linear-gradient(90deg,#737a7e,#d2d7d6,#747c7c)}.signal-housing{padding:12% 15%;border:2px solid #444a4c;border-radius:10px;background:linear-gradient(90deg,#171d21,#30383b 55%,#13191c);display:grid;gap:7px}.street-lamp{position:relative;aspect-ratio:1;border-radius:50%;background:var(--dim);box-shadow:inset 0 4px 5px #000c;border-top:3px solid #0b1012}.street-lamp.red{--dim:#4b1b1f;--lit:#ff383d}.street-lamp.yellow{--dim:#504421;--lit:#ffd343}.street-lamp.green{--dim:#123b2c;--lit:#35ef88}.street-lamp.on{background:var(--lit);box-shadow:0 0 17px var(--lit),inset 0 0 7px #fff8}.street-lamp:after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(#fff2 1px,transparent 1px) 0 0/3px 3px}.street-label{position:absolute;font-size:clamp(9px,1.3cqw,14px);font-weight:600;color:white;text-shadow:0 1px 3px #000;background:#16362b99;padding:5px 8px;border-radius:5px}.traffic-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.traffic-toolbar .phase{margin:0}.traffic-toolbar .buttons{margin:0}.street-scene.inactive{filter:saturate(.35)}
@@ -267,33 +334,44 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 .street-signal.pair-highlight .signal-housing{outline:2px solid #b9dfff;outline-offset:3px}.street-signal:focus{outline:none}
 .traffic-pair{position:absolute;width:12.5%;z-index:2}.traffic-pair:before{content:"";position:absolute;left:22%;top:38%;width:56%;height:4px;background:linear-gradient(#d2d7d6,#737a7e);box-shadow:0 2px 3px #0005;z-index:1}.traffic-pair>.street-signal.vehicle{position:relative;left:0;top:0;width:44%}.traffic-pair>.street-signal.pedestrian{left:56%;top:0;width:44%}.traffic-pair>.street-signal.pedestrian:after{display:none}
 .main-unit{container-type:inline-size}.main-unit .unit-oled{left:16%;top:32%;width:54%;height:32%;padding:1px;border-width:1px;font-size:3.2cqw;line-height:1.1;cursor:zoom-in;text-align:left}.main-unit .unit-oled:focus-visible{outline:2px solid #8ed2ff;outline-offset:4px}#oled-zoom{background:#1c2732;color:#e8edf2;border:1px solid #526476;border-radius:12px;padding:20px;max-width:calc(100vw - 64px)}#oled-zoom::backdrop{background:#0009}.oled-zoom-header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:16px}.oled-zoom-header h2{font-size:1.1rem;margin:0}#oled-zoom-text{margin:0;padding:18px;background:#071016;color:#b7e6ff;border:2px solid #36434e;border-radius:4px;white-space:pre;font:clamp(12px,3.2vw,24px)/1.25 monospace;min-height:10em}
+.slb-visual{position:relative;width:min(100%,560px);margin:auto;container-type:inline-size}.slb-visual>.module-input{z-index:2;width:3.2%;left:-3.2%;height:44%;background:repeating-linear-gradient(0deg,#bfc0b9 0 5px,#73766f 5px 8px)}.assembly-rig>.slb-visual{width:100%;max-width:none;margin:0}.slb-board{position:relative;width:100%;aspect-ratio:29/20;border-radius:8px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.22' filter='url(%23n)'/%3E%3C/svg%3E"),linear-gradient(135deg,#aeb4b7,#70787d 48%,#c2c6c8);box-shadow:inset 0 0 0 2px #d7dcdf,0 8px 0 #3d464d,0 13px 20px #0006}.slb-board:before{content:"SwitchLEDBoard";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:6.2cqw;font-weight:800;letter-spacing:.02em;color:#361c20;opacity:.92;white-space:nowrap}.slb-column{position:absolute;left:29%;right:11%;height:12%;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2%;align-items:center}#slb-switches{top:15%}#slb-leds{top:70%}.slb-led{width:65%;max-width:28px;aspect-ratio:1;border-radius:50%;margin:auto;background:var(--dim);border:2px solid #c1b9a7;box-shadow:inset 2px 2px 5px #000b}.slb-led.on{background:var(--lit);box-shadow:inset 1px 1px 3px #fff9,0 0 15px var(--lit)}.slb-led.red{--dim:#56171a;--lit:#ff3038}.slb-led.yellow{--dim:#70550d;--lit:#ffd12d}.slb-led.green{--dim:#153e27;--lit:#3aeb7c}.slb-led.blue{--dim:#174060;--lit:#42b7ff}.slb-switch{position:relative;width:100%;max-width:42px;aspect-ratio:4/5;height:auto;margin:auto;padding:0;background:none!important;border:0;border-radius:8px;box-shadow:none;isolation:isolate;cursor:pointer;touch-action:manipulation}.slb-switch svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 1px #0005)}.slb-toggle-lever{transform-origin:32px 42px;transform:rotate(-7deg);transition:transform .16s cubic-bezier(.2,.8,.25,1)}.slb-switch[aria-pressed=true] .slb-toggle-lever{transform:scaleY(-1) rotate(-7deg)}.slb-switch:hover:not(:disabled) svg{filter:drop-shadow(0 2px 2px #0007) brightness(1.1)}.slb-switch:focus-visible{outline:2px solid #8ed2ff;outline-offset:3px}.slb-switch:disabled{opacity:.65}@media(prefers-reduced-motion:reduce){.slb-toggle-lever{transition:none}}.slb-labels{display:flex;justify-content:space-between;color:#aab7c4;font-size:.85rem;margin-top:18px}
+.assembly-rig>.slb-visual .slb-labels{display:none}
+.unlinked .slb-board,.unlinked .keypad-board{filter:saturate(.3)}.keypad-board{width:min(100%,390px);border-radius:9px;background:linear-gradient(145deg,#546370,#2e3942);box-shadow:inset 0 0 0 2px #82909a,0 12px 0 #202930,0 17px 20px #0006;padding:34px;box-sizing:border-box}.keypad-indicators{display:flex;justify-content:center;gap:30px;margin-bottom:24px}.keypad-indicator{width:24px;aspect-ratio:1;border-radius:50%;background:#232829;border:2px solid #9ea7a9}.keypad-indicator.red.on{background:#ff3840;box-shadow:0 0 14px #ff3840}.keypad-indicator.green.on{background:#3bea79;box-shadow:0 0 14px #3bea79}.keypad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.keypad-key{aspect-ratio:1;border-radius:8px;background:#172027;border:1px solid #95a1a8;color:#edf5f7;font-weight:700;box-shadow:0 4px 0 #0b1014}.keypad-key[aria-pressed=true]{transform:translateY(3px);box-shadow:0 1px 0 #0b1014;background:#2878bd}.keypad-beeper{text-align:center;margin-top:20px;color:#aab7c4}.keypad-beeper.on{color:#ffd76b;text-shadow:0 0 8px #ffd76b}
+.keypad-visual{position:relative;width:min(100%,390px);aspect-ratio:3/4;container-type:inline-size}.keypad-visual>.module-input{height:48%;z-index:2}.keypad-visual>.keypad-board{width:100%;height:100%;padding:8.5%;display:flex;flex-direction:column;gap:5cqw}.keypad-visual .keypad-indicators{margin:0;gap:8cqw}.keypad-visual .keypad-indicator{width:6cqw}.keypad-visual .keypad-grid{flex:1;min-height:0;gap:3cqw;grid-template-rows:repeat(4,minmax(0,1fr))}.keypad-visual .keypad-key{aspect-ratio:auto;padding:0;min-width:0;font-size:clamp(9px,4cqw,16px)}.keypad-visual .keypad-beeper{margin:0;font-size:clamp(8px,4cqw,16px)}#module-4 .keypad-stage{height:auto;min-height:0;padding:18px 12px 28px}.assembly-rig.keypad-coupling{grid-template-columns:minmax(0,1fr) minmax(0,.75fr);gap:4.07%;max-width:840px}.assembly-rig>.keypad-visual{width:100%;max-width:none;margin:0}
+
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
 <div class="buttons"><button id="twin-restart" onclick="restartTwin()" title="Twin und zuletzt geladenes Programm neu starten; EEPROM bleibt erhalten">Twin neu starten</button></div>
 <p id="twin-status" class="status" role="status" aria-live="polite"></p>
-<div class="connection-toolbar"><span id="connection-status" role="status">Modul 1 → Modul 2 · Getrennt</span><button id="connection-toggle" onclick="toggleConnection()">Verbinden</button></div>
-<div id="connection-layout" class="connection-layout" role="group" aria-label="Module">
+<div class="connection-toolbar" role="group" aria-label="Erweiterung mit MiniCtrlBox verbinden">
+<span class="connection-source">MiniCtrlBox</span><span class="connection-arrow" aria-hidden="true">&#8596;</span>
+<div class="connection-options">
+<button id="connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleConnection()"><span>Kreuzungsmodul</span><span id="connection-status" class="connection-state">Getrennt</span></button>
+<button id="slb-connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleSLBConnection()"><span>SwitchLEDBoard</span><span id="slb-connection-status" class="connection-state">Getrennt</span></button>
+<button id="keypad-connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleKeyPadConnection()"><span>Tastaturmodul</span><span id="keypad-connection-status" class="connection-state">Getrennt</span></button>
+</div></div>
+<div id="connection-layout" class="connection-layout" role="group" aria-label="MiniCtrlBox und Erweiterungen">
 
 <article id="coupled-card" class="card coupled-card" hidden>
-<h2 id="coupled-title">MiniCtrlBox + Kreuzungsmodul</h2>
+<h2 id="coupled-title">MiniCtrlBox + Erweiterung</h2>
 <nav class="tabs" role="tablist" aria-labelledby="coupled-title">
 <button id="tab-coupled-view" role="tab" aria-selected="true" aria-controls="panel-coupled-view" tabindex="0">Ansicht</button>
 <button id="tab-coupled-settings" role="tab" aria-selected="false" aria-controls="panel-coupled-settings" tabindex="-1">Einstellungen</button>
 </nav>
 <div id="panel-coupled-view" role="tabpanel" aria-labelledby="tab-coupled-view">
-<div class="assembly-stage"><div id="assembly-rig" class="assembly-rig" role="group" aria-label="Direkt zusammengesteckte Module 1 und 2"></div></div>
+<div class="assembly-stage"><div id="assembly-rig" class="assembly-rig" role="group" aria-label="MiniCtrlBox mit Kreuzungsmodul verbunden"></div></div>
 </div>
 <div id="panel-coupled-settings" class="assembly-settings" role="tabpanel" aria-labelledby="tab-coupled-settings" hidden>
-<section id="assembly-settings-1"><h3>Modul 1</h3></section><section id="assembly-settings-2"><h3>Modul 2</h3></section>
+<section id="assembly-settings-1"><h3>MiniCtrlBox</h3></section><section id="assembly-settings-2"><h3 id="assembly-partner-title">Erweiterung</h3></section>
 </div></article>
 <div id="separate-modules" class="modules-grid">
 <article id="module-1" class="card unit-card"><h2 id="module-1-title"><span class="module-badge">1</span> MiniCtrlBox</h2><p class="module-link-status">Erweiterungsanschluss rechts</p><nav class="tabs" role="tablist" aria-labelledby="module-1-title">
 <button id="tab-1-view" role="tab" aria-selected="true" aria-controls="panel-1-view" tabindex="0">Ansicht</button>
 <button id="tab-1-settings" role="tab" aria-selected="false" aria-controls="panel-1-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit" role="group" aria-label="MiniCtrlBox Modul 1 nach Hardwarevorlage">
-<span class="can-socket first" title="CAN-Anschluss"></span><span class="can-socket second" title="CAN-Anschluss"></span><span id="module-1-socket" class="expansion-socket" title="Erweiterungsanschluss zu Modul 2"></span>
+<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit" role="group" aria-label="MiniCtrlBox nach Hardwarevorlage">
+<span class="can-socket first" title="CAN-Anschluss"></span><span class="can-socket second" title="CAN-Anschluss"></span><span id="module-1-socket" class="expansion-socket" title="Erweiterungsanschluss rechts"></span>
 <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 <span class="unit-number">1</span><div id="oled" class="oled unit-oled" role="button" tabindex="0" aria-label="OLED-Display vergrößern" aria-haspopup="dialog" onclick="openOLED()"></div>
 <div class="unit-rgb" id="unit-rgb-0" style="top:40%" role="img" aria-label="RGB-LED 0"></div>
@@ -319,10 +397,10 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <button id="tab-2-view" role="tab" aria-selected="true" aria-controls="panel-2-view" tabindex="0">Ansicht</button>
 <button id="tab-2-settings" role="tab" aria-selected="false" aria-controls="panel-2-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-2-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-2-view"><div class="unit-stage"><div id="module-2-visual" class="module-visual"><div class="visual-switch" role="group" aria-label="Ansicht von Modul 2">
-<button id="visual-hardware" aria-pressed="true" onclick="chooseVisual('hardware')">Modul</button>
+<div id="panel-2-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-2-view"><div class="unit-stage"><div id="module-2-visual" class="module-visual"><div class="visual-switch" role="group" aria-label="Ansicht von Kreuzungsmodul">
+<button id="visual-hardware" aria-pressed="true" onclick="chooseVisual('hardware')">Platine</button>
 <button id="visual-traffic" aria-pressed="false" onclick="chooseVisual('traffic')">Ampeln</button>
-</div><span id="module-2-socket" class="module-input" title="Erweiterungsanschluss zu Modul 1"></span><div class="module" role="group" aria-label="Kreuzungsmodul nach Hardwarevorlage">
+</div><span id="module-2-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="module" role="group" aria-label="Kreuzungsmodul nach Hardwarevorlage">
 <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 <div id="lamp-h-0" class="board-lamp red" style="left:30%;top:35%" role="img" aria-label="Fahrzeugampel waagerecht: Rot"></div>
 <div id="lamp-h-1" class="board-lamp yellow" style="left:36.5%;top:35%" role="img" aria-label="Fahrzeugampel waagerecht: Gelb"></div>
@@ -345,6 +423,18 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <p class="module-help">Die Ampeln zeigen nur die Ausgaben des laufenden Anwenderprogramms. Ohne Programm bleiben alle Lichter aus.</p>
 <div id="phase" class="phase"></div><div id="interrupt" class="status" role="status"></div>
 </div></div></article>
+<article id="module-3" class="card unit-card"><h2 id="module-3-title"><span class="module-badge">3</span> SwitchLEDBoard</h2><p id="module-3-status" class="module-link-status">Nicht verbunden · inaktiv</p><nav class="tabs" role="tablist" aria-labelledby="module-3-title">
+<button id="tab-3-view" role="tab" aria-selected="true" aria-controls="panel-3-view" tabindex="0">Ansicht</button>
+<button id="tab-3-settings" role="tab" aria-selected="false" aria-controls="panel-3-settings" tabindex="-1">Einstellungen</button>
+</nav>
+<div id="panel-3-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-3-view"><div class="unit-stage"><div id="module-3-visual" class="slb-visual"><span id="module-3-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Kippschaltern"><span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 0–7</span><span>Kippschalter S0–S7</span></div></div></div></div>
+<div id="panel-3-settings" class="tab-panel module-settings" role="tabpanel" aria-labelledby="tab-3-settings" hidden><div id="slb-interrupt" class="status" role="status"></div><p class="module-help">Die LEDs werden ausschließlich über <code>CPortExpRem</code> vom laufenden Anwenderprogramm gesteuert.</p></div></article>
+<article id="module-4" class="card unit-card"><h2 id="module-4-title"><span class="module-badge">4</span> Tastaturmodul</h2><p id="module-4-status" class="module-link-status">Nicht verbunden · inaktiv</p>
+<nav class="tabs" role="tablist" aria-labelledby="module-4-title">
+<button id="tab-4-view" role="tab" aria-selected="true" aria-controls="panel-4-view" tabindex="0">Ansicht</button>
+<button id="tab-4-settings" role="tab" aria-selected="false" aria-controls="panel-4-settings" tabindex="-1">Einstellungen</button></nav>
+<div id="panel-4-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-4-view"><div class="unit-stage keypad-stage"><div id="module-4-visual" class="keypad-visual"><span id="module-4-socket" class="module-input" title="Erweiterungsanschluss zur MiniCtrlBox"></span><div class="keypad-board" role="group" aria-label="Tastaturmodul mit 16 Tasten"><div class="keypad-indicators"><div id="keypad-led-0" class="keypad-indicator red" role="img" aria-label="Rote Keypad-LED"></div><div id="keypad-led-1" class="keypad-indicator green" role="img" aria-label="Grüne Keypad-LED"></div></div><div id="keypad-grid" class="keypad-grid"></div><div id="keypad-beeper" class="keypad-beeper">Beeper</div></div></div></div></div>
+<div id="panel-4-settings" class="tab-panel module-settings" role="tabpanel" aria-labelledby="tab-4-settings" hidden><p class="module-help">Tasten, LEDs und Beeper werden über <code>CKeyPad</code> nach MiniCtrlBoxLib 6.12 simuliert. Der Erweiterungsanschluss liegt links und koppelt direkt an die rechte Seite der MiniCtrlBox.</p></div></article>
 </div>
 </div>
 <dialog id="oled-zoom" aria-labelledby="oled-zoom-title"><div class="oled-zoom-header"><h2 id="oled-zoom-title">OLED-Display</h2><button onclick="document.getElementById('oled-zoom').close()">Schließen</button></div><pre id="oled-zoom-text" aria-label="OLED-Inhalt"></pre></dialog>
@@ -357,7 +447,7 @@ function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum'
 async function restartTwin(){
  if(twinRestarting)return;
  twinRestarting=true;$('twin-restart').disabled=true;$('twin-status').textContent='Twin wird neu gestartet …';
- for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
+ for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
  try{await act('twin_restart');$('twin-status').textContent='Twin neu gestartet. EEPROM bleibt erhalten.'}
  catch(error){$('twin-status').textContent=error.message}
  finally{twinRestarting=false;$('twin-restart').disabled=!!state.program_debug}
@@ -372,23 +462,25 @@ function chooseVisual(mode){
 }
 function openOLED(){$('oled-zoom-text').textContent=(state.oled||[]).join('\n');if(!$('oled-zoom').open)$('oled-zoom').showModal()}
 $('oled').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openOLED()}});
-function toggleConnection(){for(const i of [...heldKeys])setKey(i,false);return act('module_connection',{state:!state.module_connected})}
-const hardwareNodes=[document.querySelector('.main-unit'),$('module-2-visual')];
-const hardwareHomes=hardwareNodes.map(node=>node.parentElement);
-const settingsNodes=[$('panel-1-settings'),$('panel-2-settings')];
-const settingsHomes=settingsNodes.map(node=>node.parentElement);
-let couplingLayout;
-function syncCoupling(connected){
- if(couplingLayout===connected)return;couplingLayout=connected;
- if(connected){
-  hardwareNodes.forEach(node=>$('assembly-rig').appendChild(node));
-  settingsNodes.forEach((node,i)=>{$('assembly-settings-'+(i+1)).appendChild(node);node.hidden=false});
-  selectTab($('tab-coupled-view'));
- }else{
-  hardwareNodes.forEach((node,i)=>hardwareHomes[i].appendChild(node));
-  settingsNodes.forEach((node,i)=>{settingsHomes[i].appendChild(node);node.hidden=$('tab-'+(i+1)+'-settings').getAttribute('aria-selected')!=='true'});
- }
- $('coupled-card').hidden=!connected;$('separate-modules').hidden=connected;
+function toggleConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('module_connection',{state:!state.module_connected})}
+function toggleSLBConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('slb_connection',{state:!state.slb_connected})}
+function toggleKeyPadConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('keypad_connection',{state:!state.keypad_connected})}
+const mainHardware=document.querySelector('.main-unit'),mainHardwareHome=mainHardware.parentElement;
+const mainSettings=$('panel-1-settings'),mainSettingsHome=mainSettings.parentElement;
+const couplingPartners={
+ module2:{view:$('module-2-visual'),settings:$('panel-2-settings'),settingsTab:'tab-2-settings',title:'MiniCtrlBox + Kreuzungsmodul',partnerTitle:'Kreuzungsmodul'},
+ module3:{view:$('module-3-visual'),settings:$('panel-3-settings'),settingsTab:'tab-3-settings',title:'MiniCtrlBox + SwitchLEDBoard',partnerTitle:'SwitchLEDBoard'},
+ module4:{view:$('module-4-visual'),settings:$('panel-4-settings'),settingsTab:'tab-4-settings',title:'MiniCtrlBox + Tastaturmodul',partnerTitle:'Tastaturmodul'}
+};
+for(const partner of Object.values(couplingPartners)){partner.viewHome=partner.view.parentElement;partner.settingsHome=partner.settings.parentElement}
+let couplingLayout=null;
+function restorePanel(panel,home,tab){home.appendChild(panel);panel.hidden=$(tab).getAttribute('aria-selected')!=='true'}
+function syncCoupling(kind){
+ if(couplingLayout===kind)return;
+ if(couplingLayout){const previous=couplingPartners[couplingLayout];mainHardwareHome.appendChild(mainHardware);restorePanel(mainSettings,mainSettingsHome,'tab-1-settings');previous.viewHome.appendChild(previous.view);restorePanel(previous.settings,previous.settingsHome,previous.settingsTab)}
+ couplingLayout=kind;
+ if(kind){const partner=couplingPartners[kind];$('assembly-rig').append(mainHardware,partner.view);$('assembly-settings-1').appendChild(mainSettings);$('assembly-settings-2').appendChild(partner.settings);mainSettings.hidden=false;partner.settings.hidden=false;$('coupled-title').textContent=partner.title;$('assembly-partner-title').textContent=partner.partnerTitle;$('assembly-rig').classList.toggle('slb-coupling',kind==='module3');$('assembly-rig').classList.toggle('keypad-coupling',kind==='module4');$('assembly-rig').setAttribute('aria-label',partner.title);selectTab($('tab-coupled-view'))}
+ $('coupled-card').hidden=!kind;$('separate-modules').hidden=!!kind;
 }
 const extraLamps=[
  {color:'red',x:30,y:23,kind:'small'}, {color:'green',x:35.5,y:23,kind:'small'},
@@ -402,13 +494,38 @@ const pedestrianIcons=[`<circle cx="12" cy="4" r="2" stroke="none"/><path d="M9 
 $('street-signals').innerHTML=streetSignals.map((signal,n)=>`<div class="traffic-pair" style="left:${signal.x}%;top:${signal.y}%" role="group" aria-label="Fahrzeug- und Fußgängerampel an einem gemeinsamen Mast"><div class="street-signal vehicle" data-pair="${n}" tabindex="0" title="Fahrzeugampel mit zugehöriger Fußgängerampel"><div class="signal-housing">${['red','yellow','green'].map((color,i)=>`<div id="street-${n}-${i}" class="street-lamp ${color}" role="img" aria-label="Fahrzeugampel ${n===0?'links':'rechts'}: ${['Rot','Gelb','Grün'][i]}"></div>`).join('')}</div></div><div class="street-signal pedestrian" data-pair="${n}" tabindex="0" title="Fußgängerampel am selben Mast"><div class="signal-housing">${['red','green'].map((color,i)=>`<div role="img" id="pedestrian-${n}-${i}" class="street-lamp ${color}" aria-label="Zugehörige Fußgängerampel: ${i===0?'Rot':'Grün'}"><svg viewBox="0 0 24 24" aria-hidden="true">${pedestrianIcons[i]}</svg></div>`).join('')}</div></div></div>`).join('');
 $('board-extras').innerHTML=extraLamps.map((l,i)=>`<div role="img" id="extra-${i}" class="board-lamp ${l.color} ${l.kind}" style="left:${l.x}%;top:${l.y}%" aria-label="LED${i+6}" title="LED${i+6}" ></div>`).join('');
 $('board-keys').innerHTML=Array.from({length:4},(_,i)=>`<button class="module-key" id="key-${i}" style="top:${22+i*20}%" aria-label="Taster ${i+1}" aria-pressed="false" title="Taster ${i+1}"></button>`).join('');
+$('slb-leds').innerHTML=['blue','green','yellow','red','blue','green','yellow','red'].map((color,i)=>`<div id="slb-led-${i}" class="slb-led ${color}" role="img" aria-label="LED ${i}"></div>`).join('');
+function toggleSwitchGraphic(i){return `<svg viewBox="0 0 64 80" aria-hidden="true" focusable="false">
+<defs>
+ <linearGradient id="washer-${i}" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#fafaf4"/><stop offset=".25" stop-color="#b0b5b5"/><stop offset=".54" stop-color="#515a5e"/><stop offset=".8" stop-color="#d4d8d6"/><stop offset="1" stop-color="#4a5357"/></linearGradient>
+ <linearGradient id="nut-${i}" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#f1f3ee"/><stop offset=".38" stop-color="#939fa3"/><stop offset=".52" stop-color="#e0e5df"/><stop offset=".8" stop-color="#657075"/><stop offset="1" stop-color="#363f44"/></linearGradient>
+ <linearGradient id="lever-${i}"><stop stop-color="#414b51"/><stop offset=".22" stop-color="#a8b1b4"/><stop offset=".43" stop-color="#fffef2"/><stop offset=".58" stop-color="#dbe0dd"/><stop offset=".83" stop-color="#7c898e"/><stop offset="1" stop-color="#323c42"/></linearGradient>
+</defs>
+<ellipse cx="33" cy="51" rx="21" ry="8" fill="#10181d" opacity=".28"/>
+<ellipse cx="32" cy="45" rx="20" ry="12" fill="#30393e"/>
+<ellipse cx="32" cy="42" rx="20" ry="12" fill="url(#washer-${i})" stroke="#d9ded8" stroke-width=".8"/>
+<path d="M17 36 L25 29 L40 30 L48 38 L41 48 L24 48 L16 41Z" fill="url(#nut-${i})" stroke="#3c474d" stroke-width="1.1"/>
+<path d="M18 36 L26 30 L40 31 L46 38" fill="none" stroke="#ffffff" stroke-opacity=".65" stroke-width="1.3"/>
+<ellipse cx="32" cy="39" rx="11" ry="8" fill="#182126" stroke="#c1c9c6" stroke-width="1.5"/>
+<ellipse cx="32" cy="41" rx="8" ry="5" fill="#080e12"/>
+<g class="slb-toggle-lever">
+ <path d="M27 42 L27 12 Q27 7 32 7 Q37 7 37 12 L37 42 Q32 47 27 42Z" fill="url(#lever-${i})" stroke="#667278" stroke-width=".8"/>
+ <path d="M30 13 L30 39" stroke="#ffffff" stroke-opacity=".65" stroke-width="1" stroke-linecap="round"/>
+ <ellipse cx="32" cy="10" rx="4.6" ry="2.5" fill="#e6e9e2" stroke="#7d8a8c" stroke-width=".7"/>
+</g>
+</svg>`}
+$('slb-switches').innerHTML=Array.from({length:8},(_,i)=>`<button id="slb-switch-${i}" class="slb-switch" aria-label="Schalter S${i}" aria-pressed="false" title="Schalter S${i}">${toggleSwitchGraphic(i)}</button>`).join('');
+for(let i=0;i<8;i++)$('slb-switch-'+i).addEventListener('click',()=>act('slb_switch',{index:i,state:!state.slb_switch[i]}));
+$('keypad-grid').innerHTML=['1','2','3','A','4','5','6','B','7','8','9','C','*','0','#','D'].map((label,i)=>`<button id="keypad-key-${i}" class="keypad-key" aria-label="Taste ${label}" aria-pressed="false">${label}</button>`).join('');
 const heldKeys=new Set();
+const heldKeyPadKeys=new Set();
 function highlightPair(pair){for(const signal of document.querySelectorAll('.street-signal[data-pair]'))signal.classList.toggle('pair-highlight',signal.dataset.pair===pair)}
 for(const signal of document.querySelectorAll('.street-signal[data-pair]')){
  signal.addEventListener('mouseenter',()=>highlightPair(signal.dataset.pair));signal.addEventListener('mouseleave',()=>highlightPair(null));
  signal.addEventListener('focus',()=>highlightPair(signal.dataset.pair));signal.addEventListener('blur',()=>highlightPair(null));
 }
 function setKey(i,pressed){if(heldKeys.has(i)===pressed)return;pressed?heldKeys.add(i):heldKeys.delete(i);$('key-'+i).setAttribute('aria-pressed',String(pressed));act('remote_switch',{index:i,state:pressed})}
+function setKeyPadKey(i,pressed){if(heldKeyPadKeys.has(i)===pressed)return;pressed?heldKeyPadKeys.add(i):heldKeyPadKeys.delete(i);$('keypad-key-'+i).setAttribute('aria-pressed',String(pressed));act('keypad_key',{index:i,state:pressed})}
 const heldMainKeys=new Set();
 function setMainKey(side,pressed){if(heldMainKeys.has(side)===pressed)return;pressed?heldMainKeys.add(side):heldMainKeys.delete(side);$('main-key-'+side).setAttribute('aria-pressed',String(pressed));act('main_button',{side,state:pressed})}
 function bindMomentary(key,setPressed){
@@ -418,8 +535,9 @@ function bindMomentary(key,setPressed){
  key.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();setPressed(false)}});
 }
 for(let i=0;i<4;i++)bindMomentary($('key-'+i),pressed=>setKey(i,pressed));
+for(let i=0;i<16;i++)bindMomentary($('keypad-key-'+i),pressed=>setKeyPadKey(i,pressed));
 for(const side of ['left','right'])bindMomentary($('main-key-'+side),pressed=>setMainKey(side,pressed));
-window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false)});
+window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false)});
 function selectTab(tab){
  const card=tab.closest('.unit-card,.coupled-card'),viewTabs=[...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
  if(card.id!=='module-2'){for(const side of [...heldMainKeys])setMainKey(side,false)}if(card.id!=='module-1'){for(const i of [...heldKeys])setKey(i,false)}
@@ -430,11 +548,19 @@ for(const tablist of document.querySelectorAll('[role=tablist]')){const viewTabs
  tab.addEventListener('keydown',event=>{const index=viewTabs.indexOf(tab);let target;if(event.key==='ArrowRight')target=viewTabs[(index+1)%viewTabs.length];else if(event.key==='ArrowLeft')target=viewTabs[(index-1+viewTabs.length)%viewTabs.length];else if(event.key==='Home')target=viewTabs[0];else if(event.key==='End')target=viewTabs[viewTabs.length-1];if(target){event.preventDefault();selectTab(target);target.focus()}});
 }}
 function showLamp(id,on){const lamp=$(id);lamp.classList.toggle('on',on);lamp.setAttribute('title',lamp.getAttribute('aria-label')+(on?' · ein':' · aus'))}
+function renderConnection(id,name,connected){
+ const button=$(id+'-toggle');button.setAttribute('aria-pressed',String(connected));
+ $(id+'-status').textContent=connected?'Verbunden':'Getrennt';
+ button.title=connected?name+' von MiniCtrlBox trennen':name+' mit MiniCtrlBox verbinden';
+}
 function render(){
- syncCoupling(state.module_connected);$('connection-layout').classList.toggle('coupled',state.module_connected);$('connection-layout').setAttribute('aria-label',state.module_connected?'Gekoppelte Module 1 und 2':'Module');
- const connected=state.module_connected;$('connection-status').textContent=`Modul 1 → Modul 2 · ${connected?'Verbunden':'Getrennt'}`;$('connection-toggle').textContent=connected?'Trennen':'Verbinden';
- $('connection-toggle').closest('.connection-toolbar').classList.toggle('connected',connected);$('module-2').classList.toggle('linked',connected);$('module-2').classList.toggle('unlinked',!connected);$('module-2-status').textContent=connected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
- for(const input of [...hardwareNodes[1].querySelectorAll('.module-key'),...settingsNodes[1].querySelectorAll('button,input')])input.disabled=!connected;
+ const coupledModule=state.module_connected?'module2':state.slb_connected?'module3':state.keypad_connected?'module4':null;syncCoupling(coupledModule);$('connection-layout').classList.toggle('coupled',!!coupledModule);$('connection-layout').setAttribute('aria-label',coupledModule?couplingPartners[coupledModule].title:'MiniCtrlBox und Erweiterungen');
+ const connected=state.module_connected;renderConnection('connection','Kreuzungsmodul',connected);
+ $('module-2').classList.toggle('linked',connected);$('module-2').classList.toggle('unlinked',!connected);$('module-2-status').textContent=connected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ const slbConnected=state.slb_connected;renderConnection('slb-connection','SwitchLEDBoard',slbConnected);$('module-3').classList.toggle('linked',slbConnected);$('module-3').classList.toggle('unlinked',!slbConnected);$('module-3-status').textContent=slbConnected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ state.slb_led.forEach((on,i)=>showLamp('slb-led-'+i,on));state.slb_switch.forEach((on,i)=>{const control=$('slb-switch-'+i);control.setAttribute('aria-pressed',String(on));control.disabled=!slbConnected});$('slb-interrupt').textContent='Interrupt: 0b'+state.slb_interrupt.toString(2).padStart(8,'0');
+ const keypadConnected=state.keypad_connected;renderConnection('keypad-connection','Tastaturmodul',keypadConnected);$('module-4').classList.toggle('linked',keypadConnected);$('module-4').classList.toggle('unlinked',!keypadConnected);$('module-4-status').textContent=keypadConnected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';state.keypad_led.forEach((on,i)=>$('keypad-led-'+i).classList.toggle('on',on));for(let i=0;i<16;i++){const key=$('keypad-key-'+i);key.disabled=!keypadConnected;key.setAttribute('aria-pressed',String(state.keypad_key===i))}$('keypad-beeper').classList.toggle('on',state.keypad_beeper);
+ for(const input of [...couplingPartners.module2.view.querySelectorAll('.module-key'),...couplingPartners.module2.settings.querySelectorAll('button,input')])input.disabled=!connected;
  $('street-scene').classList.toggle('inactive',!connected);
  streetSignals.forEach((signal,n)=>state[signal.channel].forEach((on,i)=>showLamp('street-'+n+'-'+i,on)));
  pedestrianSignals.forEach((signal,n)=>signal.leds.forEach((led,i)=>{const lamp=$('pedestrian-'+n+'-'+i);showLamp(lamp.id,state.remote_led[led]);lamp.setAttribute('aria-pressed',String(state.remote_led[led]))}));

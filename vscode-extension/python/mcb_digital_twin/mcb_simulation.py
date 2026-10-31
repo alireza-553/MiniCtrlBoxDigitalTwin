@@ -353,25 +353,30 @@ class CCanBus:
 
 
 class LEDColor(IntFlag):
-    LEDRD0 = 1 << 0
+    LEDRE0 = 1 << 0
     LEDYE0 = 1 << 1
     LEDGN0 = 1 << 2
-    LEDBU0 = 1 << 3
-    LEDRD1 = 1 << 4
+    LEDBL0 = 1 << 3
+    LEDRE1 = 1 << 4
     LEDYE1 = 1 << 5
     LEDGN1 = 1 << 6
-    LEDBU1 = 1 << 7
+    LEDBL1 = 1 << 7
 
 
 class CPortExpRem:
-    LEDRD0 = LEDColor.LEDRD0
+    LEDRE0 = LEDColor.LEDRE0
     LEDYE0 = LEDColor.LEDYE0
     LEDGN0 = LEDColor.LEDGN0
-    LEDBU0 = LEDColor.LEDBU0
-    LEDRD1 = LEDColor.LEDRD1
+    LEDBL0 = LEDColor.LEDBL0
+    LEDRE1 = LEDColor.LEDRE1
     LEDYE1 = LEDColor.LEDYE1
     LEDGN1 = LEDColor.LEDGN1
-    LEDBU1 = LEDColor.LEDBU1
+    LEDBL1 = LEDColor.LEDBL1
+    # Compatibility aliases used by older Digital Twin examples.
+    LEDRD0 = LEDRE0
+    LEDBU0 = LEDBL0
+    LEDRD1 = LEDRE1
+    LEDBU1 = LEDBL1
 
     def __init__(self, mcpAddress: int = 0x21):
         self.address = mcpAddress
@@ -420,11 +425,18 @@ class CPortExpRem:
 
     def enableInterrupts(self, callback: Callable[[], None]) -> None:
         self._interrupt_callback = callback
+        self.interrupt_flag = 0
 
     def disableInterrupts(self) -> None:
         self._interrupt_callback = None
 
+    def freeInterrupts(self) -> int:
+        flags = self.interrupt_flag
+        self.interrupt_flag = 0
+        return flags
+
     def getInterruptFlag(self) -> int:
+        """Compatibility accessor for Digital Twin clients before MiniCtrlBoxLib 6.12."""
         return self.interrupt_flag
 
     def simulateSwitch(self, switchNo: int, state: bool) -> None:
@@ -441,6 +453,72 @@ class CPortExpRem:
 
 class CPortExpOOPExp(CPortExpRem):
     """Portexpander des Verkehrskreuzungsmoduls."""
+
+
+class CKeyPad:
+    ALLLEDS = 0b01100000
+    LEDBMRE = 0b00100000
+    LEDBMGN = 0b01000000
+    LEDNRE = 0
+    LEDNGN = 1
+    _characters = "123A456B789C*0#D"
+
+    def __init__(self, mcpAddress: int = 0x21):
+        self.address = mcpAddress
+        self.led_state = 0
+        self.beeper_state = False
+        self.key = 0xFF
+        self.interrupt_key = 0xFF
+        self._interrupt_callback: Optional[Callable[[], None]] = None
+
+    def begin(self) -> bool:
+        return True
+
+    def isPresent(self) -> bool:
+        return True
+
+    def setLED(self, led: int, state: bool) -> None:
+        mask = (self.LEDBMRE, self.LEDBMGN)[led] if led in (self.LEDNRE, self.LEDNGN) else int(led)
+        if mask & ~self.ALLLEDS:
+            raise ValueError("Unbekannte KeyPad-LED")
+        self.led_state = (self.led_state | mask) if state else (self.led_state & ~mask)
+
+    def setBeeper(self, state: bool) -> None:
+        self.beeper_state = bool(state)
+
+    def beeper(self, milliseconds: int) -> None:
+        if not 0 <= milliseconds <= 0xFFFF:
+            raise ValueError("Beeper-Dauer muss zwischen 0 und 65535 ms liegen")
+        self.beeper_state = False
+
+    def getKey(self) -> int:
+        return self.key
+
+    def getKeyChar(self) -> int:
+        return ord(self._characters[self.key]) if 0 <= self.key < 16 else 0xFF
+
+    def enableInterrupts(self, callback: Callable[[], None]) -> None:
+        self._interrupt_callback = callback
+        self.interrupt_key = 0xFF
+
+    def disableInterrupts(self) -> None:
+        self._interrupt_callback = None
+
+    def freeInterrupts(self) -> int:
+        key = self.interrupt_key
+        self.interrupt_key = 0xFF
+        return key
+
+    def simulateKey(self, key: int, pressed: bool) -> None:
+        if not 0 <= key < 16:
+            raise ValueError("Taste muss zwischen 0 und 15 liegen")
+        next_key = key if pressed else 0xFF
+        if next_key != self.key:
+            self.key = next_key
+            if pressed:
+                self.interrupt_key = next_key
+            if pressed and self._interrupt_callback:
+                self._interrupt_callback()
 
 
 class PWMChannel(IntEnum):

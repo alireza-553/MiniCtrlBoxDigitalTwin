@@ -30,7 +30,12 @@ using gpio_num_t=int;
 inline std::array<std::atomic<int>,32> twinPins{};
 inline std::array<bool,32> twinDown{}, twinPressed{}, twinReleased{};
 inline std::array<std::atomic<int>,6> twinRGB{};
-inline int twinRemote=0, twinSwitches=0;
+inline int twinRemote=0, twinSwitches=0, twinSLBLEDs=0, twinSLBSwitches=0;
+inline int twinSLBInterruptMask=0, twinSLBInterruptFlags=0, twinOOPInterruptMask=0, twinOOPInterruptFlags=0;
+inline void (*twinSLBInterruptCallback)()=nullptr, (*twinOOPInterruptCallback)()=nullptr;
+inline int twinKeyPadLEDs=0, twinKeyPadKey=0xff, twinKeyPadInterruptKey=0xff;
+inline bool twinKeyPadBeeper=false;
+inline void (*twinKeyPadInterruptCallback)()=nullptr;
 inline void pinMode(int,int) {}
 inline void digitalWrite(int pin,int value) { if(pin>=0&&pin<32)twinPins[pin]=value!=0; }
 inline int digitalRead(int pin) { return pin>=0&&pin<32?twinPins[pin].load():0; }
@@ -78,12 +83,19 @@ MINICTRLBOX = r'''
 inline std::array<std::string,8> twinOLED;
 namespace nspMiniCtrlBox {
 constexpr int PIN_BUTTON_LEFT=0, PIN_BUTTON_RIGHT=3, PIN_BUTTON_1=3, PIN_BUTTON_2=0;
+constexpr int MCP_SLB_ADDRESS=0x21, MCP_KEYPAD_ADDRESS=0x21;
 class COLed {
 public:
  bool begin() {return true;}
+ bool isPresent(){return true;}
  void printLine(int row,const char* text) {if(row>=0&&row<8)twinOLED[row]=std::string(text).substr(0,21);}
+ void printAt(int row,int column,const char* text){if(row<0||row>=8||column<0||column>=21)return;auto& line=twinOLED[row];if(line.size()<(size_t)column)line.resize(column,' ');line.replace(column,21-column,std::string(text).substr(0,21-column));}
+ void clearLine(int row){if(row>=0&&row<8)twinOLED[row].clear();}
  void printfLine(int row,const char* format,...) {char text[256];va_list args;va_start(args,format);vsnprintf(text,sizeof(text),format,args);va_end(args);printLine(row,text);}
+ void printfAt(int row,int column,const char* format,...) {char text[256];va_list args;va_start(args,format);vsnprintf(text,sizeof(text),format,args);va_end(args);printAt(row,column,text);}
  void clear() {for(auto& row:twinOLED)row.clear();}
+ unsigned char getRows(){return 8;}
+ unsigned char getCols(){return 21;}
 };
 class CButton {
  int pin;
@@ -97,20 +109,66 @@ public:
 };
 class CPortExpLoc {
 public:
- enum RGBLEDColor {RED0=1,GREEN0=2,BLUE0=4,RED1=8,GREEN1=16,BLUE1=32};
+ enum RGBLEDColor {ALLCOLORS=63,RED0=1,GREEN0=2,BLUE0=4,RED1=8,GREEN1=16,BLUE1=32};
  bool begin(){return true;}
+ bool isPresent(){return true;}
  void setColor(int index,bool on){if(index>=0&&index<6)twinRGB[index]=on;}
  void setColor(RGBLEDColor mask,bool on){for(int i=0;i<6;i++)if(int(mask)&(1<<i))twinRGB[i]=on;}
 };
-class CPortExpOOPExp {
+class CPortExpRem {
+ bool oop;
+ int& leds(){return oop?twinRemote:twinSLBLEDs;}
+ int& switches(){return oop?twinSwitches:twinSLBSwitches;}
+ int& interruptMask(){return oop?twinOOPInterruptMask:twinSLBInterruptMask;}
+ int& interruptFlags(){return oop?twinOOPInterruptFlags:twinSLBInterruptFlags;}
+ void (*&interruptCallback())(){return oop?twinOOPInterruptCallback:twinSLBInterruptCallback;}
+protected:
+ CPortExpRem(unsigned char,bool isOOP):oop(isOOP){}
 public:
+ enum LEDColor:unsigned char {ALLLEDS=0xff,LEDRE0=1,LEDYE0=2,LEDGN0=4,LEDBL0=8,LEDRE1=16,LEDYE1=32,LEDGN1=64,LEDBL1=128};
+ CPortExpRem(unsigned char=MCP_SLB_ADDRESS):oop(false){}
  bool begin(){return true;}
- void setLED(unsigned char index,bool on){if(index<8){if(on)twinRemote|=1<<index;else twinRemote&=~(1<<index);}}
- void setLEDPort(unsigned char value){twinRemote=value;}
- unsigned char getLEDPortState(){return (unsigned char)twinRemote;}
- unsigned char getSwitchState(){return (unsigned char)twinSwitches;}
- bool getSwitchState(unsigned char index){return (twinSwitches&(1<<index))!=0;}
+ bool isPresent(){return true;}
+ void setLED(LEDColor mask,bool on){if(on)leds()|=mask;else leds()&=~mask;}
+ void setLED(unsigned char index,bool on){if(index<8){if(on)leds()|=1<<index;else leds()&=~(1<<index);}}
+ void setLEDPort(unsigned char value){leds()=value;}
+ void setLEDPortRemain(unsigned char value){leds()|=value;}
+ void resetLEDPortRemain(unsigned char value){leds()&=~value;}
+ void toggleLEDPortRemain(unsigned char value){leds()^=value;}
+ unsigned char getLEDPortState(){return (unsigned char)leds();}
+ unsigned char getSwitchState(){return (unsigned char)switches();}
+ bool getSwitchState(unsigned char index){return index<8&&(switches()&(1<<index))!=0;}
+ void setInterruptMask(unsigned char mask){interruptMask()=mask;}
+ void enableInterrupts(void (*callback)()){interruptCallback()=callback;interruptFlags()=0;}
+ void disableInterrupts(){interruptCallback()=nullptr;}
+ unsigned char freeInterrupts(){auto flags=interruptFlags();interruptFlags()=0;return (unsigned char)flags;}
 };
+inline CPortExpRem::LEDColor operator|(CPortExpRem::LEDColor a,CPortExpRem::LEDColor b){return (CPortExpRem::LEDColor)((unsigned char)a|(unsigned char)b);}
+class CPortExpOOPExp:public CPortExpRem {
+public:
+ enum LEDColor:unsigned char {ALLLEDS=0xff,LEDFG0=1,LEDFG1=2,LEDFG2=4,LEDFG3=8,LEDSW1=16,LEDSW2=32,LEDSW3=64,LEDSW4=128};
+ CPortExpOOPExp(unsigned char address=MCP_SLB_ADDRESS):CPortExpRem(address,true){}
+ void setLED(LEDColor mask,bool on){CPortExpRem::setLED((CPortExpRem::LEDColor)mask,on);}
+ using CPortExpRem::setLED;
+};
+class CKeyPad {
+public:
+ enum ELEDBitmask:unsigned char {ALLLEDS=0x60,LEDBMRE=0x20,LEDBMGN=0x40};
+ enum ELEDNumber:unsigned char {LEDNRE=0,LEDNGN=1};
+ CKeyPad(unsigned char=MCP_KEYPAD_ADDRESS){}
+ bool begin(){return true;}
+ bool isPresent(){return true;}
+ void setLED(ELEDBitmask mask,bool on){if(on)twinKeyPadLEDs|=mask;else twinKeyPadLEDs&=~mask;}
+ void setLED(ELEDNumber number,bool on){setLED(number==LEDNRE?LEDBMRE:LEDBMGN,on);}
+ void setBeeper(bool on){twinKeyPadBeeper=on;}
+ void beeper(unsigned short){twinKeyPadBeeper=false;}
+ unsigned char getKey(){return (unsigned char)twinKeyPadKey;}
+ unsigned char getKeyChar(){static const char chars[]="123A456B789C*0#D";return twinKeyPadKey<16?(unsigned char)chars[twinKeyPadKey]:0xff;}
+ void enableInterrupts(void (*callback)()){twinKeyPadInterruptCallback=callback;twinKeyPadInterruptKey=0xff;}
+ void disableInterrupts(){twinKeyPadInterruptCallback=nullptr;}
+ unsigned char freeInterrupts(){auto key=twinKeyPadInterruptKey;twinKeyPadInterruptKey=0xff;return (unsigned char)key;}
+};
+inline CKeyPad::ELEDBitmask operator|(CKeyPad::ELEDBitmask a,CKeyPad::ELEDBitmask b){return (CKeyPad::ELEDBitmask)((unsigned char)a|(unsigned char)b);}
 }
 '''
 
@@ -127,7 +185,7 @@ void quoted(const std::string& value){
 void snapshot(bool waiting=false){
  std::cout<<"{\"waiting\":"<<(waiting?"true":"false")<<",\"pins\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';std::cout<<twinPins[i];}
  std::cout<<"],\"rgb\":[";for(int i=0;i<6;i++){if(i)std::cout<<',';std::cout<<twinRGB[i];}
- std::cout<<"],\"remote\":"<<twinRemote<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]";
+ std::cout<<"],\"remote\":"<<twinRemote<<",\"slb\":"<<twinSLBLEDs<<",\"keypad_leds\":"<<twinKeyPadLEDs<<",\"keypad_beeper\":"<<(twinKeyPadBeeper?"true":"false")<<",\"oled\":[";for(int i=0;i<8;i++){if(i)std::cout<<',';quoted(twinOLED[i]);}std::cout<<"]";
  if(twinStorageDirty){
   std::cout<<",\"storage\":{\"project\":";quoted(twinProjectName);std::cout<<",\"memory\":[";
   for(size_t i=0;i<twinEEPROM.size();i++){if(i)std::cout<<',';std::cout<<unsigned(twinEEPROM[i]);}
@@ -142,16 +200,21 @@ void snapshot(bool waiting=false){
 }
 std::string unhex(const std::string& text){std::string result;if(text=="-")return result;for(size_t i=0;i+1<text.size();i+=2)result+=char(std::stoul(text.substr(i,2),nullptr,16));return result;}
 void button(int pin,bool down){if(down!=twinDown[pin]){if(down)twinPressed[pin]=true;else twinReleased[pin]=true;twinDown[pin]=down;}}
+void switches(int& current,int next,int mask,int& flags,void (*callback)()) {int changed=current^next;current=next;flags|=changed&mask;if((changed&mask)&&callback)callback();}
+void keypad(int next){if(next!=twinKeyPadKey){twinKeyPadKey=next;if(next<16){twinKeyPadInterruptKey=next;if(twinKeyPadInterruptCallback)twinKeyPadInterruptCallback();}}}
 int main(int argc,char** argv){
  std::string memory,project;if(!(std::cin>>memory>>project))return 0;
  auto bytes=unhex(memory);std::copy_n(bytes.begin(),std::min(bytes.size(),twinEEPROM.size()),twinEEPROM.begin());twinProjectName=unhex(project);
  std::cin.ignore(100000,'\n');
  if(argc>1&&std::string(argv[1])=="--debug-wait"){std::string gate;if(!std::getline(std::cin,gate)||gate!="go")return 0;}
  twinDuringDelay=[](){snapshot(true);};
- setup();snapshot();int left,right,switches,connected;
+ setup();snapshot();int left,right,oopSwitches,oopConnected,slbSwitches,slbConnected,keyPadKey,keyPadConnected;
  unsigned count;
- while(std::cin>>left>>right>>switches>>connected>>project>>count){
-  button(0,left!=0);button(3,right!=0);twinSwitches=connected?switches:0;twinProjectName=unhex(project);
+ while(std::cin>>left>>right>>oopSwitches>>oopConnected>>slbSwitches>>slbConnected>>keyPadKey>>keyPadConnected>>project>>count){
+  button(0,left!=0);button(3,right!=0);
+  if(oopConnected)switches(twinSwitches,oopSwitches,twinOOPInterruptMask,twinOOPInterruptFlags,twinOOPInterruptCallback);else twinSwitches=0;
+  if(slbConnected)switches(twinSLBSwitches,slbSwitches,twinSLBInterruptMask,twinSLBInterruptFlags,twinSLBInterruptCallback);else twinSLBSwitches=0;
+  keypad(keyPadConnected?keyPadKey:0xff);twinProjectName=unhex(project);
   for(unsigned n=0;n<count;n++){TwinCANFrame frame;unsigned size;std::string payload;std::cin>>frame.id>>frame.extended>>size>>payload;auto data=unhex(payload);if(size<=8&&data.size()==size&&twinCANIncoming.size()<256&&twinCANStarted){frame.size=size;std::copy_n(data.begin(),size,frame.data);twinCANIncoming.push_back(frame);}}
   loop();snapshot();
  }
@@ -203,6 +266,10 @@ class NativeProgram:
         self.buttons = [False, False]
         self.switches = 0
         self.connected = False
+        self.slb_switches = 0
+        self.slb_connected = False
+        self.keypad_key = 0xFF
+        self.keypad_connected = False
         self.lock = RLock()
         self.peripheral_lock = RLock()
         self.lifecycle = RLock()
@@ -410,14 +477,19 @@ class NativeProgram:
                 pending, self.can_pending = self.can_pending, []
                 project = self.eeprom_project.encode('utf-8').hex() or '-'
             frames = " ".join(f"{identifier} {int(identifier > 0x7ff)} {len(payload)} {payload.hex() or '-'}" for identifier, payload in pending)
-            self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)} {project} {len(pending)} {frames}\n")
+            self.process.stdin.write(f"{int(self.buttons[0])} {int(self.buttons[1])} {self.switches} {int(self.connected)} {self.slb_switches} {int(self.slb_connected)} {self.keypad_key} {int(self.keypad_connected)} {project} {len(pending)} {frames}\n")
             self.process.stdin.flush()
             self.snapshot = self._receive(self.process, self.messages)
 
-    def inputs(self, left, right, switches, connected):
+    def inputs(self, left, right, switches, connected, slb_switches=0, slb_connected=False,
+               keypad_key=0xFF, keypad_connected=False):
         self.buttons = [left, right]
         self.switches = switches
         self.connected = connected
+        self.slb_switches = slb_switches
+        self.slb_connected = slb_connected
+        self.keypad_key = keypad_key
+        self.keypad_connected = keypad_connected
         if self.debug or self.waiting:
             # A delay or breakpoint must not block browser requests.
             return
