@@ -15,6 +15,9 @@
 - Unit- und native Integrationstests prüfen die neuen APIs, alle acht Schalter sowie die LED-Ausgabe des Anwenderprogramms.
 - Die lokale Testzusammenfassung erkennt übersprungene Python- und JavaScript-Tests auch bei farbiger ANSI-Ausgabe. Zuvor konnte Python fälschlich „übersprungen: 0“ melden.
 - Farbausgabe wird für beide Testprozesse ausgeschaltet, damit im VS-Code-Ausgabefenster keine ANSI-Farbcodes erscheinen.
+- Die Oberfläche empfängt geänderte Zustände über einen laufenden HTTP-Ereignisstrom statt durch Abfragen alle 250 ms. Der Server prüft Zustände im Abstand von 5 ms und überträgt nur Änderungen sowie gelegentliche Verbindungszeichen.
+- Nach einem zeitgesteuerten `loop()`-Durchlauf entfällt die zusätzliche Pause von 20 ms. Leere Schleifen werden weiterhin begrenzt, damit sie den PC nicht unnötig belasten.
+- GPIO- und RGB-Zustände werden zwischen Desktop-Tasks und Anzeige atomar ausgetauscht. Native und HTTP-Tests prüfen kurze Blinkphasen mit 20 ms.
 
 ## v0.3.13 – FreeRTOS-Tasks im Digital Twin
 

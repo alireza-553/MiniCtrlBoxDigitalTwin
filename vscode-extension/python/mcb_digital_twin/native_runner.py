@@ -22,13 +22,14 @@ ARDUINO = r'''
 #pragma once
 #include <cstdint>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <thread>
 constexpr int OUTPUT=1, INPUT=0, INPUT_PULLUP=2, HIGH=1, LOW=0;
 using gpio_num_t=int;
-inline std::array<int,32> twinPins{};
+inline std::array<std::atomic<int>,32> twinPins{};
 inline std::array<bool,32> twinDown{}, twinPressed{}, twinReleased{};
-inline std::array<int,6> twinRGB{};
+inline std::array<std::atomic<int>,6> twinRGB{};
 inline int twinRemote=0, twinSwitches=0, twinSLBLEDs=0, twinSLBSwitches=0;
 inline int twinSLBInterruptMask=0, twinSLBInterruptFlags=0, twinOOPInterruptMask=0, twinOOPInterruptFlags=0;
 inline void (*twinSLBInterruptCallback)()=nullptr, (*twinOOPInterruptCallback)()=nullptr;
@@ -37,7 +38,7 @@ inline bool twinKeyPadBeeper=false;
 inline void (*twinKeyPadInterruptCallback)()=nullptr;
 inline void pinMode(int,int) {}
 inline void digitalWrite(int pin,int value) { if(pin>=0&&pin<32)twinPins[pin]=value!=0; }
-inline int digitalRead(int pin) { return pin>=0&&pin<32?twinPins[pin]:0; }
+inline int digitalRead(int pin) { return pin>=0&&pin<32?twinPins[pin].load():0; }
 inline unsigned long millis() {
  static auto start=std::chrono::steady_clock::now();
  return (unsigned long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-start).count();
@@ -423,6 +424,7 @@ class NativeProgram:
                             process.terminate()
                     return
             while process.poll() is None:
+                started = time.monotonic()
                 try:
                     with self.lock:
                         if process is not self.process:
@@ -433,7 +435,10 @@ class NativeProgram:
                         self.error = str(error)
                         process.terminate()
                     break
-                time.sleep(.02)
+                # Limit empty loops without adding 20 ms to every timed loop.
+                remaining = .002 - (time.monotonic() - started)
+                if remaining > 0:
+                    time.sleep(remaining)
         self.worker = Thread(target=run, daemon=True)
         self.worker.start()
 

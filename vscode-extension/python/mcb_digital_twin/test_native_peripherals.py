@@ -180,6 +180,30 @@ void loop(){}
 ''')
         self.assertEqual(self.controller.state()["oled"][0], "  21x8")
 
+    def test_twenty_ms_delay_exposes_both_levels_in_each_loop(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CPortExpLoc port;
+void setup(){port.begin();}
+void loop(){
+ port.setColor(CPortExpLoc::RED0,true);delay(20);
+ port.setColor(CPortExpLoc::RED0,false);delay(20);
+}
+''')
+        previous = None
+        changes = 0
+        deadline = time.monotonic() + 1.2
+        while time.monotonic() < deadline:
+            state = self.controller.state()
+            self.assertEqual(state["program_error"], "")
+            level = state["local"][0]
+            if previous is not None and level != previous:
+                changes += 1
+            previous = level
+            time.sleep(.002)
+        self.assertGreaterEqual(changes, 20, "20-ms blink phases were lost or heavily slowed")
+
 
 if __name__ == "__main__":
     unittest.main()
