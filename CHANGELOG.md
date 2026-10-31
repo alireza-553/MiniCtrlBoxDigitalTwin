@@ -1,5 +1,19 @@
 # Versionshistorie
 
+## v0.3.14 – MiniCtrlBoxLib 6.12 und SwitchLEDBoard
+
+- Die vier Taster des Kreuzungsmoduls verwenden dieselbe orangefarbene Oberfläche und denselben Druckzustand wie die MiniCtrlBox. Auch getrennte, nicht bedienbare Taster behalten ihre Hardwarefarbe; der Verbindungsstatus bleibt separat sichtbar.
+- Das Tastaturmodul besitzt den Koppelanschluss links und wird beim Verbinden zusammen mit der MiniCtrlBox in einer gemeinsamen Karte angezeigt. Ansicht und Einstellungen bleiben beim Wechsel der Erweiterung erhalten.
+- Eine kompakte Verbindungsleiste ersetzt die drei großen Einzelkarten. Die Auswahl und die Einstellungsansichten nennen MiniCtrlBox, Kreuzungsmodul, SwitchLEDBoard und Tastaturmodul statt Modulnummern. Ein Klick verbindet die Erweiterung, ein erneuter Klick trennt sie.
+- SwitchLEDBoard nach Hardwarefoto ausgerichtet: acht Schalter oben, acht LEDs darunter, waagerechte Beschriftung und ausschließlich der seitliche Koppelanschluss links. Die gekoppelte Ansicht berücksichtigt die breite Bauform.
+- Kippschalter mit skalierbarer Metallgrafik, Unterlegscheibe, Sechskantmutter und verchromtem Hebel überarbeitet. Die beiden Stellungen kippen um denselben Drehpunkt; reduzierte Animation wird berücksichtigt.
+- Modul 3 bildet das SwitchLEDBoard mit acht farbigen LEDs und acht Schaltern in der Browseroberfläche ab.
+- Modul 4 stellt das 4×4-Tastaturmodul einschließlich zweier LEDs und Beeper dar.
+- Der native C++-Adapter unterstützt `CPortExpRem` einschließlich Portoperationen, Interruptmaske und dem ab MiniCtrlBoxLib 6.12 gültigen `freeInterrupts()`.
+- `CKeyPad` ist im Python-Modell und im nativen Adapter mit Tasten, LEDs, Beeper und Interruptfreigabe verfügbar.
+- Modul 2, Modul 3 und Modul 4 schließen sich wegen ihrer gemeinsamen I²C-Adresse gegenseitig aus; Verbindungswechsel setzen die Eingänge des getrennten Moduls zurück.
+- Unit- und native Integrationstests prüfen die neuen APIs, alle acht Schalter sowie die LED-Ausgabe des Anwenderprogramms.
+
 ## v0.3.13 – FreeRTOS-Tasks im Digital Twin
 
 - Der Desktop-Adapter stellt `xTaskCreate()` und `vTaskDelay()` automatisch bereit, sodass ESP32-Übungen mit separaten FreeRTOS-Tasks ohne projektspezifischen Simulationscode gebaut werden.

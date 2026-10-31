@@ -165,6 +165,6 @@ gestarteten Extension Development Host anschließend ein MiniCtrlBox-Projekt
 
 ## Download und Anleitung
 
-[Version 0.1.0 herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0).
-Die [bebilderte Projektanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/tree/v0.1.0#readme) erklärt Installation, Upload und Bedienung.
-Bereits installierte interne 0.4.x-Entwicklungsversionen vor der Installation von 0.1.0 deinstallieren.
+[Aktuelle veröffentlichte Erweiterung herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest).
+Die [bebilderte Projektanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin#readme) erklärt Installation, Upload und Bedienung. Ein Entwicklungsbranch kann zusätzliche, noch nicht veröffentlichte Funktionen enthalten.
+Nach einem Update das VS-Code-Fenster neu laden und einen bereits laufenden Twin beenden und neu starten.
