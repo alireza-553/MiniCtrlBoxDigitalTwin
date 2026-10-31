@@ -14,7 +14,8 @@ function createLocalTests(vscode, output, extensionRoot) {
             if (!tests.length) throw new Error('Die installierte Erweiterung enthält keine JavaScript-Tests. VSIX neu installieren.');
             const pythonRoot = path.join(extensionRoot, 'python');
             const python = vscode.workspace.getConfiguration('mcbDigitalTwin').get('pythonPath', 'python3');
-            const environment = { ...process.env, FORCE_COLOR: '0' };
+            const environment = { ...process.env, NO_COLOR: '1', PYTHON_COLORS: '0' };
+            delete environment.FORCE_COLOR;
             // Optional live integrations must never load an unrelated user project.
             delete environment.MCB_UPLOAD_INTEGRATION_ROOT;
             delete environment.MCB_NATIVE_TEST_PROJECT;
@@ -44,7 +45,10 @@ function createLocalTests(vscode, output, extensionRoot) {
                     child.once('error', error => finish(null, error));
                     child.once('close', (code, signal) => finish(code, signal ? new Error(`Testprozess durch ${signal} beendet.`) : undefined));
                 });
-                const skipped = Number(text.match(/\bskipped\s+(\d+)/)?.[1] || text.match(/\bskipped=(\d+)/)?.[1] || 0);
+                // Wrappers may still emit ANSI colors despite NO_COLOR. Strip
+                // them after collecting chunks, including split escape sequences.
+                const plainText = text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+                const skipped = Number(plainText.match(/\bskipped\s+(\d+)/)?.[1] || plainText.match(/\bskipped=(\d+)/)?.[1] || 0);
                 results.push({ ...result, skipped });
             }
             await suite('JavaScript-Unit-Tests', process.execPath, ['--test', '--test-reporter=spec', ...tests], {

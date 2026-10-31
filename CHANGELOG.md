@@ -13,6 +13,8 @@
 - `CKeyPad` ist im Python-Modell und im nativen Adapter mit Tasten, LEDs, Beeper und Interruptfreigabe verfügbar.
 - Modul 2, Modul 3 und Modul 4 schließen sich wegen ihrer gemeinsamen I²C-Adresse gegenseitig aus; Verbindungswechsel setzen die Eingänge des getrennten Moduls zurück.
 - Unit- und native Integrationstests prüfen die neuen APIs, alle acht Schalter sowie die LED-Ausgabe des Anwenderprogramms.
+- Die lokale Testzusammenfassung erkennt übersprungene Python- und JavaScript-Tests auch bei farbiger ANSI-Ausgabe. Zuvor konnte Python fälschlich „übersprungen: 0“ melden.
+- Farbausgabe wird für beide Testprozesse ausgeschaltet, damit im VS-Code-Ausgabefenster keine ANSI-Farbcodes erscheinen.
 
 ## v0.3.13 – FreeRTOS-Tasks im Digital Twin
 
