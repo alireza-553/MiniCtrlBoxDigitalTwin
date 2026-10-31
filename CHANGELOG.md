@@ -1,6 +1,6 @@
 # Versionshistorie
 
-## v0.3.15 – Kurze Blinkphasen schneller anzeigen
+## v0.3.14 – Kurze Blinkphasen schneller anzeigen
 
 - Die Oberfläche empfängt geänderte Zustände über einen laufenden HTTP-Ereignisstrom statt durch Abfragen alle 250 ms. Der Server prüft Zustände im Abstand von 5 ms und überträgt nur Änderungen sowie gelegentliche Verbindungszeichen.
 - Nach einem zeitgesteuerten `loop()`-Durchlauf entfällt die zusätzliche Pause von 20 ms. Leere Schleifen werden weiterhin begrenzt, damit sie den PC nicht unnötig belasten.
