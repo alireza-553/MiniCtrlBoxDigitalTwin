@@ -197,11 +197,11 @@ class SimulationController:
             self._program_inputs()
             return
         if action in ("on", "off", "next", "remote_led", "remote_switch") and not self.module_connected:
-            raise ValueError("Modul 2 ist nicht mit Modul 1 verbunden.")
+            raise ValueError("Kreuzungsmodul ist nicht mit MiniCtrlBox verbunden.")
         if action == "slb_switch" and not self.slb_connected:
-            raise ValueError("Modul 3 ist nicht mit Modul 1 verbunden.")
+            raise ValueError("SwitchLEDBoard ist nicht mit MiniCtrlBox verbunden.")
         if action == "keypad_key" and not self.keypad_connected:
-            raise ValueError("Modul 4 ist nicht mit Modul 1 verbunden.")
+            raise ValueError("Tastaturmodul ist nicht mit MiniCtrlBox verbunden.")
         if action == "main_button":
             side = data.get("side")
             if side not in self.main_buttons:
@@ -315,9 +315,9 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 @media(max-width:780px){.modules-grid,.settings-grid{grid-template-columns:minmax(0,1fr)}.unit-card{padding:18px}.unit-stage{min-height:0;padding:10px 0}.unit-stage .main-unit{max-width:340px}.unit-stage .unit-number{font-size:clamp(65px,22vw,90px)}.unit-stage .unit-oled{font-size:clamp(4px,1.2vw,5px)}.tabs{margin-bottom:16px}.tabs button{flex:1;padding:12px}}
 .modules-grid{align-items:start}.module-settings{min-height:410px}.module-settings h3{margin-top:0}.module-settings .ports{max-width:none}.module-settings input[type=text]{min-width:0;max-width:100%;box-sizing:border-box}.module-settings details{border-top:1px solid #34495e;margin-top:22px;padding-top:16px}.module-settings summary{cursor:pointer;color:#b9dfff;padding:5px 0;font-weight:600}.extra-settings{padding-top:18px}.extra-settings h3:not(:first-child){margin-top:24px}.unit-card>.tabs{margin-bottom:18px}.unit-card>.tabs button[aria-selected=true]{background:#273747}.unit-card>.tabs button{padding:10px 16px}
 @media(max-width:780px){.module-settings{min-height:0}}
-.connection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;margin-bottom:20px;border:1px solid #34495e;border-radius:9px;background:#1c2732;color:#aab7c4;font-size:.95rem}.connection-toolbar.connected{border-color:#3f977d;color:#8ee9c2}.connection-layout{position:relative}
+.connection-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:10px 14px;margin-bottom:18px;border:1px solid #34495e;border-radius:10px;background:#17222c;color:#aab7c4;font-size:.85rem}.connection-source{font-weight:650;color:#e1eaf1;white-space:nowrap}.connection-arrow{color:#718393}.connection-options{display:flex;flex-wrap:wrap;gap:6px}.connection-option{display:flex;align-items:center;gap:10px;padding:7px 11px;border:1px solid #3c4c5b;border-radius:7px;background:#202d39;color:#c7d3dd;font-size:.82rem;white-space:nowrap}.connection-state{font-size:.7rem;color:#8c9dab;display:inline-flex;align-items:center;gap:5px}.connection-state:before{content:"";width:5px;height:5px;border-radius:50%;background:#71818f}.connection-option[aria-pressed=true]{background:#173e35;border-color:#419c7f;color:#c8f8e6}.connection-option[aria-pressed=true] .connection-state{color:#8ee9c2}.connection-option[aria-pressed=true] .connection-state:before{background:#7de2b7;box-shadow:0 0 5px #7de2b74d}.connection-option:focus-visible{outline:2px solid #8ed2ff;outline-offset:2px}.connection-layout{position:relative}
 .module:before{display:none}.module-input{position:absolute;left:-10px;top:28%;height:48%;width:10px;background:repeating-linear-gradient(#302a22 0 9px,#b89a6b 9px 12px);border-radius:3px 0 0 3px}.module-link-status{font-size:.85rem;color:#aab7c4;margin:-8px 0 16px}.linked .module-link-status{color:#8ee9c2}.unlinked .module{filter:saturate(.35)}button:disabled,input:disabled{cursor:not-allowed;opacity:.45}.board-lamp:disabled:hover{background:var(--off)}.module-key:disabled:hover{background:#bb8d40}
-@media(max-width:520px){.connection-toolbar{align-items:flex-start;font-size:.85rem}.connection-toolbar button{flex-shrink:0}}
+@media(max-width:520px){.connection-toolbar{gap:8px;padding:10px}.connection-options{width:100%}.connection-option{flex:1;justify-content:space-between}}
 .unit-stage{height:450px;min-height:0;box-sizing:border-box}.unit-stage .main-unit,.unit-stage .module{margin:28px 0 35px}.module-input{top:50%;transform:translateY(-50%)}#module-1 .unit-stage{justify-content:flex-end}#module-2 .unit-stage{justify-content:flex-start}
 @media(max-width:780px){.unit-stage{height:auto;padding-left:8px;padding-right:18px}#module-1 .unit-stage,#module-2 .unit-stage{justify-content:center}.unit-stage .main-unit,.unit-stage .module{margin-top:28px;margin-bottom:24px}}
 
@@ -341,30 +341,34 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
 <div class="buttons"><button id="twin-restart" onclick="restartTwin()" title="Twin und zuletzt geladenes Programm neu starten; EEPROM bleibt erhalten">Twin neu starten</button></div>
 <p id="twin-status" class="status" role="status" aria-live="polite"></p>
-<div class="connection-toolbar"><span id="connection-status" role="status">Modul 1 → Modul 2 · Getrennt</span><button id="connection-toggle" onclick="toggleConnection()">Verbinden</button></div>
-<div class="connection-toolbar"><span id="slb-connection-status" role="status">Modul 1 → Modul 3 · Getrennt</span><button id="slb-connection-toggle" onclick="toggleSLBConnection()">Verbinden</button></div>
-<div class="connection-toolbar"><span id="keypad-connection-status" role="status">Modul 1 → Modul 4 · Getrennt</span><button id="keypad-connection-toggle" onclick="toggleKeyPadConnection()">Verbinden</button></div>
-<div id="connection-layout" class="connection-layout" role="group" aria-label="Module">
+<div class="connection-toolbar" role="group" aria-label="Erweiterung mit MiniCtrlBox verbinden">
+<span class="connection-source">MiniCtrlBox</span><span class="connection-arrow" aria-hidden="true">&#8596;</span>
+<div class="connection-options">
+<button id="connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleConnection()"><span>Kreuzungsmodul</span><span id="connection-status" class="connection-state">Getrennt</span></button>
+<button id="slb-connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleSLBConnection()"><span>SwitchLEDBoard</span><span id="slb-connection-status" class="connection-state">Getrennt</span></button>
+<button id="keypad-connection-toggle" class="connection-option" aria-pressed="false" onclick="toggleKeyPadConnection()"><span>Tastaturmodul</span><span id="keypad-connection-status" class="connection-state">Getrennt</span></button>
+</div></div>
+<div id="connection-layout" class="connection-layout" role="group" aria-label="MiniCtrlBox und Erweiterungen">
 
 <article id="coupled-card" class="card coupled-card" hidden>
-<h2 id="coupled-title">MiniCtrlBox + Erweiterungsmodul</h2>
+<h2 id="coupled-title">MiniCtrlBox + Erweiterung</h2>
 <nav class="tabs" role="tablist" aria-labelledby="coupled-title">
 <button id="tab-coupled-view" role="tab" aria-selected="true" aria-controls="panel-coupled-view" tabindex="0">Ansicht</button>
 <button id="tab-coupled-settings" role="tab" aria-selected="false" aria-controls="panel-coupled-settings" tabindex="-1">Einstellungen</button>
 </nav>
 <div id="panel-coupled-view" role="tabpanel" aria-labelledby="tab-coupled-view">
-<div class="assembly-stage"><div id="assembly-rig" class="assembly-rig" role="group" aria-label="Direkt zusammengesteckte Module 1 und 2"></div></div>
+<div class="assembly-stage"><div id="assembly-rig" class="assembly-rig" role="group" aria-label="MiniCtrlBox mit Kreuzungsmodul verbunden"></div></div>
 </div>
 <div id="panel-coupled-settings" class="assembly-settings" role="tabpanel" aria-labelledby="tab-coupled-settings" hidden>
-<section id="assembly-settings-1"><h3>Modul 1</h3></section><section id="assembly-settings-2"><h3 id="assembly-partner-title">Erweiterungsmodul</h3></section>
+<section id="assembly-settings-1"><h3>MiniCtrlBox</h3></section><section id="assembly-settings-2"><h3 id="assembly-partner-title">Erweiterung</h3></section>
 </div></article>
 <div id="separate-modules" class="modules-grid">
 <article id="module-1" class="card unit-card"><h2 id="module-1-title"><span class="module-badge">1</span> MiniCtrlBox</h2><p class="module-link-status">Erweiterungsanschluss rechts</p><nav class="tabs" role="tablist" aria-labelledby="module-1-title">
 <button id="tab-1-view" role="tab" aria-selected="true" aria-controls="panel-1-view" tabindex="0">Ansicht</button>
 <button id="tab-1-settings" role="tab" aria-selected="false" aria-controls="panel-1-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit" role="group" aria-label="MiniCtrlBox Modul 1 nach Hardwarevorlage">
-<span class="can-socket first" title="CAN-Anschluss"></span><span class="can-socket second" title="CAN-Anschluss"></span><span id="module-1-socket" class="expansion-socket" title="Erweiterungsanschluss zu Modul 2"></span>
+<div id="panel-1-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-1-view"><div class="unit-stage"><div class="main-unit" role="group" aria-label="MiniCtrlBox nach Hardwarevorlage">
+<span class="can-socket first" title="CAN-Anschluss"></span><span class="can-socket second" title="CAN-Anschluss"></span><span id="module-1-socket" class="expansion-socket" title="Erweiterungsanschluss rechts"></span>
 <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 <span class="unit-number">1</span><div id="oled" class="oled unit-oled" role="button" tabindex="0" aria-label="OLED-Display vergrößern" aria-haspopup="dialog" onclick="openOLED()"></div>
 <div class="unit-rgb" id="unit-rgb-0" style="top:40%" role="img" aria-label="RGB-LED 0"></div>
@@ -390,10 +394,10 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <button id="tab-2-view" role="tab" aria-selected="true" aria-controls="panel-2-view" tabindex="0">Ansicht</button>
 <button id="tab-2-settings" role="tab" aria-selected="false" aria-controls="panel-2-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-2-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-2-view"><div class="unit-stage"><div id="module-2-visual" class="module-visual"><div class="visual-switch" role="group" aria-label="Ansicht von Modul 2">
-<button id="visual-hardware" aria-pressed="true" onclick="chooseVisual('hardware')">Modul</button>
+<div id="panel-2-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-2-view"><div class="unit-stage"><div id="module-2-visual" class="module-visual"><div class="visual-switch" role="group" aria-label="Ansicht von Kreuzungsmodul">
+<button id="visual-hardware" aria-pressed="true" onclick="chooseVisual('hardware')">Platine</button>
 <button id="visual-traffic" aria-pressed="false" onclick="chooseVisual('traffic')">Ampeln</button>
-</div><span id="module-2-socket" class="module-input" title="Erweiterungsanschluss zu Modul 1"></span><div class="module" role="group" aria-label="Kreuzungsmodul nach Hardwarevorlage">
+</div><span id="module-2-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="module" role="group" aria-label="Kreuzungsmodul nach Hardwarevorlage">
 <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
 <div id="lamp-h-0" class="board-lamp red" style="left:30%;top:35%" role="img" aria-label="Fahrzeugampel waagerecht: Rot"></div>
 <div id="lamp-h-1" class="board-lamp yellow" style="left:36.5%;top:35%" role="img" aria-label="Fahrzeugampel waagerecht: Gelb"></div>
@@ -420,7 +424,7 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <button id="tab-3-view" role="tab" aria-selected="true" aria-controls="panel-3-view" tabindex="0">Ansicht</button>
 <button id="tab-3-settings" role="tab" aria-selected="false" aria-controls="panel-3-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-3-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-3-view"><div class="unit-stage"><div id="module-3-visual" class="slb-visual"><span id="module-3-socket" class="module-input" title="Erweiterungsanschluss zu Modul 1"></span><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Kippschaltern"><span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 0–7</span><span>Kippschalter S0–S7</span></div></div></div></div>
+<div id="panel-3-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-3-view"><div class="unit-stage"><div id="module-3-visual" class="slb-visual"><span id="module-3-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Kippschaltern"><span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 0–7</span><span>Kippschalter S0–S7</span></div></div></div></div>
 <div id="panel-3-settings" class="tab-panel module-settings" role="tabpanel" aria-labelledby="tab-3-settings" hidden><div id="slb-interrupt" class="status" role="status"></div><p class="module-help">Die LEDs werden ausschließlich über <code>CPortExpRem</code> vom laufenden Anwenderprogramm gesteuert.</p></div></article>
 <article id="module-4" class="card unit-card"><h2><span class="module-badge">4</span> Tastaturmodul</h2><p id="module-4-status" class="module-link-status">Nicht verbunden · inaktiv</p>
 <div class="unit-stage"><div class="keypad-board" role="group" aria-label="Tastaturmodul mit 16 Tasten"><div class="keypad-indicators"><div id="keypad-led-0" class="keypad-indicator red" role="img" aria-label="Rote Keypad-LED"></div><div id="keypad-led-1" class="keypad-indicator green" role="img" aria-label="Grüne Keypad-LED"></div></div><div id="keypad-grid" class="keypad-grid"></div><div id="keypad-beeper" class="keypad-beeper">Beeper</div></div></div>
@@ -458,8 +462,8 @@ function toggleKeyPadConnection(){for(const i of [...heldKeys])setKey(i,false);f
 const mainHardware=document.querySelector('.main-unit'),mainHardwareHome=mainHardware.parentElement;
 const mainSettings=$('panel-1-settings'),mainSettingsHome=mainSettings.parentElement;
 const couplingPartners={
- module2:{view:$('module-2-visual'),settings:$('panel-2-settings'),settingsTab:'tab-2-settings',title:'MiniCtrlBox + Kreuzungsmodul',partnerTitle:'Modul 2 · Kreuzungsmodul'},
- module3:{view:$('module-3-visual'),settings:$('panel-3-settings'),settingsTab:'tab-3-settings',title:'MiniCtrlBox + SwitchLEDBoard',partnerTitle:'Modul 3 · SwitchLEDBoard'}
+ module2:{view:$('module-2-visual'),settings:$('panel-2-settings'),settingsTab:'tab-2-settings',title:'MiniCtrlBox + Kreuzungsmodul',partnerTitle:'Kreuzungsmodul'},
+ module3:{view:$('module-3-visual'),settings:$('panel-3-settings'),settingsTab:'tab-3-settings',title:'MiniCtrlBox + SwitchLEDBoard',partnerTitle:'SwitchLEDBoard'}
 };
 for(const partner of Object.values(couplingPartners)){partner.viewHome=partner.view.parentElement;partner.settingsHome=partner.settings.parentElement}
 let couplingLayout=null;
@@ -468,7 +472,7 @@ function syncCoupling(kind){
  if(couplingLayout===kind)return;
  if(couplingLayout){const previous=couplingPartners[couplingLayout];mainHardwareHome.appendChild(mainHardware);restorePanel(mainSettings,mainSettingsHome,'tab-1-settings');previous.viewHome.appendChild(previous.view);restorePanel(previous.settings,previous.settingsHome,previous.settingsTab)}
  couplingLayout=kind;
- if(kind){const partner=couplingPartners[kind];$('assembly-rig').append(mainHardware,partner.view);$('assembly-settings-1').appendChild(mainSettings);$('assembly-settings-2').appendChild(partner.settings);mainSettings.hidden=false;partner.settings.hidden=false;$('coupled-title').textContent=partner.title;$('assembly-partner-title').textContent=partner.partnerTitle;$('assembly-rig').classList.toggle('slb-coupling',kind==='module3');$('assembly-rig').setAttribute('aria-label',`Direkt zusammengesteckte Module 1 und ${kind==='module3'?'3':'2'}`);selectTab($('tab-coupled-view'))}
+ if(kind){const partner=couplingPartners[kind];$('assembly-rig').append(mainHardware,partner.view);$('assembly-settings-1').appendChild(mainSettings);$('assembly-settings-2').appendChild(partner.settings);mainSettings.hidden=false;partner.settings.hidden=false;$('coupled-title').textContent=partner.title;$('assembly-partner-title').textContent=partner.partnerTitle;$('assembly-rig').classList.toggle('slb-coupling',kind==='module3');$('assembly-rig').setAttribute('aria-label',partner.title);selectTab($('tab-coupled-view'))}
  $('coupled-card').hidden=!kind;$('separate-modules').hidden=!!kind;
 }
 const extraLamps=[
@@ -537,13 +541,18 @@ for(const tablist of document.querySelectorAll('[role=tablist]')){const viewTabs
  tab.addEventListener('keydown',event=>{const index=viewTabs.indexOf(tab);let target;if(event.key==='ArrowRight')target=viewTabs[(index+1)%viewTabs.length];else if(event.key==='ArrowLeft')target=viewTabs[(index-1+viewTabs.length)%viewTabs.length];else if(event.key==='Home')target=viewTabs[0];else if(event.key==='End')target=viewTabs[viewTabs.length-1];if(target){event.preventDefault();selectTab(target);target.focus()}});
 }}
 function showLamp(id,on){const lamp=$(id);lamp.classList.toggle('on',on);lamp.setAttribute('title',lamp.getAttribute('aria-label')+(on?' · ein':' · aus'))}
+function renderConnection(id,name,connected){
+ const button=$(id+'-toggle');button.setAttribute('aria-pressed',String(connected));
+ $(id+'-status').textContent=connected?'Verbunden':'Getrennt';
+ button.title=connected?name+' von MiniCtrlBox trennen':name+' mit MiniCtrlBox verbinden';
+}
 function render(){
- const coupledModule=state.module_connected?'module2':state.slb_connected?'module3':null;syncCoupling(coupledModule);$('connection-layout').classList.toggle('coupled',!!coupledModule);$('connection-layout').setAttribute('aria-label',coupledModule?`Gekoppelte Module 1 und ${coupledModule==='module3'?'3':'2'}`:'Module');
- const connected=state.module_connected;$('connection-status').textContent=`Modul 1 → Modul 2 · ${connected?'Verbunden':'Getrennt'}`;$('connection-toggle').textContent=connected?'Trennen':'Verbinden';
- $('connection-toggle').closest('.connection-toolbar').classList.toggle('connected',connected);$('module-2').classList.toggle('linked',connected);$('module-2').classList.toggle('unlinked',!connected);$('module-2-status').textContent=connected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
- const slbConnected=state.slb_connected;$('slb-connection-status').textContent=`Modul 1 → Modul 3 · ${slbConnected?'Verbunden':'Getrennt'}`;$('slb-connection-toggle').textContent=slbConnected?'Trennen':'Verbinden';$('slb-connection-toggle').closest('.connection-toolbar').classList.toggle('connected',slbConnected);$('module-3').classList.toggle('linked',slbConnected);$('module-3').classList.toggle('unlinked',!slbConnected);$('module-3-status').textContent=slbConnected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ const coupledModule=state.module_connected?'module2':state.slb_connected?'module3':null;syncCoupling(coupledModule);$('connection-layout').classList.toggle('coupled',!!coupledModule);$('connection-layout').setAttribute('aria-label',coupledModule?couplingPartners[coupledModule].title:'MiniCtrlBox und Erweiterungen');
+ const connected=state.module_connected;renderConnection('connection','Kreuzungsmodul',connected);
+ $('module-2').classList.toggle('linked',connected);$('module-2').classList.toggle('unlinked',!connected);$('module-2-status').textContent=connected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ const slbConnected=state.slb_connected;renderConnection('slb-connection','SwitchLEDBoard',slbConnected);$('module-3').classList.toggle('linked',slbConnected);$('module-3').classList.toggle('unlinked',!slbConnected);$('module-3-status').textContent=slbConnected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
  state.slb_led.forEach((on,i)=>showLamp('slb-led-'+i,on));state.slb_switch.forEach((on,i)=>{const control=$('slb-switch-'+i);control.setAttribute('aria-pressed',String(on));control.disabled=!slbConnected});$('slb-interrupt').textContent='Interrupt: 0b'+state.slb_interrupt.toString(2).padStart(8,'0');
- const keypadConnected=state.keypad_connected;$('keypad-connection-status').textContent=`Modul 1 → Modul 4 · ${keypadConnected?'Verbunden':'Getrennt'}`;$('keypad-connection-toggle').textContent=keypadConnected?'Trennen':'Verbinden';$('keypad-connection-toggle').closest('.connection-toolbar').classList.toggle('connected',keypadConnected);$('module-4').classList.toggle('linked',keypadConnected);$('module-4').classList.toggle('unlinked',!keypadConnected);$('module-4-status').textContent=keypadConnected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';state.keypad_led.forEach((on,i)=>$('keypad-led-'+i).classList.toggle('on',on));for(let i=0;i<16;i++){const key=$('keypad-key-'+i);key.disabled=!keypadConnected;key.setAttribute('aria-pressed',String(state.keypad_key===i))}$('keypad-beeper').classList.toggle('on',state.keypad_beeper);
+ const keypadConnected=state.keypad_connected;renderConnection('keypad-connection','Tastaturmodul',keypadConnected);$('module-4').classList.toggle('linked',keypadConnected);$('module-4').classList.toggle('unlinked',!keypadConnected);$('module-4-status').textContent=keypadConnected?'Mit MiniCtrlBox verbunden · betriebsbereit':'Nicht verbunden · inaktiv';state.keypad_led.forEach((on,i)=>$('keypad-led-'+i).classList.toggle('on',on));for(let i=0;i<16;i++){const key=$('keypad-key-'+i);key.disabled=!keypadConnected;key.setAttribute('aria-pressed',String(state.keypad_key===i))}$('keypad-beeper').classList.toggle('on',state.keypad_beeper);
  for(const input of [...couplingPartners.module2.view.querySelectorAll('.module-key'),...couplingPartners.module2.settings.querySelectorAll('button,input')])input.disabled=!connected;
  $('street-scene').classList.toggle('inactive',!connected);
  streetSignals.forEach((signal,n)=>state[signal.channel].forEach((on,i)=>showLamp('street-'+n+'-'+i,on)));

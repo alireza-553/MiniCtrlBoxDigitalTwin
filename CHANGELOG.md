@@ -2,6 +2,7 @@
 
 ## v0.3.14 – MiniCtrlBoxLib 6.12 und SwitchLEDBoard
 
+- Eine kompakte Verbindungsleiste ersetzt die drei großen Einzelkarten. Die Auswahl und die Einstellungsansichten nennen MiniCtrlBox, Kreuzungsmodul, SwitchLEDBoard und Tastaturmodul statt Modulnummern. Ein Klick verbindet die Erweiterung, ein erneuter Klick trennt sie.
 - SwitchLEDBoard nach Hardwarefoto ausgerichtet: acht Schalter oben, acht LEDs darunter, waagerechte Beschriftung und ausschließlich der seitliche Koppelanschluss links. Die gekoppelte Ansicht berücksichtigt die breite Bauform.
 - Kippschalter mit skalierbarer Metallgrafik, Unterlegscheibe, Sechskantmutter und verchromtem Hebel überarbeitet. Die beiden Stellungen kippen um denselben Drehpunkt; reduzierte Animation wird berücksichtigt.
 - Modul 3 bildet das SwitchLEDBoard mit acht farbigen LEDs und acht Schaltern in der Browseroberfläche ab.
