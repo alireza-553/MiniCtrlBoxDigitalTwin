@@ -165,11 +165,11 @@ Für die normale Nutzung ist diese Datei nicht erforderlich.
 | Ampeln bleiben dunkel | Programmstatus prüfen und Modul 2 verbinden. Nur programmierte Ausgänge leuchten. |
 | Oberfläche öffnet sich nicht | Bei Standardport `http://127.0.0.1:8765` im Browser öffnen; Ausgabe auf Startfehler prüfen. |
 
-Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Andere Hardwarebibliotheken können Buildfehler verursachen.
+Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Ab 0.3.14 sind außerdem das SwitchLEDBoard als Modul 3 über `CPortExpRem` und das Tastaturmodul als Modul 4 über `CKeyPad` mit der MiniCtrlBoxLib-6.12-API verfügbar. Wegen der gemeinsamen I²C-Adresse kann jeweils nur eines der Zusatzmodule 2, 3 oder 4 verbunden sein. Andere Hardwarebibliotheken können Buildfehler verursachen.
 
 ### EEPROM und CAN im C++-Programm (ab 0.3.10)
 
-Die Entwicklungsversion 0.3.10 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.10.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
+Die Entwicklungsversion 0.3.14 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.14.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
 
 Der Twin lädt seinen projektbezogenen EEPROM bereits beim Start. **EEPROM speichern** funktioniert auch ohne laufendes C++-Programm; nach dem vollständigen Beenden und erneuten Öffnen ist der gespeicherte Projektname sofort wieder sichtbar. Das mit `--project-root` ausgewählte Projekt bestimmt den Speicher.
 

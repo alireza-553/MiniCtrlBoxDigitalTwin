@@ -5,7 +5,7 @@ import unittest
 from mcb_digital_twin.crossing import AmpelPhase, CAmpel, CKreuzung, KreuzungPhase, SignalPort
 from mcb_digital_twin.mcb_simulation import (
     CANFrame,
-    CASBActors,
+    CASBActors, CKeyPad,
     CASBSensors,
     CButton,
     CCanBus,
@@ -17,7 +17,7 @@ from mcb_digital_twin.mcb_simulation import (
     CTimer,
     SimulatedCANNetwork,
 )
-from mcb_digital_twin.web_app import SimulationController
+from mcb_digital_twin.web_app import HTML, SimulationController
 
 
 class AmpelTests(unittest.TestCase):
@@ -92,6 +92,46 @@ class MiniCtrlBoxTests(unittest.TestCase):
         self.assertEqual(controller.state()["interrupt"], 0)
         with self.assertRaises(ValueError):
             controller.action({"action": "module_connection", "state": "false"})
+
+    def test_switch_led_board_module_three_connection_switches_and_address_exclusion(self):
+        controller = SimulationController()
+        with self.assertRaises(ValueError):
+            controller.action({"action": "slb_switch", "index": 0, "state": True})
+        controller.action({"action": "module_connection", "state": True})
+        controller.action({"action": "slb_connection", "state": True})
+        self.assertFalse(controller.state()["module_connected"])
+        self.assertTrue(controller.state()["slb_connected"])
+        for index in range(8):
+            controller.action({"action": "slb_switch", "index": index, "state": True})
+        self.assertEqual(controller.state()["slb_switch"], [True] * 8)
+        self.assertEqual(controller.state()["slb_interrupt"], 0xFF)
+        controller.action({"action": "slb_connection", "state": False})
+        self.assertEqual(controller.state()["slb_switch"], [False] * 8)
+        with self.assertRaises(ValueError):
+            controller.action({"action": "slb_switch", "index": 8, "state": True})
+
+    def test_switch_led_board_controls_are_present_in_browser_ui(self):
+        self.assertIn('id="module-3"', HTML)
+        self.assertIn('id="slb-connection-toggle"', HTML)
+        self.assertIn("Array.from({length:8}", HTML)
+        self.assertIn("act('slb_switch'", HTML)
+        self.assertIn('id="module-4"', HTML)
+        self.assertIn('id="keypad-grid"', HTML)
+        self.assertIn("act('keypad_key'", HTML)
+
+    def test_keypad_module_four_connection_keys_and_address_exclusion(self):
+        controller = SimulationController()
+        with self.assertRaises(ValueError):
+            controller.action({"action": "keypad_key", "index": 3, "state": True})
+        controller.action({"action": "slb_connection", "state": True})
+        controller.action({"action": "keypad_connection", "state": True})
+        state = controller.state()
+        self.assertFalse(state["slb_connected"])
+        self.assertTrue(state["keypad_connected"])
+        controller.action({"action": "keypad_key", "index": 3, "state": True})
+        self.assertEqual(controller.state()["keypad_key"], 3)
+        controller.action({"action": "keypad_key", "index": 3, "state": False})
+        self.assertEqual(controller.state()["keypad_key"], 0xFF)
 
     def test_main_unit_buttons_keep_events_and_are_separate_from_module(self):
         controller = SimulationController()
@@ -206,7 +246,30 @@ class MiniCtrlBoxTests(unittest.TestCase):
         expander.simulateSwitch(2, True)
         self.assertTrue(expander.getSwitchState(2))
         self.assertEqual(expander.getInterruptFlag(), 0b00000100)
+        self.assertEqual(expander.freeInterrupts(), 0b00000100)
+        self.assertEqual(expander.freeInterrupts(), 0)
         self.assertEqual(called, [True])
+
+    def test_v612_keypad_leds_keys_beeper_and_interrupt_release(self):
+        keypad = CKeyPad()
+        calls = []
+        self.assertTrue(keypad.begin())
+        keypad.setLED(CKeyPad.LEDNRE, True)
+        keypad.setLED(CKeyPad.LEDBMGN, True)
+        self.assertEqual(keypad.led_state, CKeyPad.ALLLEDS)
+        keypad.setBeeper(True)
+        self.assertTrue(keypad.beeper_state)
+        keypad.beeper(25)
+        self.assertFalse(keypad.beeper_state)
+        keypad.enableInterrupts(lambda: calls.append(keypad.getKey()))
+        keypad.simulateKey(3, True)
+        self.assertEqual(keypad.getKey(), 3)
+        self.assertEqual(keypad.getKeyChar(), ord("A"))
+        self.assertEqual(keypad.freeInterrupts(), 3)
+        self.assertEqual(keypad.freeInterrupts(), 0xFF)
+        keypad.simulateKey(3, False)
+        self.assertEqual(keypad.getKey(), 0xFF)
+        self.assertEqual(calls, [3])
 
     def test_can_network(self):
         network = SimulatedCANNetwork()

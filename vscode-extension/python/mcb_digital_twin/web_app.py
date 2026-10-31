@@ -13,15 +13,15 @@ try:
     from .native_runner import NativeProgram
     from .crossing import CKreuzung
     from .mcb_simulation import (
-        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, COLed,
-        CPortExpLoc, CPortExpOOPExp, CServo, SimulatedCANNetwork,
+        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, CKeyPad, COLed,
+        CPortExpLoc, CPortExpOOPExp, CPortExpRem, CServo, SimulatedCANNetwork,
     )
 except ImportError:
     from native_runner import NativeProgram
     from crossing import CKreuzung
     from mcb_simulation import (
-        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, COLed,
-        CPortExpLoc, CPortExpOOPExp, CServo, SimulatedCANNetwork,
+        CANFrame, CASBActors, CASBSensors, CButton, CCanBus, CEeprom, CKeyPad, COLed,
+        CPortExpLoc, CPortExpOOPExp, CPortExpRem, CServo, SimulatedCANNetwork,
     )
 
 
@@ -31,10 +31,15 @@ class SimulationController:
         self.program = NativeProgram()
         self.program_path = str(self.program.select_storage(project_root or Path.cwd()))
         self.module_connected = False
+        self.slb_connected = False
+        self.keypad_connected = False
         self.local = CPortExpLoc()
         self.main_buttons = {"left": CButton(0), "right": CButton(3)}
         self.remote = CPortExpOOPExp()
         self.remote.setInterruptMask(0xFF)
+        self.slb = CPortExpRem()
+        self.slb.setInterruptMask(0xFF)
+        self.keypad = CKeyPad()
         self.display = COLed()
         self.eeprom = CEeprom()
         self.servo = CServo()
@@ -56,12 +61,16 @@ class SimulationController:
         snapshot = self.program.snapshot if running and self.program.snapshot else {}
         pins = snapshot.get("pins", [0] * 8) if self.module_connected else [0] * 8
         remote = snapshot.get("remote", 0) if self.module_connected else 0
+        slb = snapshot.get("slb", 0) if self.slb_connected else 0
+        keypad_leds = snapshot.get("keypad_leds", 0) if self.keypad_connected else 0
         return {
             "program_running": running,
             "program_path": self.program.project or self.program_path,
             "program_error": self.program.error,
             "program_debug": self.program.debug if running else None,
             "module_connected": self.module_connected,
+            "slb_connected": self.slb_connected,
+            "keypad_connected": self.keypad_connected,
             "phase": "PROGRAM" if running else "OFF",
             "ew": [bool(pins[i]) for i in (0, 1, 4)],
             "ns": [bool(pins[i]) for i in (5, 6, 7)],
@@ -75,6 +84,12 @@ class SimulationController:
             "remote_led": [bool(remote & (1 << i)) for i in range(8)],
             "remote_switch": [bool(self.remote.getSwitchState(i)) for i in range(8)],
             "interrupt": self.remote.getInterruptFlag(),
+            "slb_led": [bool(slb & (1 << i)) for i in range(8)],
+            "slb_switch": [bool(self.slb.getSwitchState(i)) for i in range(8)],
+            "slb_interrupt": self.slb.interrupt_flag,
+            "keypad_led": [bool(keypad_leds & mask) for mask in (CKeyPad.LEDBMRE, CKeyPad.LEDBMGN)],
+            "keypad_key": self.keypad.getKey(),
+            "keypad_beeper": bool(snapshot.get("keypad_beeper", False)) if self.keypad_connected else False,
             "oled": snapshot.get("oled", [" " * 21] * 8),
             "project": self.program.eeprom_project if self.program.storage_path else self.eeprom.readProjectName(),
             "eeprom_bytes": self.program.eeprom_memory[:16],
@@ -99,9 +114,13 @@ class SimulationController:
             project = self.program.project or self.program_path
             restart_program = bool(self.program.project)
             connected = self.module_connected
+            slb_connected = self.slb_connected
+            keypad_connected = self.keypad_connected
             self.program.stop()
             replacement = SimulationController(project)
             replacement.module_connected = connected
+            replacement.slb_connected = slb_connected
+            replacement.keypad_connected = keypad_connected
             self.__dict__.update(replacement.__dict__)
             if restart_program:
                 self.action({"action": "program_start", "path": project})
@@ -133,14 +152,56 @@ class SimulationController:
             if not isinstance(connected, bool):
                 raise ValueError("Verbindungszustand muss true oder false sein")
             self.module_connected = connected
+            if connected:
+                self.slb_connected = False
+                self.keypad_connected = False
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
             if not connected:
                 self.kreuzung.off()
                 self.remote = CPortExpOOPExp()
                 self.remote.setInterruptMask(0xFF)
             self._program_inputs()
             return
+        if action == "slb_connection":
+            connected = data.get("state")
+            if not isinstance(connected, bool):
+                raise ValueError("Verbindungszustand muss true oder false sein")
+            self.slb_connected = connected
+            if connected:
+                self.module_connected = False
+                self.keypad_connected = False
+                self.kreuzung.off()
+                self.remote = CPortExpOOPExp()
+                self.remote.setInterruptMask(0xFF)
+            else:
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
+            self._program_inputs()
+            return
+        if action == "keypad_connection":
+            connected = data.get("state")
+            if not isinstance(connected, bool):
+                raise ValueError("Verbindungszustand muss true oder false sein")
+            self.keypad_connected = connected
+            if connected:
+                self.module_connected = False
+                self.slb_connected = False
+                self.kreuzung.off()
+                self.remote = CPortExpOOPExp()
+                self.remote.setInterruptMask(0xFF)
+                self.slb = CPortExpRem()
+                self.slb.setInterruptMask(0xFF)
+            else:
+                self.keypad = CKeyPad()
+            self._program_inputs()
+            return
         if action in ("on", "off", "next", "remote_led", "remote_switch") and not self.module_connected:
             raise ValueError("Modul 2 ist nicht mit Modul 1 verbunden.")
+        if action == "slb_switch" and not self.slb_connected:
+            raise ValueError("Modul 3 ist nicht mit Modul 1 verbunden.")
+        if action == "keypad_key" and not self.keypad_connected:
+            raise ValueError("Modul 4 ist nicht mit Modul 1 verbunden.")
         if action == "main_button":
             side = data.get("side")
             if side not in self.main_buttons:
@@ -156,6 +217,10 @@ class SimulationController:
                 button.resetReleasedFlag()
         elif action == "remote_switch":
             self.remote.simulateSwitch(self._index(data, 4), bool(data.get("state")))
+        elif action == "slb_switch":
+            self.slb.simulateSwitch(self._index(data, 8), bool(data.get("state")))
+        elif action == "keypad_key":
+            self.keypad.simulateKey(self._index(data, 16), bool(data.get("state")))
         elif action == "eeprom":
             self.eeprom.writeProjectName(str(data.get("text", "")))
             self.program.write_project_name(str(data.get("text", "")))
@@ -198,7 +263,9 @@ class SimulationController:
 
     def _program_inputs(self):
         self.program.inputs(self.main_buttons["left"].state, self.main_buttons["right"].state,
-                            self.remote.getSwitchState(), self.module_connected)
+                            self.remote.getSwitchState(), self.module_connected,
+                            self.slb.getSwitchState(), self.slb_connected,
+                            self.keypad.getKey(), self.keypad_connected)
 
     @staticmethod
     def _index(data: dict, size: int) -> int:
@@ -266,12 +333,16 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 .street-signal.pair-highlight .signal-housing{outline:2px solid #b9dfff;outline-offset:3px}.street-signal:focus{outline:none}
 .traffic-pair{position:absolute;width:12.5%;z-index:2}.traffic-pair:before{content:"";position:absolute;left:22%;top:38%;width:56%;height:4px;background:linear-gradient(#d2d7d6,#737a7e);box-shadow:0 2px 3px #0005;z-index:1}.traffic-pair>.street-signal.vehicle{position:relative;left:0;top:0;width:44%}.traffic-pair>.street-signal.pedestrian{left:56%;top:0;width:44%}.traffic-pair>.street-signal.pedestrian:after{display:none}
 .main-unit{container-type:inline-size}.main-unit .unit-oled{left:16%;top:32%;width:54%;height:32%;padding:1px;border-width:1px;font-size:3.2cqw;line-height:1.1;cursor:zoom-in;text-align:left}.main-unit .unit-oled:focus-visible{outline:2px solid #8ed2ff;outline-offset:4px}#oled-zoom{background:#1c2732;color:#e8edf2;border:1px solid #526476;border-radius:12px;padding:20px;max-width:calc(100vw - 64px)}#oled-zoom::backdrop{background:#0009}.oled-zoom-header{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:16px}.oled-zoom-header h2{font-size:1.1rem;margin:0}#oled-zoom-text{margin:0;padding:18px;background:#071016;color:#b7e6ff;border:2px solid #36434e;border-radius:4px;white-space:pre;font:clamp(12px,3.2vw,24px)/1.25 monospace;min-height:10em}
+.slb-board{position:relative;width:min(100%,430px);aspect-ratio:3/4;border-radius:8px;background:linear-gradient(135deg,#a7adb1,#626b72 48%,#bbc0c3);box-shadow:inset 0 0 0 2px #d7dcdf,0 12px 0 #3d464d,0 17px 20px #0006;display:grid;grid-template-columns:1fr 1fr;gap:8%;align-items:center;padding:12% 17%;box-sizing:border-box}.slb-board:before{content:"SwitchLEDBoard";position:absolute;left:48%;top:50%;transform:translate(-50%,-50%) rotate(90deg);font-weight:800;letter-spacing:.1em;color:#3d2525;opacity:.8}.slb-column{display:grid;grid-template-rows:repeat(8,1fr);gap:8px;height:100%;align-items:center}.slb-led{width:28px;aspect-ratio:1;border-radius:50%;margin:auto;background:var(--dim);border:2px solid #d7d0be;box-shadow:inset 2px 2px 5px #000b}.slb-led.on{background:var(--lit);box-shadow:inset 1px 1px 3px #fff9,0 0 15px var(--lit)}.slb-led.red{--dim:#56171a;--lit:#ff3038}.slb-led.yellow{--dim:#70550d;--lit:#ffd12d}.slb-led.green{--dim:#153e27;--lit:#3aeb7c}.slb-led.blue{--dim:#174060;--lit:#42b7ff}.slb-switch{position:relative;width:34px;height:24px;margin:auto;padding:0;background:#252a2d;border:2px solid #c9c4b7;border-radius:12px;box-shadow:inset 0 2px 4px #000}.slb-switch:after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;left:4px;top:4px;background:#ddd;transition:left .12s}.slb-switch[aria-pressed=true]:after{left:14px;background:#8ee9c2}.slb-switch:hover{background:#343b3f}.slb-labels{display:flex;justify-content:space-between;color:#aab7c4;font-size:.85rem;margin-top:12px}
+.unlinked .slb-board,.unlinked .keypad-board{filter:saturate(.3)}.keypad-board{width:min(100%,390px);border-radius:9px;background:linear-gradient(145deg,#546370,#2e3942);box-shadow:inset 0 0 0 2px #82909a,0 12px 0 #202930,0 17px 20px #0006;padding:34px;box-sizing:border-box}.keypad-indicators{display:flex;justify-content:center;gap:30px;margin-bottom:24px}.keypad-indicator{width:24px;aspect-ratio:1;border-radius:50%;background:#232829;border:2px solid #9ea7a9}.keypad-indicator.red.on{background:#ff3840;box-shadow:0 0 14px #ff3840}.keypad-indicator.green.on{background:#3bea79;box-shadow:0 0 14px #3bea79}.keypad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.keypad-key{aspect-ratio:1;border-radius:8px;background:#172027;border:1px solid #95a1a8;color:#edf5f7;font-weight:700;box-shadow:0 4px 0 #0b1014}.keypad-key[aria-pressed=true]{transform:translateY(3px);box-shadow:0 1px 0 #0b1014;background:#2878bd}.keypad-beeper{text-align:center;margin-top:20px;color:#aab7c4}.keypad-beeper.on{color:#ffd76b;text-shadow:0 0 8px #ffd76b}
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
 <div class="buttons"><button id="twin-restart" onclick="restartTwin()" title="Twin und zuletzt geladenes Programm neu starten; EEPROM bleibt erhalten">Twin neu starten</button></div>
 <p id="twin-status" class="status" role="status" aria-live="polite"></p>
 <div class="connection-toolbar"><span id="connection-status" role="status">Modul 1 → Modul 2 · Getrennt</span><button id="connection-toggle" onclick="toggleConnection()">Verbinden</button></div>
+<div class="connection-toolbar"><span id="slb-connection-status" role="status">Modul 1 → Modul 3 · Getrennt</span><button id="slb-connection-toggle" onclick="toggleSLBConnection()">Verbinden</button></div>
+<div class="connection-toolbar"><span id="keypad-connection-status" role="status">Modul 1 → Modul 4 · Getrennt</span><button id="keypad-connection-toggle" onclick="toggleKeyPadConnection()">Verbinden</button></div>
 <div id="connection-layout" class="connection-layout" role="group" aria-label="Module">
 
 <article id="coupled-card" class="card coupled-card" hidden>
@@ -344,6 +415,12 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <p class="module-help">Die Ampeln zeigen nur die Ausgaben des laufenden Anwenderprogramms. Ohne Programm bleiben alle Lichter aus.</p>
 <div id="phase" class="phase"></div><div id="interrupt" class="status" role="status"></div>
 </div></div></article>
+<article id="module-3" class="card unit-card"><h2><span class="module-badge">3</span> SwitchLEDBoard</h2><p id="module-3-status" class="module-link-status">Nicht verbunden · inaktiv</p>
+<div class="unit-stage"><div><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Schaltern"><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 0–7</span><span>Schalter S0–S7</span></div></div></div>
+<div id="slb-interrupt" class="status" role="status"></div><p class="module-help">Die LEDs werden ausschließlich über <code>CPortExpRem</code> vom laufenden Anwenderprogramm gesteuert.</p></article>
+<article id="module-4" class="card unit-card"><h2><span class="module-badge">4</span> Tastaturmodul</h2><p id="module-4-status" class="module-link-status">Nicht verbunden · inaktiv</p>
+<div class="unit-stage"><div class="keypad-board" role="group" aria-label="Tastaturmodul mit 16 Tasten"><div class="keypad-indicators"><div id="keypad-led-0" class="keypad-indicator red" role="img" aria-label="Rote Keypad-LED"></div><div id="keypad-led-1" class="keypad-indicator green" role="img" aria-label="Grüne Keypad-LED"></div></div><div id="keypad-grid" class="keypad-grid"></div><div id="keypad-beeper" class="keypad-beeper">Beeper</div></div></div>
+<p class="module-help">Tasten, LEDs und Beeper werden über <code>CKeyPad</code> nach MiniCtrlBoxLib 6.12 simuliert.</p></article>
 </div>
 </div>
 <dialog id="oled-zoom" aria-labelledby="oled-zoom-title"><div class="oled-zoom-header"><h2 id="oled-zoom-title">OLED-Display</h2><button onclick="document.getElementById('oled-zoom').close()">Schließen</button></div><pre id="oled-zoom-text" aria-label="OLED-Inhalt"></pre></dialog>
@@ -356,7 +433,7 @@ function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum'
 async function restartTwin(){
  if(twinRestarting)return;
  twinRestarting=true;$('twin-restart').disabled=true;$('twin-status').textContent='Twin wird neu gestartet …';
- for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
+ for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
  try{await act('twin_restart');$('twin-status').textContent='Twin neu gestartet. EEPROM bleibt erhalten.'}
  catch(error){$('twin-status').textContent=error.message}
  finally{twinRestarting=false;$('twin-restart').disabled=!!state.program_debug}
@@ -371,7 +448,9 @@ function chooseVisual(mode){
 }
 function openOLED(){$('oled-zoom-text').textContent=(state.oled||[]).join('\n');if(!$('oled-zoom').open)$('oled-zoom').showModal()}
 $('oled').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openOLED()}});
-function toggleConnection(){for(const i of [...heldKeys])setKey(i,false);return act('module_connection',{state:!state.module_connected})}
+function toggleConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('module_connection',{state:!state.module_connected})}
+function toggleSLBConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('slb_connection',{state:!state.slb_connected})}
+function toggleKeyPadConnection(){for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);return act('keypad_connection',{state:!state.keypad_connected})}
 const hardwareNodes=[document.querySelector('.main-unit'),$('module-2-visual')];
 const hardwareHomes=hardwareNodes.map(node=>node.parentElement);
 const settingsNodes=[$('panel-1-settings'),$('panel-2-settings')];
@@ -401,13 +480,19 @@ const pedestrianIcons=[`<circle cx="12" cy="4" r="2" stroke="none"/><path d="M9 
 $('street-signals').innerHTML=streetSignals.map((signal,n)=>`<div class="traffic-pair" style="left:${signal.x}%;top:${signal.y}%" role="group" aria-label="Fahrzeug- und Fußgängerampel an einem gemeinsamen Mast"><div class="street-signal vehicle" data-pair="${n}" tabindex="0" title="Fahrzeugampel mit zugehöriger Fußgängerampel"><div class="signal-housing">${['red','yellow','green'].map((color,i)=>`<div id="street-${n}-${i}" class="street-lamp ${color}" role="img" aria-label="Fahrzeugampel ${n===0?'links':'rechts'}: ${['Rot','Gelb','Grün'][i]}"></div>`).join('')}</div></div><div class="street-signal pedestrian" data-pair="${n}" tabindex="0" title="Fußgängerampel am selben Mast"><div class="signal-housing">${['red','green'].map((color,i)=>`<div role="img" id="pedestrian-${n}-${i}" class="street-lamp ${color}" aria-label="Zugehörige Fußgängerampel: ${i===0?'Rot':'Grün'}"><svg viewBox="0 0 24 24" aria-hidden="true">${pedestrianIcons[i]}</svg></div>`).join('')}</div></div></div>`).join('');
 $('board-extras').innerHTML=extraLamps.map((l,i)=>`<div role="img" id="extra-${i}" class="board-lamp ${l.color} ${l.kind}" style="left:${l.x}%;top:${l.y}%" aria-label="LED${i+6}" title="LED${i+6}" ></div>`).join('');
 $('board-keys').innerHTML=Array.from({length:4},(_,i)=>`<button class="module-key" id="key-${i}" style="top:${22+i*20}%" aria-label="Taster ${i+1}" aria-pressed="false" title="Taster ${i+1}"></button>`).join('');
+$('slb-leds').innerHTML=['red','yellow','green','blue','red','yellow','green','blue'].map((color,i)=>`<div id="slb-led-${i}" class="slb-led ${color}" role="img" aria-label="LED ${i}"></div>`).join('');
+$('slb-switches').innerHTML=Array.from({length:8},(_,i)=>`<button id="slb-switch-${i}" class="slb-switch" aria-label="Schalter S${i}" aria-pressed="false" title="Schalter S${i}"></button>`).join('');
+for(let i=0;i<8;i++)$('slb-switch-'+i).addEventListener('click',()=>act('slb_switch',{index:i,state:!state.slb_switch[i]}));
+$('keypad-grid').innerHTML=['1','2','3','A','4','5','6','B','7','8','9','C','*','0','#','D'].map((label,i)=>`<button id="keypad-key-${i}" class="keypad-key" aria-label="Taste ${label}" aria-pressed="false">${label}</button>`).join('');
 const heldKeys=new Set();
+const heldKeyPadKeys=new Set();
 function highlightPair(pair){for(const signal of document.querySelectorAll('.street-signal[data-pair]'))signal.classList.toggle('pair-highlight',signal.dataset.pair===pair)}
 for(const signal of document.querySelectorAll('.street-signal[data-pair]')){
  signal.addEventListener('mouseenter',()=>highlightPair(signal.dataset.pair));signal.addEventListener('mouseleave',()=>highlightPair(null));
  signal.addEventListener('focus',()=>highlightPair(signal.dataset.pair));signal.addEventListener('blur',()=>highlightPair(null));
 }
 function setKey(i,pressed){if(heldKeys.has(i)===pressed)return;pressed?heldKeys.add(i):heldKeys.delete(i);$('key-'+i).setAttribute('aria-pressed',String(pressed));act('remote_switch',{index:i,state:pressed})}
+function setKeyPadKey(i,pressed){if(heldKeyPadKeys.has(i)===pressed)return;pressed?heldKeyPadKeys.add(i):heldKeyPadKeys.delete(i);$('keypad-key-'+i).setAttribute('aria-pressed',String(pressed));act('keypad_key',{index:i,state:pressed})}
 const heldMainKeys=new Set();
 function setMainKey(side,pressed){if(heldMainKeys.has(side)===pressed)return;pressed?heldMainKeys.add(side):heldMainKeys.delete(side);$('main-key-'+side).setAttribute('aria-pressed',String(pressed));act('main_button',{side,state:pressed})}
 function bindMomentary(key,setPressed){
@@ -417,8 +502,9 @@ function bindMomentary(key,setPressed){
  key.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();setPressed(false)}});
 }
 for(let i=0;i<4;i++)bindMomentary($('key-'+i),pressed=>setKey(i,pressed));
+for(let i=0;i<16;i++)bindMomentary($('keypad-key-'+i),pressed=>setKeyPadKey(i,pressed));
 for(const side of ['left','right'])bindMomentary($('main-key-'+side),pressed=>setMainKey(side,pressed));
-window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false)});
+window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false)});
 function selectTab(tab){
  const card=tab.closest('.unit-card,.coupled-card'),viewTabs=[...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
  if(card.id!=='module-2'){for(const side of [...heldMainKeys])setMainKey(side,false)}if(card.id!=='module-1'){for(const i of [...heldKeys])setKey(i,false)}
@@ -433,6 +519,9 @@ function render(){
  syncCoupling(state.module_connected);$('connection-layout').classList.toggle('coupled',state.module_connected);$('connection-layout').setAttribute('aria-label',state.module_connected?'Gekoppelte Module 1 und 2':'Module');
  const connected=state.module_connected;$('connection-status').textContent=`Modul 1 → Modul 2 · ${connected?'Verbunden':'Getrennt'}`;$('connection-toggle').textContent=connected?'Trennen':'Verbinden';
  $('connection-toggle').closest('.connection-toolbar').classList.toggle('connected',connected);$('module-2').classList.toggle('linked',connected);$('module-2').classList.toggle('unlinked',!connected);$('module-2-status').textContent=connected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ const slbConnected=state.slb_connected;$('slb-connection-status').textContent=`Modul 1 → Modul 3 · ${slbConnected?'Verbunden':'Getrennt'}`;$('slb-connection-toggle').textContent=slbConnected?'Trennen':'Verbinden';$('slb-connection-toggle').closest('.connection-toolbar').classList.toggle('connected',slbConnected);$('module-3').classList.toggle('linked',slbConnected);$('module-3').classList.toggle('unlinked',!slbConnected);$('module-3-status').textContent=slbConnected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';
+ state.slb_led.forEach((on,i)=>showLamp('slb-led-'+i,on));state.slb_switch.forEach((on,i)=>{const control=$('slb-switch-'+i);control.setAttribute('aria-pressed',String(on));control.disabled=!slbConnected});$('slb-interrupt').textContent='Interrupt: 0b'+state.slb_interrupt.toString(2).padStart(8,'0');
+ const keypadConnected=state.keypad_connected;$('keypad-connection-status').textContent=`Modul 1 → Modul 4 · ${keypadConnected?'Verbunden':'Getrennt'}`;$('keypad-connection-toggle').textContent=keypadConnected?'Trennen':'Verbinden';$('keypad-connection-toggle').closest('.connection-toolbar').classList.toggle('connected',keypadConnected);$('module-4').classList.toggle('linked',keypadConnected);$('module-4').classList.toggle('unlinked',!keypadConnected);$('module-4-status').textContent=keypadConnected?'Mit Modul 1 verbunden · betriebsbereit':'Nicht verbunden · inaktiv';state.keypad_led.forEach((on,i)=>$('keypad-led-'+i).classList.toggle('on',on));for(let i=0;i<16;i++){const key=$('keypad-key-'+i);key.disabled=!keypadConnected;key.setAttribute('aria-pressed',String(state.keypad_key===i))}$('keypad-beeper').classList.toggle('on',state.keypad_beeper);
  for(const input of [...hardwareNodes[1].querySelectorAll('.module-key'),...settingsNodes[1].querySelectorAll('button,input')])input.disabled=!connected;
  $('street-scene').classList.toggle('inactive',!connected);
  streetSignals.forEach((signal,n)=>state[signal.channel].forEach((on,i)=>showLamp('street-'+n+'-'+i,on)));

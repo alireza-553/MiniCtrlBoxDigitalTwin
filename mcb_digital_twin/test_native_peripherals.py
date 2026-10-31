@@ -141,6 +141,45 @@ void loop(){}
             time.sleep(.02)
         self.assertEqual(observed, {False, True})
 
+    def test_v612_switch_led_board_native_adapter_and_interrupt_release(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CPortExpRem board; volatile bool changed=false;
+void changedISR(){changed=true;}
+void setup(){board.begin();board.setInterruptMask(0xff);board.enableInterrupts(changedISR);}
+void loop(){if(changed){auto flags=board.freeInterrupts();board.setLEDPortRemain(flags);changed=false;}}
+''')
+        self.controller.action({"action": "slb_connection", "state": True})
+        self.controller.action({"action": "slb_switch", "index": 5, "state": True})
+        state = self.wait_for(lambda current: current["slb_led"][5])
+        self.assertEqual(state["slb_led"], [False] * 5 + [True] + [False] * 2)
+
+    def test_v612_keypad_native_adapter_builds_and_exposes_outputs(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CKeyPad keypad; COLed oled; volatile bool changed=false;
+void keypadISR(){changed=true;}
+void setup(){oled.begin();keypad.begin();keypad.setLED(CKeyPad::LEDBMRE | CKeyPad::LEDBMGN,true);keypad.setBeeper(true);keypad.enableInterrupts(keypadISR);}
+void loop(){if(changed){oled.printfLine(0,"Key: %c",keypad.getKeyChar());keypad.freeInterrupts();changed=false;}}
+''')
+        self.assertEqual(self.controller.program.snapshot["keypad_leds"], 0x60)
+        self.assertTrue(self.controller.program.snapshot["keypad_beeper"])
+        self.controller.action({"action": "keypad_connection", "state": True})
+        self.controller.action({"action": "keypad_key", "index": 3, "state": True})
+        self.wait_for(lambda state: state["oled"][0] == "Key: A")
+
+    def test_v612_display_geometry_and_oop_led_names_compile(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+COLed oled; CPortExpOOPExp board;
+void setup(){oled.begin();oled.printfAt(0,2,"%ux%u",oled.getCols(),oled.getRows());board.setLED(CPortExpOOPExp::LEDSW1,true);}
+void loop(){}
+''')
+        self.assertEqual(self.controller.state()["oled"][0], "  21x8")
+
 
 if __name__ == "__main__":
     unittest.main()
