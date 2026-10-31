@@ -38,6 +38,7 @@ python3 -m unittest discover -s mcb_digital_twin -p "test_*.py" -v
 - `CButton`
 - `CPortExpLoc`
 - `CPortExpRem` und `CPortExpOOPExp`
+- `CKeyPad`
 - `CTimer`
 - `CCanBus` mit mehreren simulierten Teilnehmern
 - `CServo`

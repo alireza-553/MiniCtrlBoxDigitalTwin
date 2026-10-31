@@ -6,9 +6,11 @@ MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: 
 
 **Zum Lernen:** Im [Begriffslexikon](docs/begriffe/README.md) findest du kurze Erklärungen, Beispiele und Lernaufgaben. Verlinkte Fachbegriffe in den Anleitungen führen direkt zum passenden Eintrag, etwa [Watchdog-Interrupt](docs/begriffe/README.md#watchdog-interrupt).
 
-**[Version v0.1.0 herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0)** · **[VSIX direkt herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.1.0/mcb-digital-twin-0.1.0.vsix)**
+**[Aktuelle veröffentlichte Erweiterung herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest)**
 
 Das Repository ist privat: Zum Download mit einem GitHub-Konto mit Zugriff anmelden. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
+
+Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungsbranch oder eine offene PR kann bereits weitere Funktionen enthalten; diese stehen erst nach Veröffentlichung im Release-Paket zur Verfügung. Den Stand dieses Branches kannst du selbst [als VSIX bauen](#entwicklung).
 
 ## Vorschau
 
@@ -16,13 +18,19 @@ Das Repository ist privat: Zum Download mit einem GitHub-Konto mit Zugriff anmel
 
 ![Digitaler Zwilling mit MiniCtrlBox und verbundenem Kreuzungsmodul](docs/images/modules.png)
 
-Modul 1 und Modul 2 koppeln über ihre seitlichen Steckverbinder zu einer gemeinsamen Ansicht. Einstellungen liegen als Tab direkt im Modul. OLED und Taster gehören zu Modul 1. Das Bild zeigt das laufende Übungsprogramm.
+MiniCtrlBox und Kreuzungsmodul koppeln über ihre seitlichen Steckverbinder zu einer gemeinsamen Ansicht. Einstellungen liegen als Tab direkt im Gerät. OLED und die beiden orangefarbenen Taster gehören zur MiniCtrlBox. Das Bild zeigt das laufende Übungsprogramm.
 
 ### Ampelansicht
 
 ![Straßenansicht mit zwei Fahrzeugampeln und zwei Fußgängerampeln](docs/images/traffic.png)
 
-Mit **Modul / Ampeln** oben rechts an Modul 2 zwischen Platine und Straßenansicht wechseln. Je eine Fahrzeug- und Fußgängerampel bilden ein Paar am gemeinsamen Mast. Beide Ansichten zeigen dieselben Programmausgänge. Ohne laufendes Anwenderprogramm bleiben alle Ampeln aus, wie in dieser Vorschau.
+Mit **Platine / Ampeln** oben rechts am Kreuzungsmodul zwischen Platine und Straßenansicht wechseln. Je eine Fahrzeug- und Fußgängerampel bilden ein Paar am gemeinsamen Mast. Beide Ansichten zeigen dieselben Programmausgänge. Ohne laufendes Anwenderprogramm bleiben alle Ampeln aus, wie in dieser Vorschau.
+
+### Erweiterungen im Entwicklungsstand 0.3.14
+
+Die kompakte Geräteauswahl bietet **Kreuzungsmodul**, **SwitchLEDBoard** und **Tastaturmodul**. Ein Klick verbindet die Erweiterung mit der MiniCtrlBox, ein weiterer trennt sie. Die verbundene Erweiterung erscheint mit der MiniCtrlBox in einer gemeinsamen Karte; der Anschluss liegt jeweils links an der Erweiterung. **Ansicht** und **Einstellungen** sind direkt in der Karte erreichbar.
+
+Das SwitchLEDBoard besitzt acht Kippschalter und acht LEDs. Das Tastaturmodul bietet 16 Tasten, zwei LEDs und einen Beeper. Wegen ihrer gemeinsamen I²C-Adresse kann jeweils nur eine dieser Erweiterungen verbunden sein. Die Ausgänge werden ausschließlich vom Anwenderprogramm gesteuert.
 
 ## Voraussetzungen
 
@@ -37,31 +45,25 @@ Eine physische MiniCtrlBox ist nicht erforderlich. Der Python-Simulator ist in d
 
 ![Installation: VSIX herunterladen, Erweiterungsansicht öffnen, aus VSIX installieren und Projekt öffnen](docs/images/install.svg)
 
-1. Die [Release-Seite v0.1.0](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/tag/v0.1.0) öffnen und unter **Assets** die Datei **`mcb-digital-twin-0.1.0.vsix`** herunterladen.
+1. Die [aktuelle Release-Seite](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest) öffnen und unter **Assets** die Datei mit der Endung **`.vsix`** herunterladen.
 2. In VS Code mit **Strg+Umschalt+X** die Erweiterungsansicht öffnen.
 3. Oben im Menü **… → Install from VSIX… / Aus VSIX installieren…** auswählen.
 4. Die heruntergeladene VSIX-Datei auswählen. Falls VS Code dazu auffordert, das Fenster neu laden.
 5. Über **Datei → Ordner öffnen…** deinen MiniCtrlBox-Projektordner öffnen.
 
-Alternativ im Terminal:
-
-```powershell
-code --install-extension .\mcb-digital-twin-0.1.0.vsix
-```
-
 Unter Windows in den VS-Code-Einstellungen nach **`mcbDigitalTwin.pythonPath`** suchen und bei Bedarf `python` oder den [vollständigen Pfad](docs/begriffe/README.md#pfad) zur `python.exe` eintragen. Mit `python --version` im Terminal die Installation prüfen.
 
-Falls bereits eine interne Entwicklungsversion `0.4.x` installiert ist, diese zuerst deinstallieren und anschließend `0.1.0` installieren. Mit `0.1.0` beginnt die neue Release-Reihe; frühere Nummern waren Entwicklungsstände.
+Bei einem Update die neue VSIX installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden Twin über **Digital Twin beenden** stoppen und danach erneut starten, damit auch der mitgelieferte Simulator aktualisiert ist.
 
 ## Projekt hochladen und benutzen
 
 1. Den C++-Projektordner in VS Code öffnen. Bei mehreren Workspace-Ordnern eine Datei des gewünschten Projekts aktivieren.
 2. Links das **MiniCtrlBox-Symbol** öffnen und **Digital Twin → Projekt laden und starten** wählen. Alternativ das **Upload-Symbol unten neben „MCB Digital Twin“** oder oben in der Steuerungsansicht anklicken.
 3. Die Erweiterung speichert geänderte Dateien dieses Projekts, startet den Simulator, baut den C++-Code und startet das Anwenderprogramm. Die Oberfläche öffnet sich in VS Code.
-4. In der Oberfläche **Verbinden** wählen, um das Kreuzungsmodul an die MiniCtrlBox zu koppeln. Modul 2 benötigt diese Verbindung.
-5. Über **Modul / Ampeln** die Darstellung von Modul 2 wechseln. Lichtzustände kommen ausschließlich aus deinem Programm.
+4. In der kompakten Geräteauswahl die gewünschte Erweiterung anklicken, etwa **Kreuzungsmodul** oder **SwitchLEDBoard**. Der Status **Verbunden** bestätigt die Kopplung. Ein erneuter Klick trennt sie.
+5. Am Kreuzungsmodul über **Platine / Ampeln** die Darstellung wechseln. Lichtzustände kommen ausschließlich aus deinem Programm.
 6. Das **OLED anklicken** oder mit Enter öffnen, um den Inhalt groß zu lesen. Mit **Schließen** oder Escape zurückkehren.
-7. Unter **Einstellungen → Modul 1** den Projektpfad ansehen und das **Programm starten / stoppen**. **Digital Twin → Digital Twin beenden** in der Erweiterung beendet den von ihr gestarteten Simulator.
+7. Unter **Einstellungen → MiniCtrlBox** den Projektpfad ansehen und das **Programm starten / stoppen**. **Digital Twin → Digital Twin beenden** in der Erweiterung beendet den von ihr gestarteten Simulator.
 
 Die orangefarbenen Taster sind Programmeingänge. Ihre Wirkung hängt vom C++-Programm ab. Es gibt keine manuelle Ampel-Phasensteuerung.
 
@@ -71,7 +73,7 @@ Mit dem geprüften Übungsprogramm startet die erste Fahrzeugampel rot. Der link
 
 ## C++ mit Haltepunkten debuggen (ab Version 0.2.0)
 
-Das [VSIX der Version 0.2.1](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.2.1/mcb-digital-twin-0.2.1.vsix) enthält die Debug-Anbindung und die Korrektur für lange `delay()`-Aufrufe. Der erste Release v0.1.0 enthält sie noch nicht. Das neue Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
+Die [aktuelle veröffentlichte Erweiterung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest) enthält die Debug-Anbindung. Das Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden alten Twin zuerst stoppen.
 
 Voraussetzung ist zusätzlich die Microsoft-Erweiterung **C/C++** (`ms-vscode.cpptools`). Unter Windows wird bei einem [Build](docs/begriffe/README.md#build) mit MSVC der Visual-Studio-Debugger verwendet. Bei einem Build mit `g++`/`clang++` muss [GDB](docs/begriffe/README.md#gdb-openocd) im PATH liegen; die Erweiterung verbindet sich dann über GDB.
 
@@ -90,7 +92,7 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die [Erweiterung 0.3.9](vscode-extension/mcb-digital-twin-0.3.9.vsix) ordnet die Seitenleiste in **Digital Twin**, **Echte Hardware** und **Werkzeuge**. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die Seitenleiste ist in **Digital Twin**, **Echte Hardware** und **Werkzeuge** gegliedert. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am [nativen USB-Anschluss](docs/begriffe/README.md#usb-jtag) und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
@@ -165,11 +167,11 @@ Für die normale Nutzung ist diese Datei nicht erforderlich.
 | Ampeln bleiben dunkel | Programmstatus prüfen und Modul 2 verbinden. Nur programmierte Ausgänge leuchten. |
 | Oberfläche öffnet sich nicht | Bei Standardport `http://127.0.0.1:8765` im Browser öffnen; Ausgabe auf Startfehler prüfen. |
 
-Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Andere Hardwarebibliotheken können Buildfehler verursachen.
+Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Ab 0.3.14 sind außerdem das SwitchLEDBoard als Modul 3 über `CPortExpRem` und das Tastaturmodul als Modul 4 über `CKeyPad` mit der MiniCtrlBoxLib-6.12-API verfügbar. Wegen der gemeinsamen I²C-Adresse kann jeweils nur eines der Zusatzmodule 2, 3 oder 4 verbunden sein. Andere Hardwarebibliotheken können Buildfehler verursachen.
 
 ### EEPROM und CAN im C++-Programm (ab 0.3.10)
 
-Die Entwicklungsversion 0.3.10 lässt sich mit `python vscode-extension/build_vsix.py` bauen. Anschließend `vscode-extension/mcb-digital-twin-0.3.10.vsix` in VS Code über **Aus VSIX installieren** installieren und das Fenster neu laden.
+Für noch nicht veröffentlichte Funktionen den gewünschten Branch auschecken und die Erweiterung wie unter [Entwicklung](#entwicklung) beschrieben bauen und installieren.
 
 Der Twin lädt seinen projektbezogenen EEPROM bereits beim Start. **EEPROM speichern** funktioniert auch ohne laufendes C++-Programm; nach dem vollständigen Beenden und erneuten Öffnen ist der gespeicherte Projektname sofort wieder sichtbar. Das mit `--project-root` ausgewählte Projekt bestimmt den Speicher.
 
@@ -210,4 +212,4 @@ python -m unittest discover -s mcb_digital_twin -p "test_*.py"
 python vscode-extension/build_vsix.py
 ```
 
-Ergebnis: `vscode-extension/mcb-digital-twin-0.3.9.vsix`. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
+Ergebnis: `vscode-extension/mcb-digital-twin-<Version>.vsix`; die Versionsnummer stammt aus `vscode-extension/package.json`. Dieses Paket über **Aus VSIX installieren…** installieren und das VS-Code-Fenster neu laden. Versionshistorie: [CHANGELOG.md](CHANGELOG.md).
