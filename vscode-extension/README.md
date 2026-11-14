@@ -83,6 +83,12 @@ und mit dem Windows-Treiberwerkzeug eingerichtet. Die Administratorabfrage muss
 der Nutzer selbst bestätigen. Ein korrekt eingerichteter PC benötigt keinen Download.
 Manuell starten: **USB-JTAG-Treiber einrichten**. Mit
 `mcbDigitalTwin.autoInstallJtagDriver = false` lässt sich die Automatik abschalten.
+Unter Linux prüft die Erweiterung den USB-Gerätezugriff und öffnet bei fehlenden Rechten
+ein Terminal zur sudo-Bestätigung für eine auf `303a:1001` begrenzte udev-Regel.
+Anschließend die MiniCtrlBox abziehen und wieder anschließen; nach erfolgreicher
+Zugriffsprüfung geht der Debugstart automatisch weiter. Auch die manuelle
+Treibereinrichtung unterstützt Linux. Die Automatik lässt sich mit
+`mcbDigitalTwin.autoInstallJtagDriver = false` abschalten.
 Linux/macOS führen keine Windows-Treiberinstallation aus. Erkennt die Erweiterung dort
 ab Version 0.3.15 einen alten GDB mit `libpython2.7.so.1.0`-Abhängigkeit, installiert
 PlatformIO automatisch den separaten Espressif-RISC-V-GDB `14.2.0+20240403` und

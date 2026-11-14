@@ -129,7 +129,7 @@ Unter **Windows** prüft die Erweiterung vor dem Hardware-Debugging die JTAG-Sch
 
 Die Automatik ist über `mcbDigitalTwin.autoInstallJtagDriver` abschaltbar. Abbruch, fehlende Rechte oder fehlgeschlagene Prüfung stoppen den Hardware-Debugstart mit einer Fehlermeldung. Bei nötigem Neustart die MiniCtrlBox neu verbinden bzw. Windows selbst neu starten und erneut versuchen.
 
-Unter **Linux** müssen USB-Zugriffsregeln eingerichtet sein; unter **macOS** wird normalerweise kein separater USB-JTAG-Treiber benötigt. Die Windows-Treiberinstallation wird dort nicht ausgeführt. [Offizielle Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers).
+Unter **Linux** prüft die Erweiterung den Lese-/Schreibzugriff auf das native USB-JTAG-Gerät. Bei fehlenden Rechten öffnet sie automatisch ein VS-Code-Terminal: Dort die sudo-Passwortabfrage bestätigen, anschließend die MiniCtrlBox abziehen und wieder anschließen. Die Erweiterung prüft bis zu zwei Minuten den Zugriff und setzt danach den Debugstart fort; das Warten ist abbrechbar. Die feste udev-Regel gilt nur für `303a:1001`. Auch **USB-JTAG-Treiber einrichten** startet diese Einrichtung. Unter **macOS** wird normalerweise kein separater USB-JTAG-Treiber benötigt. [Offizielle Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers).
 
 Ab **0.3.15** erkennt die Erweiterung unter Linux und macOS den bekannten alten PlatformIO-GDB mit Abhängigkeit von `libpython2.7.so.1.0`. Sie installiert dann einmalig über PlatformIO den separaten Espressif-RISC-V-GDB `14.2.0+20240403` und verwendet ihn nur für die Hardware-Debugsitzung. Die Projekt-Toolchain und das Arduino-Framework werden nicht aktualisiert; Python 2.7 wird nicht installiert. Internet wird nur für die erstmalige Paketinstallation benötigt. Mit `mcbDigitalTwin.autoInstallGdb = false` lässt sich die Automatik abschalten.
 
@@ -146,7 +146,7 @@ Die [Bedienungsanleitung](docs/BEDIENUNG.md) beschreibt alle Schaltflächen, Vor
 | `mcbDigitalTwin.pythonPath` | `python3` | Python-Befehl oder vollständiger Interpreterpfad. |
 | `mcbDigitalTwin.openInsideVSCode` | `true` | Oberfläche innerhalb von VS Code öffnen. |
 | `mcbDigitalTwin.platformioPath` | leer | PlatformIO-Programmdatei; automatisch aus dem PlatformIO-Core bzw. PATH ermitteln. |
-| `mcbDigitalTwin.autoInstallJtagDriver` | `true` | Fehlenden Windows-JTAG-Treiber vor dem Hardware-Debugstart automatisch einrichten; Windows fragt nach Administratorrechten. |
+| `mcbDigitalTwin.autoInstallJtagDriver` | `true` | USB-JTAG-Zugriff automatisch einrichten: Windows-Treiber mit Administratorabfrage oder Linux-udev-Regel mit sudo im Terminal. |
 | `mcbDigitalTwin.autoInstallGdb` | `true` | Veralteten Python-2.7-GDB unter Linux/macOS automatisch durch einen aktuellen Espressif-RISC-V-GDB für die Debugsitzung ersetzen. |
 
 Optional im Anwenderprojekt eine `mcb-digital-twin.json` anlegen, etwa für einen anderen Port:

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const childProcess = require('child_process');
+const { createLinuxJtagSetup } = require('./linux-jtag');
 
 function createJtagDriverSetup(vscode, output, context) {
     let pending;
@@ -36,8 +37,9 @@ function createJtagDriverSetup(vscode, output, context) {
 
     async function setup(manual) {
         if (!vscode.workspace.isTrusted) throw new Error('Treibereinrichtung benötigt einen vertrauenswürdigen Projektordner.');
+        if (process.platform === 'linux') return createLinuxJtagSetup(vscode, output)(manual);
         if (process.platform !== 'win32') {
-            if (manual) throw new Error('Die automatische USB-JTAG-Treibereinrichtung ist nur für Windows verfügbar.');
+            if (manual) throw new Error('Die automatische USB-JTAG-Einrichtung ist nur für Windows und Linux verfügbar.');
             return;
         }
         const current = await invoke(false);

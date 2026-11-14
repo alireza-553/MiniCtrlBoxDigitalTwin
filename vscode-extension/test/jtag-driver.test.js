@@ -34,7 +34,8 @@ function harness(options = {}) {
     } };
     const sandbox = { module: { exports: {} }, Buffer,
         process: { platform: options.linux ? 'linux' : 'win32', env: { SystemRoot: 'C:\\Windows' } },
-        require: name => ({ fs: { readFileSync: () => script }, child_process: childProcess }[name] || require(name)) };
+        require: name => ({ fs: { readFileSync: () => script }, child_process: childProcess,
+            './linux-jtag': { createLinuxJtagSetup: () => async () => calls.push({ linuxSetup: true }) } }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../jtag-driver.js'), 'utf8'), sandbox);
     const setup = sandbox.module.exports.createJtagDriverSetup(vscode, { appendLine() {} },
         { extensionPath: '/extension', globalStorageUri: { fsPath: "C:/user's profile/driver" } });
@@ -76,9 +77,11 @@ test('untrusted workspace cannot start the driver helper', async () => {
     assert.equal(h.calls.length, 0);
 });
 
-test('non-Windows debugging does not execute Windows driver commands', async () => {
+test('Linux debugging and manual setup delegate to Linux USB setup without Windows commands', async () => {
     const h = harness({ linux: true });
     await h.setup();
-    assert.equal(h.calls.length, 0);
-    await assert.rejects(h.setup(true), /nur für Windows/);
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].linuxSetup, true);
+    await h.setup(true);
+    assert.equal(h.calls.length, 2);
 });

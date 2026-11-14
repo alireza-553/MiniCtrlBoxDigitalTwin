@@ -168,7 +168,7 @@
         "mcbDigitalTwin.autoInstallJtagDriver": {
           "type": "boolean",
           "default": true,
-          "description": "Fehlenden Windows-USB-JTAG-Treiber vor Hardware-Debugging automatisch einrichten. Windows fragt bei Bedarf nach Administratorrechten."
+          "description": "USB-JTAG-Zugriff vor Hardware-Debugging automatisch einrichten: Windows-Treiber mit Administratorabfrage oder Linux-udev-Regel mit sudo-Bestätigung im Terminal."
         },
         "mcbDigitalTwin.autoInstallGdb": {
           "type": "boolean",

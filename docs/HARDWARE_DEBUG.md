@@ -126,6 +126,10 @@ Die Automatik ist standardmäßig aktiv und über `mcbDigitalTwin.autoInstallGdb
 
 OpenOCD benötigt Lese- und Schreibzugriff auf das native USB-JTAG-Gerät `303a:1001`. Bei `LIBUSB_ERROR_ACCESS` empfiehlt die Erweiterung eine auf genau dieses Gerät begrenzte Regel für den aktiven Desktop-Benutzer:
 
+Version 0.3.15 prüft diesen Zugriff bereits vor dem Debugstart über die USB-Gerätedatei unter `/dev/bus/usb`. Bei fehlenden Rechten startet ein integriertes Terminal `/bin/bash` mit festen Befehlen: Die untenstehende Regel wird über `sudo /usr/bin/tee` in `/etc/udev/rules.d/70-minictrlbox-esp32c3.rules` geschrieben, danach lädt `sudo /usr/bin/udevadm control --reload-rules` die Regeln neu. Das Passwort wird ausschließlich im Terminal eingegeben. Ein vorhandener symbolischer Link an der Zieldatei führt zum Abbruch.
+
+Nach erfolgreichem Terminalabschluss fordert eine abbrechbare Fortschrittsanzeige zum erneuten Anschließen auf. Die Erweiterung prüft bis zu 120 Sekunden den tatsächlichen Lese-/Schreibzugriff und setzt den Debugstart nur bei genau einem zugänglichen Gerät fort. Abbruch, sudo-Fehler oder ausbleibender Zugriff stoppen den Start. `mcbDigitalTwin.autoInstallJtagDriver = false` deaktiviert die automatische Einrichtung; **USB-JTAG-Treiber einrichten** bleibt als expliziter Befehl verfügbar. Der Ablauf ist mit simulierten Geräten und Terminalereignissen getestet; der Linux-Hardwaretest steht noch aus.
+
 ```udev
 SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ATTR{idProduct}=="1001", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_PORT_IGNORE}="1"
 ```
