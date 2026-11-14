@@ -69,7 +69,9 @@ function harness(options = {}) {
                 data = JSON.stringify(Array.from({ length: options.noDevice ? 0 : options.twoDevices ? 2 : 1 },
                     (_, i) => ({ port: `COM${i + 5}`, hwid: 'USB VID:PID=303A:1001' })));
             } else if (args.includes('metadata')) {
-                data = JSON.stringify({ 'mcb-usb-debug-lesson': { prog_path: '/build/firmware.elf', cc_path: '/compiler/bin/gcc' } });
+                const gdb = ini.match(/^custom_mcb_gdb_path = (.+)$/m)?.[1].trim();
+                data = JSON.stringify({ 'mcb-usb-debug-lesson': { prog_path: '/build/firmware.elf', cc_path: '/compiler/bin/gcc',
+                    gdb_path: options.staleGdbMetadata ? '/compiler/bin/gdb' : gdb && path.normalize(gdb) } });
             } else if (args.includes('system') && args.includes('info')) {
                 data = JSON.stringify({ core_dir: { value: '/home/student/.platformio' } });
             }
@@ -79,7 +81,7 @@ function harness(options = {}) {
         });
         return child;
     } };
-    const sandbox = { module: { exports: {} }, process: { ...process, env: { ...process.env }, platform: options.platform || process.platform },
+    const sandbox = { __dirname: path.resolve(__dirname, '..'), module: { exports: {} }, process: { ...process, env: { ...process.env }, platform: options.platform || process.platform },
         require: name => ({ fs: fakeFS, child_process: childProcess,
             './arduino-stepping': require('../arduino-stepping') }[name] || require(name)) };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../hardware.js'), 'utf8'), sandbox);
@@ -202,9 +204,19 @@ test('an obsolete Python-2.7 GDB is replaced automatically without changing the 
         && p.args.includes('platformio/tool-riscv32-esp-elf-gdb@14.2.0+20240403')));
     assert.match(h.calls.gdbExecutables[1], /tool-riscv32-esp-elf-gdb/);
     assert.equal(h.calls.debug[0].config.mcbModernGdb, true);
-    assert.match(h.sandbox.process.env.PLATFORMIO_PATH, /^[/\\]home[/\\]student[/\\]\.platformio/);
+    assert.match(h.ini(), /extra_scripts =\r\n    post:.*hardware-gdb\.py/);
+    assert.match(h.ini(), /custom_mcb_gdb_path = \/home\/student\/\.platformio\/packages\/tool-riscv32-esp-elf-gdb\/bin\/riscv32-esp-elf-gdb/);
+    assert.equal(h.calls.processes.filter(p => p.args.includes('metadata')).length, 2);
+    assert.equal(h.sandbox.process.env.PLATFORMIO_PATH, originalPath);
     h.hardware.sessionTerminated({ id: 'debug', configuration: h.calls.debug[0].config });
     assert.equal(h.sandbox.process.env.PLATFORMIO_PATH, originalPath);
+});
+
+test('a stale PlatformIO GDB path aborts even after a successful installation', async () => {
+    const h = harness({ brokenGdb: true, platform: 'linux', staleGdbMetadata: true });
+    await h.hardware.debug();
+    assert.equal(h.calls.debug.length, 0);
+    assert.match(h.calls.errors[0], /nicht in die Debug-Metadaten/);
 });
 
 test('automatic GDB installation can be disabled', async () => {
