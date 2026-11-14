@@ -118,9 +118,17 @@ Dieser erste Verbindungstest änderte die Firmware nicht. In späteren Tests mit
 
 ## Linux: GDB und USB-Rechte
 
-Vor dem Start führt die Erweiterung den von PlatformIO gewählten GDB mit `--version` aus. Ein alter, an `libpython2.7.so.1.0` gebundener Debugger wird dadurch vor OpenOCD erkannt. Python 2.7 soll nicht nachinstalliert werden; stattdessen ist ein aktueller Espressif-RISC-V-GDB bzw. eine aktualisierte PlatformIO-Toolchain zu verwenden. So erscheinen keine irreführenden Folgefehler des Debugadapters.
+Vor dem Start prüft die Erweiterung den GDB mit `--version`. Ein alter, an `libpython2.7.so.1.0` gebundener Debugger wird dadurch vor OpenOCD erkannt. Ab Version 0.3.15 installiert die Erweiterung in diesem Fall automatisch mit `platformio pkg install --global --tool` das festgelegte Paket `platformio/tool-riscv32-esp-elf-gdb@14.2.0+20240403`. Sie prüft auch diesen GDB mit `--version`.
+
+Die generierte Debugumgebung erhält `custom_mcb_gdb_path` sowie das mitgelieferte Post-Skript `hardware-gdb.py` unter `extra_scripts`. Dieses setzt PlatformIOs `GDB` auf den geprüften absoluten Pfad. Die Erweiterung fragt die Build-Metadaten danach erneut ab und startet nur, wenn `gdb_path` den aktuellen GDB bestätigt. Bestehende `extra_scripts` werden übernommen. Die normale Projektumgebung bleibt erhalten; die generierte Debugumgebung wird dafür aktualisiert. Unter Windows setzt das Skript keinen Linux-Pfad.
+
+Die Automatik ist standardmäßig aktiv und über `mcbDigitalTwin.autoInstallGdb = false` abschaltbar. Dann bleibt der kontrollierte Abbruch mit Aktualisierungshinweis erhalten. Python 2.7 wird in keinem Fall nachinstalliert. Schlagen Download, Paketprüfung oder der Start des neuen GDB fehl, beginnt keine Debugsitzung und die PlatformIO-Ausgabe enthält die Ursache. Die Korrektur ist automatisiert getestet; ein vollständiger Linux-Hardwaretest steht noch aus.
 
 OpenOCD benötigt Lese- und Schreibzugriff auf das native USB-JTAG-Gerät `303a:1001`. Bei `LIBUSB_ERROR_ACCESS` empfiehlt die Erweiterung eine auf genau dieses Gerät begrenzte Regel für den aktiven Desktop-Benutzer:
+
+Version 0.3.15 prüft diesen Zugriff bereits vor dem Debugstart über die USB-Gerätedatei unter `/dev/bus/usb`. Bei fehlenden Rechten startet ein integriertes Terminal `/bin/bash` mit festen Befehlen: Die untenstehende Regel wird über `sudo /usr/bin/tee` in `/etc/udev/rules.d/70-minictrlbox-esp32c3.rules` geschrieben, danach lädt `sudo /usr/bin/udevadm control --reload-rules` die Regeln neu. Das Passwort wird ausschließlich im Terminal eingegeben. Ein vorhandener symbolischer Link an der Zieldatei führt zum Abbruch.
+
+Nach erfolgreichem Terminalabschluss fordert eine abbrechbare Fortschrittsanzeige zum erneuten Anschließen auf. Die Erweiterung prüft bis zu 120 Sekunden den tatsächlichen Lese-/Schreibzugriff und setzt den Debugstart nur bei genau einem zugänglichen Gerät fort. Abbruch, sudo-Fehler oder ausbleibender Zugriff stoppen den Start. `mcbDigitalTwin.autoInstallJtagDriver = false` deaktiviert die automatische Einrichtung; **USB-JTAG-Treiber einrichten** bleibt als expliziter Befehl verfügbar. Der Ablauf ist mit simulierten Geräten und Terminalereignissen getestet; der Linux-Hardwaretest steht noch aus.
 
 ```udev
 SUBSYSTEM=="usb", ATTR{idVendor}=="303a", ATTR{idProduct}=="1001", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1", ENV{ID_MM_PORT_IGNORE}="1"

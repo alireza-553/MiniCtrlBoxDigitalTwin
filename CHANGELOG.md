@@ -1,5 +1,17 @@
 # Versionshistorie
 
+## v0.3.15 – Aktueller Hardware-GDB unter Linux und macOS
+
+- Unter Linux wird der USB-JTAG-Zugriff vor dem Debugstart geprüft. Bei fehlenden Rechten öffnet die Erweiterung ein Terminal mit fester, auf `303a:1001` begrenzter udev-Regel und sudo-Passwortabfrage. Nach dem erneuten Anschließen wird der tatsächliche Gerätezugriff geprüft und der Debugstart fortgesetzt. Abbruch oder fehlgeschlagene Einrichtung stoppen den Start.
+
+- Behebt den Linux-Debugstart, der trotz erfolgreich installiertem aktuellem GDB weiterhin den alten Python-2.7-GDB startete.
+- Ein mitgeliefertes PlatformIO-Post-Skript setzt `GDB` in der generierten Debugumgebung auf den geprüften absoluten Pfad. Vor dem Start muss `gdb_path` in den neu abgefragten Metadaten diesen Pfad bestätigen.
+- Der globale Prozesssuchpfad wird nicht mehr verändert. Vorhandene Projektskripte werden übernommen; die normale Projektumgebung bleibt erhalten.
+
+- Erkennt die bekannte `libpython2.7.so.1.0`-Abhängigkeit des alten PlatformIO-GDB und installiert automatisch den separaten Espressif-RISC-V-GDB `14.2.0+20240403` über PlatformIO.
+- Compiler, Arduino-Framework und normale Projektumgebung bleiben unverändert.
+- Die Automatik ist mit `mcbDigitalTwin.autoInstallGdb` abschaltbar. Python 2.7 wird weiterhin weder benötigt noch installiert.
+
 ## v0.3.14 – MiniCtrlBoxLib 6.12 und SwitchLEDBoard
 
 - Die vier Taster des Kreuzungsmoduls verwenden dieselbe orangefarbene Oberfläche und denselben Druckzustand wie die MiniCtrlBox. Auch getrennte, nicht bedienbare Taster behalten ihre Hardwarefarbe; der Verbindungsstatus bleibt separat sichtbar.
