@@ -4,6 +4,9 @@ const path = require('path');
 const childProcess = require('child_process');
 const { createArduinoStepTracker } = require('./arduino-stepping');
 
+const MODERN_RISCV_GDB_PACKAGE = 'platformio/tool-riscv32-esp-elf-gdb@14.2.0+20240403';
+const MODERN_RISCV_GDB_DIRECTORY = 'tool-riscv32-esp-elf-gdb';
+
 const DEBUG_STARTUP_COMMANDS = [
     // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
     'skip function loopTask',
@@ -94,6 +97,7 @@ function launchHint(details) {
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
     let launchDiagnostics;
+    let platformioPathRestore;
     const sessions = new Map();
     const isHardwareSession = session => session.type === 'platformio-debug'
         || session.configuration?.type === 'platformio-debug'
@@ -140,22 +144,74 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         });
     }
 
-    function checkDebugger(compiler) {
-        if (process.platform === 'win32') return Promise.resolve();
-        const executable = debuggerPath(compiler);
-        if (!executable || !fs.existsSync(executable)) return Promise.resolve();
+    function probeDebugger(executable) {
         return new Promise((resolve, reject) => childProcess.execFile(executable, ['--version'],
             { windowsHide: true, timeout: 10000 }, (error, stdout, stderr) => {
                 if (!error) return resolve();
-                const details = cleanDiagnostic([stdout, stderr, error.message].filter(Boolean).join('\n')).trim();
-                const hint = launchHint(details);
-                reject(new Error(`Hardware-Debugger ist nicht lauffähig.${details ? `\n${details}` : ''}${hint}`));
+                error.details = cleanDiagnostic([stdout, stderr, error.message].filter(Boolean).join('\n')).trim();
+                reject(error);
             }));
+    }
+
+    async function checkDebugger(root, compiler) {
+        if (process.platform === 'win32') return '';
+        const bundled = debuggerPath(compiler);
+        if (!bundled || !fs.existsSync(bundled)) return '';
+        try {
+            await probeDebugger(bundled);
+            return '';
+        } catch (error) {
+            const details = error.details || error.message;
+            if (!/libpython2\.7\.so\.1\.0/i.test(details)) {
+                throw new Error(`Hardware-Debugger ist nicht lauffähig.${details ? `\n${details}` : ''}${launchHint(details)}`);
+            }
+            const automatic = vscode.workspace.getConfiguration('mcbDigitalTwin').get('autoInstallGdb', true);
+            if (!automatic) {
+                throw new Error(`Hardware-Debugger ist nicht lauffähig.\n${details}${launchHint(details)}`);
+            }
+            output.appendLine('Veralteter Python-2.7-GDB erkannt. PlatformIO richtet automatisch einen aktuellen Espressif-RISC-V-GDB ein.');
+            const info = await run(root, ['system', 'info', '--json-output'], true);
+            const coreDir = info?.core_dir?.value;
+            if (!coreDir) throw new Error('PlatformIO hat sein Core-Verzeichnis nicht gemeldet; der aktuelle GDB konnte nicht eingerichtet werden.');
+            await run(root, ['pkg', 'install', '--global', '--tool', MODERN_RISCV_GDB_PACKAGE]);
+            const binDir = path.join(coreDir, 'packages', MODERN_RISCV_GDB_DIRECTORY, 'bin');
+            const executable = path.join(binDir, 'riscv32-esp-elf-gdb');
+            if (!fs.existsSync(executable)) {
+                throw new Error(`PlatformIO hat den aktuellen GDB installiert, aber nicht unter ${executable} bereitgestellt.`);
+            }
+            try {
+                await probeDebugger(executable);
+            } catch (modernError) {
+                const modernDetails = modernError.details || modernError.message;
+                throw new Error(`Der automatisch installierte Espressif-RISC-V-GDB ist nicht lauffähig.${modernDetails ? `\n${modernDetails}` : ''}`);
+            }
+            output.appendLine(`Aktueller Espressif-RISC-V-GDB ist einsatzbereit: ${executable}`);
+            return binDir;
+        }
+    }
+
+    function useDebuggerPath(binDir) {
+        if (!binDir) return;
+        restoreDebuggerPath();
+        platformioPathRestore = {
+            existed: Object.prototype.hasOwnProperty.call(process.env, 'PLATFORMIO_PATH'),
+            value: process.env.PLATFORMIO_PATH,
+        };
+        const existing = process.env.PLATFORMIO_PATH || process.env.PATH || '';
+        process.env.PLATFORMIO_PATH = [binDir, existing].filter(Boolean).join(path.delimiter);
+    }
+
+    function restoreDebuggerPath() {
+        if (!platformioPathRestore) return;
+        if (platformioPathRestore.existed) process.env.PLATFORMIO_PATH = platformioPathRestore.value;
+        else delete process.env.PLATFORMIO_PATH;
+        platformioPathRestore = undefined;
     }
 
     async function execute(debug) {
         if (busy) return;
         busy = true;
+        let keepDebuggerPath = false;
         try {
             if (!vscode.workspace.isTrusted) throw new Error('Hardwarezugriff benötigt einen vertrauenswürdigen Projektordner.');
             if (sessions.size || (vscode.debug.activeDebugSession && isHardwareSession(vscode.debug.activeDebugSession))) {
@@ -238,7 +294,8 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 '--environment', debugEnv, '--json-output'], true);
             const build = metadata[debugEnv];
             if (!build?.prog_path || !build.cc_path) throw new Error('PlatformIO liefert keine Debug-Buildinformationen.');
-            await checkDebugger(build.cc_path);
+            const debuggerBinDir = await checkDebugger(root, build.cc_path);
+            useDebuggerPath(debuggerBinDir);
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
             launchDiagnostics = { text: '' };
             const started = await vscode.debug.startDebugging(folder, {
@@ -247,14 +304,17 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 toolchainBinDir: path.dirname(build.cc_path), loadMode: 'always',
                 internalConsoleOptions: 'openOnSessionStart',
                 mcbHardwareDebug: true,
+                mcbModernGdb: Boolean(debuggerBinDir),
             });
             if (!started) {
                 const details = launchDiagnostics.text.trim();
                 const hint = launchHint(details);
                 throw new Error(`Hardware-Debugger wurde nicht gestartet.${details ? `\n${details}` : ' PlatformIO hat den Start abgebrochen. Details in der Debugkonsole prüfen.'}${hint}`);
             }
+            keepDebuggerPath = Boolean(debuggerBinDir);
             output.appendLine('Hardware-Debugsitzung gestartet. PlatformIO überträgt die Firmware und hält in setup().');
         } catch (error) {
+            if (!keepDebuggerPath) restoreDebuggerPath();
             output.appendLine(error.message);
             output.show(true);
             vscode.window.showErrorMessage(error.message);
@@ -286,8 +346,13 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         };
     }
 
+    function sessionTerminated(session) {
+        sessions.delete(session.id);
+        if (session.configuration?.mcbModernGdb) restoreDebuggerPath();
+    }
+
     return { upload: () => execute(false), debug: () => execute(true), sessionStarted, createDebugAdapterTracker,
-        sessionTerminated: session => sessions.delete(session.id) };
+        sessionTerminated };
 }
 
 module.exports = { cleanDiagnostic, createHardwareCommands, debuggerPath, launchHint, updateDebugSection };

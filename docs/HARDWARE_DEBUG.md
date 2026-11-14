@@ -118,7 +118,9 @@ Dieser erste Verbindungstest änderte die Firmware nicht. In späteren Tests mit
 
 ## Linux: GDB und USB-Rechte
 
-Vor dem Start führt die Erweiterung den von PlatformIO gewählten GDB mit `--version` aus. Ein alter, an `libpython2.7.so.1.0` gebundener Debugger wird dadurch vor OpenOCD erkannt. Python 2.7 soll nicht nachinstalliert werden; stattdessen ist ein aktueller Espressif-RISC-V-GDB bzw. eine aktualisierte PlatformIO-Toolchain zu verwenden. So erscheinen keine irreführenden Folgefehler des Debugadapters.
+Vor dem Start führt die Erweiterung den von PlatformIO gewählten GDB mit `--version` aus. Ein alter, an `libpython2.7.so.1.0` gebundener Debugger wird dadurch vor OpenOCD erkannt. Ab Version 0.3.15 installiert die Erweiterung in diesem Fall automatisch mit `platformio pkg install --global --tool` das festgelegte Paket `platformio/tool-riscv32-esp-elf-gdb@14.2.0+20240403`. Sie prüft auch diesen GDB mit `--version` und stellt sein `bin`-Verzeichnis nur für die gestartete PlatformIO-Debugsitzung vor den bisherigen Suchpfad. Beim Beenden stellt sie den vorherigen Suchpfad wieder her. Compiler, Arduino-Framework, `platformio.ini` und normale Builds bleiben unverändert.
+
+Die Automatik ist standardmäßig aktiv und über `mcbDigitalTwin.autoInstallGdb = false` abschaltbar. Dann bleibt der kontrollierte Abbruch mit Aktualisierungshinweis erhalten. Python 2.7 wird in keinem Fall nachinstalliert. Schlagen Download, Paketprüfung oder der Start des neuen GDB fehl, beginnt keine Debugsitzung und die PlatformIO-Ausgabe enthält die Ursache.
 
 OpenOCD benötigt Lese- und Schreibzugriff auf das native USB-JTAG-Gerät `303a:1001`. Bei `LIBUSB_ERROR_ACCESS` empfiehlt die Erweiterung eine auf genau dieses Gerät begrenzte Regel für den aktiven Desktop-Benutzer:
 
