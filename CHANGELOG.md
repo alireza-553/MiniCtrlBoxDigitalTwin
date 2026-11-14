@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.16 – Installierten GDB ausdrücklich auswählen
+
+- Behebt den Linux-Debugstart, der trotz erfolgreich installiertem aktuellem GDB weiterhin den alten Python-2.7-GDB startete.
+- Ein mitgeliefertes PlatformIO-Post-Skript setzt `GDB` in der generierten Debugumgebung auf den geprüften absoluten Pfad. Vor dem Start muss `gdb_path` in den neu abgefragten Metadaten diesen Pfad bestätigen.
+- Der globale Prozesssuchpfad wird nicht mehr verändert. Vorhandene Projektskripte werden übernommen; die normale Projektumgebung bleibt erhalten.
+
 ## v0.3.15 – Aktueller Hardware-GDB unter Linux und macOS
 
 - Erkennt die bekannte `libpython2.7.so.1.0`-Abhängigkeit des alten PlatformIO-GDB und installiert automatisch den separaten Espressif-RISC-V-GDB `14.2.0+20240403` über PlatformIO.

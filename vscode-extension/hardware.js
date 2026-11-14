@@ -97,7 +97,6 @@ function launchHint(details) {
 function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     let busy = false;
     let launchDiagnostics;
-    let platformioPathRestore;
     const sessions = new Map();
     const isHardwareSession = session => session.type === 'platformio-debug'
         || session.configuration?.type === 'platformio-debug'
@@ -190,28 +189,33 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         }
     }
 
-    function useDebuggerPath(binDir) {
-        if (!binDir) return;
-        restoreDebuggerPath();
-        platformioPathRestore = {
-            existed: Object.prototype.hasOwnProperty.call(process.env, 'PLATFORMIO_PATH'),
-            value: process.env.PLATFORMIO_PATH,
-        };
-        const existing = process.env.PLATFORMIO_PATH || process.env.PATH || '';
-        process.env.PLATFORMIO_PATH = [binDir, existing].filter(Boolean).join(path.delimiter);
-    }
-
-    function restoreDebuggerPath() {
-        if (!platformioPathRestore) return;
-        if (platformioPathRestore.existed) process.env.PLATFORMIO_PATH = platformioPathRestore.value;
-        else delete process.env.PLATFORMIO_PATH;
-        platformioPathRestore = undefined;
+    function configureDebugger(iniPath, environment, binDir, inheritedScripts) {
+        const text = fs.readFileSync(iniPath, 'utf8');
+        const lines = text.split(/\r?\n/);
+        const start = lines.findIndex(line => line.trim() === `[env:${environment}]`);
+        let end = lines.findIndex((line, index) => index > start && /^\s*\[/.test(line));
+        if (start < 0) throw new Error('Die MiniCtrlBox-Debugumgebung wurde nicht gefunden.');
+        if (end < 0) end = lines.length;
+        const section = lines.slice(start, end);
+        function replace(key, values) {
+            const index = section.findIndex(line => new RegExp(`^\\s*${key}\\s*=`).test(line));
+            let count = 1;
+            if (index >= 0) {
+                while (index + count < section.length && /^\s+\S/.test(section[index + count])) count++;
+                section.splice(index, count, ...values);
+            } else section.push(...values);
+        }
+        const hook = `post:${path.join(__dirname, 'hardware-gdb.py').replace(/\\/g, '/')}`;
+        const scripts = [].concat(inheritedScripts || []).filter(script => !/post:.*[/\\]hardware-gdb\.py$/.test(script));
+        replace('extra_scripts', ['extra_scripts =', ...[...scripts, hook].map(script => `    ${script}`)]);
+        replace('custom_mcb_gdb_path', [`custom_mcb_gdb_path = ${path.join(binDir, 'riscv32-esp-elf-gdb').replace(/\\/g, '/')}`]);
+        lines.splice(start, end - start, ...section);
+        fs.writeFileSync(iniPath, lines.join(text.includes('\r\n') ? '\r\n' : '\n'), 'utf8');
     }
 
     async function execute(debug) {
         if (busy) return;
         busy = true;
-        let keepDebuggerPath = false;
         try {
             if (!vscode.workspace.isTrusted) throw new Error('Hardwarezugriff benötigt einen vertrauenswürdigen Projektordner.');
             if (sessions.size || (vscode.debug.activeDebugSession && isHardwareSession(vscode.debug.activeDebugSession))) {
@@ -295,7 +299,18 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             const build = metadata[debugEnv];
             if (!build?.prog_path || !build.cc_path) throw new Error('PlatformIO liefert keine Debug-Buildinformationen.');
             const debuggerBinDir = await checkDebugger(root, build.cc_path);
-            useDebuggerPath(debuggerBinDir);
+            if (debuggerBinDir) {
+                const current = config.find(([name]) => name === `env:${debugEnv}`);
+                const options = current ? Object.fromEntries(current[1]) : selected.options;
+                configureDebugger(iniPath, debugEnv, debuggerBinDir, options.extra_scripts);
+                const verified = await run(root, ['project', 'metadata', '--project-dir', root,
+                    '--environment', debugEnv, '--json-output'], true);
+                const expected = path.join(debuggerBinDir, 'riscv32-esp-elf-gdb');
+                if (verified[debugEnv]?.gdb_path !== expected) {
+                    throw new Error('PlatformIO hat den aktuellen GDB nicht in die Debug-Metadaten übernommen. Debugstart abgebrochen.');
+                }
+                output.appendLine(`PlatformIO-Debuggerpfad bestätigt: ${expected}`);
+            }
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
             launchDiagnostics = { text: '' };
             const started = await vscode.debug.startDebugging(folder, {
@@ -311,10 +326,8 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 const hint = launchHint(details);
                 throw new Error(`Hardware-Debugger wurde nicht gestartet.${details ? `\n${details}` : ' PlatformIO hat den Start abgebrochen. Details in der Debugkonsole prüfen.'}${hint}`);
             }
-            keepDebuggerPath = Boolean(debuggerBinDir);
             output.appendLine('Hardware-Debugsitzung gestartet. PlatformIO überträgt die Firmware und hält in setup().');
         } catch (error) {
-            if (!keepDebuggerPath) restoreDebuggerPath();
             output.appendLine(error.message);
             output.show(true);
             vscode.window.showErrorMessage(error.message);
@@ -348,7 +361,6 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
 
     function sessionTerminated(session) {
         sessions.delete(session.id);
-        if (session.configuration?.mcbModernGdb) restoreDebuggerPath();
     }
 
     return { upload: () => execute(false), debug: () => execute(true), sessionStarted, createDebugAdapterTracker,
