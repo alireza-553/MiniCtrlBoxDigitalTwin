@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -169,6 +169,11 @@
           "type": "boolean",
           "default": true,
           "description": "Fehlenden Windows-USB-JTAG-Treiber vor Hardware-Debugging automatisch einrichten. Windows fragt bei Bedarf nach Administratorrechten."
+        },
+        "mcbDigitalTwin.autoInstallGdb": {
+          "type": "boolean",
+          "default": true,
+          "description": "Unter Linux/macOS bei einem veralteten Python-2.7-GDB automatisch einen aktuellen Espressif-RISC-V-GDB über PlatformIO einrichten."
         }
       }
     }

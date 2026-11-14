@@ -83,7 +83,12 @@ und mit dem Windows-Treiberwerkzeug eingerichtet. Die Administratorabfrage muss
 der Nutzer selbst bestätigen. Ein korrekt eingerichteter PC benötigt keinen Download.
 Manuell starten: **USB-JTAG-Treiber einrichten**. Mit
 `mcbDigitalTwin.autoInstallJtagDriver = false` lässt sich die Automatik abschalten.
-Linux/macOS führen keine Windows-Treiberinstallation aus. Details zur Umsetzung:
+Linux/macOS führen keine Windows-Treiberinstallation aus. Erkennt die Erweiterung dort
+ab Version 0.3.15 einen alten GDB mit `libpython2.7.so.1.0`-Abhängigkeit, installiert
+PlatformIO automatisch den separaten Espressif-RISC-V-GDB `14.2.0+20240403` und
+verwendet ihn nur für diese Debugsitzung. Python 2.7 und ein Projekt-Toolchain-Upgrade
+sind nicht erforderlich. Abschaltbar mit `mcbDigitalTwin.autoInstallGdb = false`.
+Details zur Umsetzung:
 [Hardware-Debugging und Treiberautomatik](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/HARDWARE_DEBUG.md).
 Ein eigener PlatformIO-Core ist über
 `mcbDigitalTwin.platformioPath` einstellbar. Die Browseransicht bleibt der Simulator;

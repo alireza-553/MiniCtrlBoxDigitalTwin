@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.15 – Aktueller Hardware-GDB unter Linux und macOS
+
+- Erkennt die bekannte `libpython2.7.so.1.0`-Abhängigkeit des alten PlatformIO-GDB und installiert automatisch den separaten Espressif-RISC-V-GDB `14.2.0+20240403` über PlatformIO.
+- Der aktuelle GDB wird nur für die gestartete Hardware-Debugsitzung im PlatformIO-Suchpfad vorangestellt; Compiler, Arduino-Framework und normale Projektumgebung bleiben unverändert.
+- Die Automatik ist mit `mcbDigitalTwin.autoInstallGdb` abschaltbar. Python 2.7 wird weiterhin weder benötigt noch installiert.
+
 ## v0.3.14 – MiniCtrlBoxLib 6.12 und SwitchLEDBoard
 
 - Die vier Taster des Kreuzungsmoduls verwenden dieselbe orangefarbene Oberfläche und denselben Druckzustand wie die MiniCtrlBox. Auch getrennte, nicht bedienbare Taster behalten ihre Hardwarefarbe; der Verbindungsstatus bleibt separat sichtbar.

@@ -131,6 +131,8 @@ Die Automatik ist über `mcbDigitalTwin.autoInstallJtagDriver` abschaltbar. Abbr
 
 Unter **Linux** müssen USB-Zugriffsregeln eingerichtet sein; unter **macOS** wird normalerweise kein separater USB-JTAG-Treiber benötigt. Die Windows-Treiberinstallation wird dort nicht ausgeführt. [Offizielle Treiberanleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html#configure-usb-drivers).
 
+Ab **0.3.15** erkennt die Erweiterung unter Linux und macOS den bekannten alten PlatformIO-GDB mit Abhängigkeit von `libpython2.7.so.1.0`. Sie installiert dann einmalig über PlatformIO den separaten Espressif-RISC-V-GDB `14.2.0+20240403` und verwendet ihn nur für die Hardware-Debugsitzung. Die Projekt-Toolchain und das Arduino-Framework werden nicht aktualisiert; Python 2.7 wird nicht installiert. Internet wird nur für die erstmalige Paketinstallation benötigt. Mit `mcbDigitalTwin.autoInstallGdb = false` lässt sich die Automatik abschalten.
+
 Bei `LIBUSB_ERROR_NOT_FOUND` kann OpenOCD die JTAG-Schnittstelle nicht öffnen. Ein sichtbarer COM-Port allein bestätigt keinen funktionierenden Debugzugriff. Auf dem geprüften PC war der generische Microsoft-WinUSB-Treiber zugeordnet. Nach Installation und Zuordnung des signierten Espressif-Pakets erkannte OpenOCD den RISC-V-Kern des ESP32-C3 erfolgreich. Ein Firmware-Upload war für diesen Verbindungstest nicht nötig.
 
 Die technische Umsetzung und der Ablauf sind in [Hardware-Debugging und Treiberautomatik](docs/HARDWARE_DEBUG.md) beschrieben.
@@ -145,6 +147,7 @@ Die [Bedienungsanleitung](docs/BEDIENUNG.md) beschreibt alle Schaltflächen, Vor
 | `mcbDigitalTwin.openInsideVSCode` | `true` | Oberfläche innerhalb von VS Code öffnen. |
 | `mcbDigitalTwin.platformioPath` | leer | PlatformIO-Programmdatei; automatisch aus dem PlatformIO-Core bzw. PATH ermitteln. |
 | `mcbDigitalTwin.autoInstallJtagDriver` | `true` | Fehlenden Windows-JTAG-Treiber vor dem Hardware-Debugstart automatisch einrichten; Windows fragt nach Administratorrechten. |
+| `mcbDigitalTwin.autoInstallGdb` | `true` | Veralteten Python-2.7-GDB unter Linux/macOS automatisch durch einen aktuellen Espressif-RISC-V-GDB für die Debugsitzung ersetzen. |
 
 Optional im Anwenderprojekt eine `mcb-digital-twin.json` anlegen, etwa für einen anderen Port:
 
