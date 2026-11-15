@@ -7,6 +7,7 @@ const { createHardwareCommands } = require('./hardware');
 const { createJtagDriverSetup } = require('./jtag-driver');
 const { createVariableSearch, combineTrackers } = require('./variable-search');
 const { createLocalTests } = require('./local-tests');
+const { createUpdates } = require('./updates');
 
 let backendProcess;
 let backendRoot;
@@ -31,10 +32,12 @@ function activate(context) {
     const hardware = createHardwareCommands(vscode, output, getWorkspaceRoot, ensureDriver);
     const variableSearch = createVariableSearch(vscode, output);
     const localTests = createLocalTests(vscode, output, extensionRoot);
+    const updates = createUpdates(vscode, output, context, context.extension.packageJSON.version);
 
     context.subscriptions.push(
         output,
         status,
+        updates,
         vscode.window.registerTreeDataProvider('mcbDigitalTwin.control', treeProvider),
         vscode.commands.registerCommand('mcbDigitalTwin.start', start),
         vscode.commands.registerCommand('mcbDigitalTwin.menu', showControls),
@@ -43,6 +46,7 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.open', open),
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
         vscode.commands.registerCommand('mcbDigitalTwin.unitTests', localTests.run),
+        vscode.commands.registerCommand('mcbDigitalTwin.checkForUpdates', () => updates.check(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
@@ -91,6 +95,7 @@ function activate(context) {
             }
         }),
     );
+    updates.start();
 }
 
 async function showControls() {
@@ -156,6 +161,8 @@ class DigitalTwinTreeProvider {
                     'Debug-Firmware auf die echte MiniCtrlBox übertragen und USB-JTAG-Debugging starten.'),
             ]),
             this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
+                this.createItem('Nach Updates suchen', 'mcbDigitalTwin.checkForUpdates', 'cloud-download',
+                    'Neueste veröffentlichte Erweiterung prüfen und nach Bestätigung installieren.'),
                 this.createItem('Variable suchen und überwachen', 'mcbDigitalTwin.searchVariables', 'search',
                     'Am Haltepunkt Variablen suchen und direkt zu Watch hinzufügen.'),
                 this.createItem('Unit-Tests ausführen', 'mcbDigitalTwin.unitTests', 'beaker',

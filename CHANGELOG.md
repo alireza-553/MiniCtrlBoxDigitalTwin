@@ -1,5 +1,12 @@
 # Versionshistorie
 
+## v0.3.16 – Hinweise auf neue Erweiterungsversionen
+
+- Prüft das neueste öffentliche GitHub-Release nach dem Start und höchstens einmal täglich; eine neuere Version wird zuerst gemeldet. Keine GitHub-Anmeldung erforderlich.
+- **Werkzeuge → Nach Updates suchen** prüft manuell; die automatische Prüfung lässt sich über `mcbDigitalTwin.checkForUpdates` ausschalten.
+- Download und Installation erst nach Zustimmung, mit Größen- und SHA256-Prüfung. Debugsitzungen blockieren die Installation; das Fenster wird nur auf ausdrückliche Auswahl neu geladen.
+- README um den Update-Ablauf ergänzt und den veralteten Hinweis auf ein privates Repository entfernt.
+
 ## v0.3.15 – Aktueller Hardware-GDB unter Linux und macOS
 
 - Unter Linux wird der USB-JTAG-Zugriff vor dem Debugstart geprüft. Bei fehlenden Rechten öffnet die Erweiterung ein Terminal mit fester, auf `303a:1001` begrenzter udev-Regel und sudo-Passwortabfrage. Nach dem erneuten Anschließen wird der tatsächliche Gerätezugriff geprüft und der Debugstart fortgesetzt. Abbruch oder fehlgeschlagene Einrichtung stoppen den Start.

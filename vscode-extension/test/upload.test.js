@@ -141,10 +141,11 @@ function harness(options = {}) {
             './hardware': require(path.join(extensionRoot, 'hardware')),
             './variable-search': require(path.join(extensionRoot, 'variable-search')),
             './local-tests': require(path.join(extensionRoot, 'local-tests')),
+            './updates': { createUpdates: () => ({ start() {}, dispose() {}, check: async () => {} }) },
             './jtag-driver': require(path.join(extensionRoot, 'jtag-driver')) }[name] || require(name)),
     };
     vm.runInNewContext(fs.readFileSync(path.join(extensionRoot, 'extension.js'), 'utf8'), sandbox);
-    sandbox.module.exports.activate({ extensionPath: extensionRoot, subscriptions: [] });
+    sandbox.module.exports.activate({ extensionPath: extensionRoot, extension: { packageJSON: { version: '0.3.16' } }, subscriptions: [] });
     return { calls, selected, commands, tree, terminate: terminated };
 }
 
@@ -153,6 +154,13 @@ test('local unit tests are discoverable under Werkzeuge', () => {
     const tools = h.tree.getChildren().find(group => group.label === 'Werkzeuge');
     assert.ok(tools.children.some(item => item.label === 'Unit-Tests ausführen' && item.command.command === 'mcbDigitalTwin.unitTests'));
     assert.equal(typeof h.commands.get('mcbDigitalTwin.unitTests'), 'function');
+});
+
+test('update check is discoverable under Werkzeuge and registered', () => {
+    const h = harness();
+    const tools = h.tree.getChildren().find(group => group.label === 'Werkzeuge');
+    assert.ok(tools.children.some(item => item.label === 'Nach Updates suchen' && item.command.command === 'mcbDigitalTwin.checkForUpdates'));
+    assert.equal(typeof h.commands.get('mcbDigitalTwin.checkForUpdates'), 'function');
 });
 
 test('status bar contains one compact menu instead of separate controls', () => {

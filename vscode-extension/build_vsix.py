@@ -21,6 +21,7 @@ def main():
     files = [root / name for name in ("package.json", "extension.js", "hardware.js", "arduino-stepping.js", "variable-search.js", "local-tests.js", "jtag-driver.js", "windows-jtag.ps1", "README.md")]
     files.append(root / "hardware-gdb.py")
     files.append(root / "linux-jtag.js")
+    files.append(root / "updates.js")
     files += sorted((root / "media").rglob("*.svg"))
     files += sorted((root / "python").rglob("*.py"))
     files += sorted((root / "test").glob("*.test.js"))
