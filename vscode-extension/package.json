@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "publisher": "itt56-local",
   "license": "UNLICENSED",
   "engines": {
@@ -26,7 +26,9 @@
     "onCommand:mcbDigitalTwin.hardwareUpload",
     "onCommand:mcbDigitalTwin.hardwareDebug",
     "onCommand:mcbDigitalTwin.hardwareDrivers",
-    "onCommand:mcbDigitalTwin.searchVariables"
+    "onCommand:mcbDigitalTwin.searchVariables",
+    "onStartupFinished",
+    "onCommand:mcbDigitalTwin.checkForUpdates"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -121,6 +123,12 @@
         "category": "MiniCtrlBox",
         "icon": "$(search)",
         "enablement": "debugState == stopped"
+      },
+      {
+        "command": "mcbDigitalTwin.checkForUpdates",
+        "title": "Nach Updates suchen",
+        "category": "MiniCtrlBox",
+        "icon": "$(cloud-download)"
       }
     ],
     "menus": {
@@ -174,6 +182,12 @@
           "type": "boolean",
           "default": true,
           "description": "Unter Linux/macOS bei einem veralteten Python-2.7-GDB automatisch einen aktuellen Espressif-RISC-V-GDB über PlatformIO einrichten."
+        },
+        "mcbDigitalTwin.checkForUpdates": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Einmal täglich nach einer neueren veröffentlichten MiniCtrlBox-Erweiterung suchen und einen Hinweis anzeigen. Download und Installation erst nach Bestätigung."
         }
       }
     }

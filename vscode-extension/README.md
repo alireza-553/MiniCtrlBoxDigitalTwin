@@ -1,5 +1,9 @@
 # MiniCtrlBox Digital Twin für VS Code
 
+Ab **0.3.16** prüft die Erweiterung beim Start und höchstens einmal täglich auf neuere öffentliche GitHub-Releases. Zunächst erscheint nur ein Hinweis. **Herunterladen und installieren** lädt das passende VSIX und prüft Dateigröße und SHA256-Prüfsumme; danach übernimmt VS Code die Installation. Mit **Release ansehen** öffnet sich die Downloadseite, **Später** führt keine Installation aus.
+
+Unter **Werkzeuge → Nach Updates suchen** ist die Prüfung auch manuell verfügbar. `mcbDigitalTwin.checkForUpdates` schaltet die automatische Prüfung aus. Eine GitHub-Anmeldung ist nicht nötig. Während einer Debugsitzung wird nicht installiert. Nach einem Update das Fenster neu laden und den Twin erneut starten.
+
 **Zum Nachschlagen:** Das [Begriffslexikon mit Beispielen und Lernaufgaben](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md) erklärt unter anderem [Build](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#build), [Haltepunkt](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#haltepunkt), [USB-JTAG](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#usb-jtag) und [Watchdog-Interrupt](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/begriffe/README.md#watchdog-interrupt).
 
 Diese Erweiterung enthält den Python-Digitalzwilling und startet ihn für den

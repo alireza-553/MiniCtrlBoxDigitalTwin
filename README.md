@@ -8,7 +8,7 @@ MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: 
 
 **[Aktuelle veröffentlichte Erweiterung herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest)**
 
-Das Repository ist privat: Zum Download mit einem GitHub-Konto mit Zugriff anmelden. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
+Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforderlich. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
 
 Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungsbranch oder eine offene PR kann bereits weitere Funktionen enthalten; diese stehen erst nach Veröffentlichung im Release-Paket zur Verfügung. Den Stand dieses Branches kannst du selbst [als VSIX bauen](#entwicklung).
 
@@ -56,6 +56,16 @@ Unter Windows in den VS-Code-Einstellungen nach **`mcbDigitalTwin.pythonPath`** 
 Bei einem Update die neue VSIX installieren und das VS-Code-Fenster neu laden. Einen bereits laufenden Twin über **Digital Twin beenden** stoppen und danach erneut starten, damit auch der mitgelieferte Simulator aktualisiert ist.
 
 ## Projekt hochladen und benutzen
+
+### Hinweise auf neue Versionen
+
+Ab Version **0.3.16** prüft die Erweiterung nach dem Start von VS Code und danach höchstens einmal täglich das neueste öffentliche GitHub-Release. Ist es neuer als die installierte Version, erscheint zuerst ein Hinweis: **Herunterladen und installieren**, **Release ansehen** oder **Später**. Vor der Zustimmung wird kein VSIX heruntergeladen oder installiert. GitHub-Anmeldung und Zugriffstoken sind dafür nicht nötig.
+
+Über **Werkzeuge → Nach Updates suchen** lässt sich die Prüfung jederzeit auslösen. Mit der Einstellung `mcbDigitalTwin.checkForUpdates` kann die automatische Prüfung ausgeschaltet werden. Netzwerkprobleme bei der Hintergrundprüfung stehen nur in der Ausgabe; bei manueller Prüfung werden Fehler angezeigt.
+
+Vor der Installation werden Dateigröße und SHA256-Prüfsumme des Release-Pakets geprüft. Während einer laufenden Debugsitzung wird kein Update installiert. Nach erfolgreicher Installation kannst du **Fenster neu laden** wählen. Ein von dieser Erweiterung gestarteter Twin wird beim Neuladen beendet und muss anschließend erneut gestartet werden.
+
+### Projekt starten
 
 1. Den C++-Projektordner in VS Code öffnen. Bei mehreren Workspace-Ordnern eine Datei des gewünschten Projekts aktivieren.
 2. Links das **MiniCtrlBox-Symbol** öffnen und **Digital Twin → Projekt laden und starten** wählen. Alternativ das **Upload-Symbol unten neben „MCB Digital Twin“** oder oben in der Steuerungsansicht anklicken.
