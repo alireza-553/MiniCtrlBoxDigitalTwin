@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.17 – Stabile MiniCtrlBox-Größe und Erweiterungssymbol
+
+- Die MiniCtrlBox behält beim Verbinden, Wechseln und Trennen der Erweiterungsmodule ihre Größe. Auf schmalen Fenstern lässt sich die verbundene Ansicht seitlich scrollen.
+- Das OLED ist mittig zwischen den orangefarbenen Tastern ausgerichtet; die Kontrollleuchten liegen mit Abstand daneben.
+- Eigenes MiniCtrlBox-Symbol für die Liste installierter Erweiterungen und die Detailansicht ergänzt.
+
 ## v0.3.16 – Hinweise auf neue Erweiterungsversionen
 
 - Prüft das neueste öffentliche GitHub-Release nach dem Start und höchstens einmal täglich; eine neuere Version wird zuerst gemeldet. Keine GitHub-Anmeldung erforderlich.

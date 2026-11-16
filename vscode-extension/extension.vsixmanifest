@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
   <Metadata>
-    <Identity Language="de-DE" Id="mcb-digital-twin" Version="0.3.16" Publisher="itt56-local" />
+    <Identity Language="de-DE" Id="mcb-digital-twin" Version="0.3.17" Publisher="itt56-local" />
     <DisplayName>MiniCtrlBox Digital Twin</DisplayName>
     <Description xml:space="preserve">Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.</Description>
     <Tags>MiniCtrlBox,Simulation,Digital Twin,PlatformIO</Tags>
     <Categories>Education,Testing</Categories>
+    <Icon>extension/media/mcb-icon.png</Icon>
     <Properties>
       <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.85.0" />
       <Property Id="Microsoft.VisualStudio.Code.ExtensionKind" Value="workspace" />
@@ -19,5 +20,6 @@
   <Assets>
     <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
     <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
+    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/media/mcb-icon.png" Addressable="true" />
   </Assets>
 </PackageManifest>

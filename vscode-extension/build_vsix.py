@@ -23,6 +23,7 @@ def main():
     files.append(root / "linux-jtag.js")
     files.append(root / "updates.js")
     files += sorted((root / "media").rglob("*.svg"))
+    files += sorted((root / "media").rglob("*.png"))
     files += sorted((root / "python").rglob("*.py"))
     files += sorted((root / "test").glob("*.test.js"))
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:

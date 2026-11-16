@@ -339,6 +339,18 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 .unlinked .slb-board,.unlinked .keypad-board{filter:saturate(.3)}.keypad-board{width:min(100%,390px);border-radius:9px;background:linear-gradient(145deg,#546370,#2e3942);box-shadow:inset 0 0 0 2px #82909a,0 12px 0 #202930,0 17px 20px #0006;padding:34px;box-sizing:border-box}.keypad-indicators{display:flex;justify-content:center;gap:30px;margin-bottom:24px}.keypad-indicator{width:24px;aspect-ratio:1;border-radius:50%;background:#232829;border:2px solid #9ea7a9}.keypad-indicator.red.on{background:#ff3840;box-shadow:0 0 14px #ff3840}.keypad-indicator.green.on{background:#3bea79;box-shadow:0 0 14px #3bea79}.keypad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.keypad-key{aspect-ratio:1;border-radius:8px;background:#172027;border:1px solid #95a1a8;color:#edf5f7;font-weight:700;box-shadow:0 4px 0 #0b1014}.keypad-key[aria-pressed=true]{transform:translateY(3px);box-shadow:0 1px 0 #0b1014;background:#2878bd}.keypad-beeper{text-align:center;margin-top:20px;color:#aab7c4}.keypad-beeper.on{color:#ffd76b;text-shadow:0 0 8px #ffd76b}
 .keypad-visual{position:relative;width:min(100%,390px);aspect-ratio:3/4;container-type:inline-size}.keypad-visual>.module-input{height:48%;z-index:2}.keypad-visual>.keypad-board{width:100%;height:100%;padding:8.5%;display:flex;flex-direction:column;gap:5cqw}.keypad-visual .keypad-indicators{margin:0;gap:8cqw}.keypad-visual .keypad-indicator{width:6cqw}.keypad-visual .keypad-grid{flex:1;min-height:0;gap:3cqw;grid-template-rows:repeat(4,minmax(0,1fr))}.keypad-visual .keypad-key{aspect-ratio:auto;padding:0;min-width:0;font-size:clamp(9px,4cqw,16px)}.keypad-visual .keypad-beeper{margin:0;font-size:clamp(8px,4cqw,16px)}#module-4 .keypad-stage{height:auto;min-height:0;padding:18px 12px 28px}.assembly-rig.keypad-coupling{grid-template-columns:minmax(0,1fr) minmax(0,.75fr);gap:4.07%;max-width:840px}.assembly-rig>.keypad-visual{width:100%;max-width:none;margin:0}
 
+/* One shared size: connecting a different partner must never resize the MiniCtrlBox. */
+.connection-layout{--main-unit-size:min(340px,calc((100vw - 180px)/2))}
+.unit-stage .main-unit{width:var(--main-unit-size);max-width:none}
+.assembly-stage{overflow-x:auto}
+.assembly-rig,.assembly-rig.slb-coupling,.assembly-rig.keypad-coupling{--partner-ratio:1.5454545;--connector-gap:.1;grid-template-columns:var(--main-unit-size) calc(var(--main-unit-size) * var(--partner-ratio));gap:calc(var(--main-unit-size) * var(--connector-gap));width:max-content;max-width:none}
+.assembly-rig.slb-coupling{--partner-ratio:1.45;--connector-gap:.0964}
+.assembly-rig.keypad-coupling{--partner-ratio:.75;--connector-gap:.0742647}
+/* Button centres are at 19% and 80%; the OLED is centred at their midpoint. */
+.main-unit .unit-oled{left:22.5%}
+.main-unit .unit-rgb{left:85%}
+.main-unit .unit-number{font-size:26cqw}
+@media(max-width:780px){.connection-layout{--main-unit-size:min(340px,calc(100vw - 108px))}}
 </style></head><body>
 <h1>MiniCtrlBox – digitaler Zwilling</h1>
 <p id="program-banner" class="program-banner" role="status">Kein Anwenderprogramm läuft · Alle Ampeln aus</p>
