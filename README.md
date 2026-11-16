@@ -59,7 +59,7 @@ Bei einem Update die neue VSIX installieren und das VS-Code-Fenster neu laden. E
 
 ### Hinweise auf neue Versionen
 
-Ab Version **0.3.16** prüft die Erweiterung nach dem Start von VS Code und danach höchstens einmal täglich das neueste öffentliche GitHub-Release. Ist es neuer als die installierte Version, erscheint zuerst ein Hinweis: **Herunterladen und installieren**, **Release ansehen** oder **Später**. Vor der Zustimmung wird kein VSIX heruntergeladen oder installiert. GitHub-Anmeldung und Zugriffstoken sind dafür nicht nötig.
+Ab Version **0.3.16** kann die Erweiterung auf neuere öffentliche GitHub-Releases hinweisen. Ab **0.3.19** prüft sie etwa 15 Sekunden nach jedem VS-Code-Start, auch wenn die letzte Prüfung weniger als 24 Stunden zurückliegt. Solange das Fenster geöffnet bleibt, prüft sie danach einmal täglich. Ist das Release neuer als die installierte Version, erscheint zuerst ein Hinweis: **Herunterladen und installieren**, **Release ansehen** oder **Später**. Vor der Zustimmung wird kein VSIX heruntergeladen oder installiert. GitHub-Anmeldung und Zugriffstoken sind dafür nicht nötig.
 
 Über **Werkzeuge → Nach Updates suchen** lässt sich die Prüfung jederzeit auslösen. Mit der Einstellung `mcbDigitalTwin.checkForUpdates` kann die automatische Prüfung ausgeschaltet werden. Netzwerkprobleme bei der Hintergrundprüfung stehen nur in der Ausgabe; bei manueller Prüfung werden Fehler angezeigt.
 

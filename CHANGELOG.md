@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.19 – Update-Hinweis nach jedem VS-Code-Start
+
+- Die Updateprüfung nach dem Start wird nicht mehr durch eine erfolgreiche Prüfung innerhalb der vergangenen 24 Stunden unterdrückt. Sie läuft etwa 15 Sekunden nach jedem VS-Code-Start; im geöffneten Fenster bleibt es bei einer täglichen Prüfung.
+- Fehlgeschlagene Updateprüfungen setzen keine neue 24-Stunden-Pause. Die Einstellung zum Abschalten automatischer Prüfungen wird weiterhin berücksichtigt.
+
 ## v0.3.18 – Automatische Simulator-Ports
 
 - Jedes VS-Code-Fenster startet seinen eigenen Simulator mit einem automatisch vergebenen freien Port. Ein belegter Wunschport aus der Projektkonfiguration führt automatisch zu einem Ausweichport.

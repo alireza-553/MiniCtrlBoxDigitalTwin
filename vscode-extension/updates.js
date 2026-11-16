@@ -72,6 +72,7 @@ function selectRelease(release, installed) {
 function createUpdates(vscode, output, context, installed, services = {}) {
     const request = services.request || requestBytes;
     const clock = services.now || Date.now;
+    const timers = services.timers || { setTimeout, clearTimeout, setInterval, clearInterval };
     let busy = false, disposed = false, startupTimer, intervalTimer;
 
     async function install(release) {
@@ -112,18 +113,18 @@ function createUpdates(vscode, output, context, installed, services = {}) {
         }
     }
 
-    async function check(manual = false) {
+    async function check(manual = false, startup = false) {
         if (busy || disposed) return;
         const configuration = vscode.workspace.getConfiguration('mcbDigitalTwin');
         if (!manual && !configuration.get('checkForUpdates', true)) return;
-        if (!manual && clock() - (context.globalState.get('updates.lastCheck', 0)) < DAY) return;
+        if (!manual && !startup && clock() - (context.globalState.get('updates.lastCheck', 0)) < DAY) return;
         busy = true;
         let installing = false;
         try {
-            await context.globalState.update('updates.lastCheck', clock());
             const data = await request(`${API}/releases/latest`);
             if (disposed) return;
             const release = selectRelease(JSON.parse(data.toString('utf8')), installed);
+            await context.globalState.update('updates.lastCheck', clock());
             if (!release) {
                 if (manual) vscode.window.showInformationMessage(`Keine neuere veröffentlichte MiniCtrlBox-Version gefunden. Installiert: ${installed}.`);
                 return;
@@ -143,11 +144,11 @@ function createUpdates(vscode, output, context, installed, services = {}) {
     }
 
     function start() {
-        startupTimer = setTimeout(() => void check(), 15000);
-        intervalTimer = setInterval(() => void check(), DAY);
+        startupTimer = timers.setTimeout(() => check(false, true), 15000);
+        intervalTimer = timers.setInterval(() => check(), DAY);
         startupTimer.unref?.(); intervalTimer.unref?.();
     }
-    function dispose() { disposed = true; clearTimeout(startupTimer); clearInterval(intervalTimer); }
+    function dispose() { disposed = true; timers.clearTimeout(startupTimer); timers.clearInterval(intervalTimer); }
     return { check, start, dispose };
 }
 

@@ -55,7 +55,7 @@ function harness(options = {}) {
         if (args[0].endsWith('/22')) return Buffer.from(`${digest}  ${data.assets[0].name}\n`);
         throw new Error('Unexpected request');
     };
-    const runner = createUpdates(vscode, { appendLine: value => calls.logs.push(value) }, context, options.installed || '0.3.16', { request, now: () => now });
+    const runner = createUpdates(vscode, { appendLine: value => calls.logs.push(value) }, context, options.installed || '0.3.16', { request, now: () => now, timers: options.timers });
     return { runner, calls, values, advance: () => { now += DAY + 1; } };
 }
 
@@ -81,6 +81,56 @@ test('disabled automatic checks still allow the manual command', async () => {
     const h = harness({ disabled: true });
     await h.runner.check(); assert.equal(h.calls.requests.length, 0);
     await h.runner.check(true); assert.equal(h.calls.requests.length, 1);
+});
+
+test('startup checks a newly published release despite a recent successful check', async () => {
+    let startup, interval;
+    const timers = {
+        setTimeout: (callback, delay) => { assert.equal(delay, 15000); startup = callback; return 1; },
+        setInterval: (callback, delay) => { assert.equal(delay, DAY); interval = callback; return 2; },
+        clearTimeout() {}, clearInterval() {},
+    };
+    const data = release('0.3.17');
+    const h = harness({ release: data, installed: '0.3.17', timers });
+    await h.runner.check();
+    assert.equal(h.calls.info.length, 0);
+    Object.assign(data, release('0.3.18'));
+    h.runner.start();
+    await startup();
+    assert.equal(h.calls.requests.length, 2);
+    assert.match(h.calls.info[0], /0\.3\.18.*0\.3\.17/);
+    await interval();
+    assert.equal(h.calls.requests.length, 2);
+    h.runner.dispose();
+});
+
+test('failed checks do not suppress a later retry for a whole day', async () => {
+    const options = { networkFailure: true };
+    const h = harness(options);
+    await h.runner.check();
+    assert.equal(h.values.has('updates.lastCheck'), false);
+    options.networkFailure = false;
+    await h.runner.check();
+    assert.equal(h.calls.requests.length, 2);
+    assert.equal(h.calls.info.length, 1);
+});
+
+test('startup still respects disabled checks and disposal cancels its timers', async () => {
+    let startup;
+    const cleared = [];
+    const timers = {
+        setTimeout: callback => { startup = callback; return 1; },
+        setInterval: () => 2,
+        clearTimeout: id => cleared.push(id), clearInterval: id => cleared.push(id),
+    };
+    const h = harness({ disabled: true, timers });
+    h.runner.start();
+    await startup();
+    assert.equal(h.calls.requests.length, 0);
+    h.runner.dispose();
+    assert.deepEqual(cleared, [1, 2]);
+    await startup();
+    assert.equal(h.calls.requests.length, 0);
 });
 
 test('current or newer local development version never triggers an install offer', async () => {
