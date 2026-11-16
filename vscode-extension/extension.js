@@ -12,6 +12,7 @@ const { createUpdates } = require('./updates');
 let backendProcess;
 let backendRoot;
 let backendPort;
+let backendStart = Promise.resolve();
 let output;
 let status;
 let extensionRoot;
@@ -212,7 +213,7 @@ function loadProject() {
         name: path.basename(root),
         backend: path.join(bundledSimulation, 'web_app.py'),
         testDirectory: bundledSimulation,
-        port: 8765,
+        port: 0,
         autoOpen: true,
     };
     if (!fs.existsSync(configPath)) return { root, ...defaults };
@@ -220,7 +221,13 @@ function loadProject() {
     return { root, ...defaults, ...fileConfig };
 }
 
-async function ensureStarted(project) {
+function ensureStarted(project) {
+    const pending = backendStart.catch(() => {}).then(() => startBackend(project));
+    backendStart = pending;
+    return pending;
+}
+
+async function startBackend(project) {
     const backend = path.isAbsolute(project.backend)
         ? project.backend
         : path.resolve(project.root, project.backend);
@@ -228,21 +235,29 @@ async function ensureStarted(project) {
         throw new Error(`Backend nicht gefunden: ${backend}`);
     }
 
-    backendRoot = project.root;
-    backendPort = project.port;
-    if (await isHealthy(backendPort)) {
+    if (!Number.isInteger(project.port) || project.port < 0 || project.port > 65535) {
+        throw new Error('Der Simulator-Port muss eine ganze Zahl zwischen 0 und 65535 sein (0 = automatisch).');
+    }
+    // Only reuse a process owned by this VS Code window, never a foreign server.
+    if (backendProcess && !backendProcess.killed && backendProcess.exitCode == null
+        && backendRoot === project.root && backendPort && await isHealthy(backendPort)) {
+        project.port = backendPort;
         setRunning(true);
         return;
     }
+    if (debugSession) throw new Error('Bitte zuerst die laufende MiniCtrlBox-Debugsitzung beenden.');
+    if (backendProcess && !backendProcess.killed) backendProcess.kill('SIGTERM');
+    backendPort = undefined;
+    backendRoot = project.root;
 
     const python = vscode.workspace.getConfiguration('mcbDigitalTwin')
         .get('pythonPath', 'python3');
     output.clear();
     output.appendLine(`Starte ${project.name}`);
-    output.appendLine(`${python} ${backend} --port ${backendPort}`);
+    output.appendLine(`${python} ${backend} --port ${project.port} --auto-port`);
     const child = childProcess.spawn(
         python,
-        [backend, '--port', String(backendPort), '--project-root', project.root],
+        [backend, '--port', String(project.port), '--auto-port', '--project-root', project.root],
         {
             cwd: project.root,
             env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
@@ -263,8 +278,55 @@ async function ensureStarted(project) {
         }
     });
 
-    await waitUntilHealthy(backendPort);
+    try {
+        const port = await announcedPort(child);
+        await waitUntilHealthy(port);
+        if (backendProcess !== child || child.killed || child.exitCode != null) {
+            throw new Error('Simulator wurde während des Starts beendet.');
+        }
+        project.port = backendPort = port;
+        output.appendLine(`Simulator für ${project.name}: http://127.0.0.1:${port}`);
+    } catch (error) {
+        if (!child.killed) child.kill('SIGTERM');
+        if (backendProcess === child) { backendProcess = undefined; backendPort = undefined; setRunning(false); }
+        throw error;
+    }
     setRunning(true);
+}
+
+function announcedPort(child) {
+    return new Promise((resolve, reject) => {
+        let buffer = '';
+        const finish = (error, port) => {
+            clearTimeout(timer);
+            child.stdout.removeListener('data', onData);
+            child.removeListener('error', onError);
+            child.removeListener('exit', onExit);
+            if (error) reject(error); else resolve(port);
+        };
+        const onError = error => finish(error);
+        const onExit = code => finish(new Error(`Simulator vor dem Start beendet (Code ${code}). Details stehen in der Ausgabe.`));
+        const onData = data => {
+            buffer += data.toString();
+            let end;
+            while ((end = buffer.indexOf('\n')) >= 0) {
+                const line = buffer.slice(0, end).trim();
+                buffer = buffer.slice(end + 1);
+                if (!line.startsWith('MCB_READY ')) continue;
+                try {
+                    const { port } = JSON.parse(line.slice(10));
+                    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Ungültiger Port');
+                    finish(null, port);
+                } catch { finish(new Error('Simulator meldet einen ungültigen Port.')); }
+                return;
+            }
+            if (buffer.length > 65536) buffer = buffer.slice(-65536);
+        };
+        const timer = setTimeout(() => finish(new Error('Simulator meldet keinen Port. Bitte das mitgelieferte Backend verwenden; Details stehen in der Ausgabe.')), 10000);
+        child.stdout.on('data', onData);
+        child.once('error', onError);
+        child.once('exit', onExit);
+    });
 }
 
 async function start() {

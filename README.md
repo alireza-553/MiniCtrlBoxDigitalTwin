@@ -159,7 +159,9 @@ Die [Bedienungsanleitung](docs/BEDIENUNG.md) beschreibt alle Schaltflächen, Vor
 | `mcbDigitalTwin.autoInstallJtagDriver` | `true` | USB-JTAG-Zugriff automatisch einrichten: Windows-Treiber mit Administratorabfrage oder Linux-udev-Regel mit sudo im Terminal. |
 | `mcbDigitalTwin.autoInstallGdb` | `true` | Veralteten Python-2.7-GDB unter Linux/macOS automatisch durch einen aktuellen Espressif-RISC-V-GDB für die Debugsitzung ersetzen. |
 
-Optional im Anwenderprojekt eine `mcb-digital-twin.json` anlegen, etwa für einen anderen Port:
+Die Erweiterung weist jedem VS-Code-Fenster automatisch einen freien Simulator-Port zu. Mehrere Fenster können dadurch unabhängige Simulationen öffnen. Öffnen, Laden, Neustart und Debuggen verwenden innerhalb des Fensters denselben Simulator. Die aktuelle Adresse steht unter **Ausgabe → MiniCtrlBox Digital Twin**.
+
+Optional im Anwenderprojekt eine `mcb-digital-twin.json` anlegen, etwa für einen bevorzugten Port. Ist dieser bereits belegt, wird automatisch ein freier Port verwendet; eine fremde Simulation wird nicht übernommen. `0` bedeutet automatische Vergabe:
 
 ```json
 {
@@ -178,7 +180,7 @@ Für die normale Nutzung ist diese Datei nicht erforderlich.
 | C++-Compiler fehlt | Visual Studio C++-Buildtools oder `g++`/`clang++` installieren. Details unter **Ausgabe → MiniCtrlBox Digital Twin** prüfen. |
 | Kein Anwenderprojekt gefunden | Ordner mit `src/main.cpp` öffnen. Ein äußerer Ordner mit genau einem solchen Unterprojekt wird ebenfalls erkannt. |
 | Ampeln bleiben dunkel | Programmstatus prüfen und Modul 2 verbinden. Nur programmierte Ausgänge leuchten. |
-| Oberfläche öffnet sich nicht | Bei Standardport `http://127.0.0.1:8765` im Browser öffnen; Ausgabe auf Startfehler prüfen. |
+| Oberfläche öffnet sich nicht | Die aktuelle Simulator-Adresse unter **Ausgabe → MiniCtrlBox Digital Twin** öffnen und dort auf Startfehler prüfen. |
 
 Der Desktop-Adapter führt `setup()` und `loop()` als Prozess auf deinem Rechner aus. Er emuliert kein ESP32-Firmwareabbild. Unterstützt sind GPIO, OLED, Taster sowie ab 0.3.10 die unten beschriebenen EEPROM- und CAN-Funktionen. Ab 0.3.14 sind außerdem das SwitchLEDBoard als Modul 3 über `CPortExpRem` und das Tastaturmodul als Modul 4 über `CKeyPad` mit der MiniCtrlBoxLib-6.12-API verfügbar. Wegen der gemeinsamen I²C-Adresse kann jeweils nur eines der Zusatzmodule 2, 3 oder 4 verbunden sein. Andere Hardwarebibliotheken können Buildfehler verursachen.
 

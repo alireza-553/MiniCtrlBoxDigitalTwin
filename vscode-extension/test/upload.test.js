@@ -94,7 +94,7 @@ function harness(options = {}) {
         env: { asExternalUri: async uri => uri },
     };
     const fakeFS = {
-        existsSync: file => file.endsWith('web_app.py') || file === path.join(selected, 'mcb-digital-twin.json'),
+        existsSync: file => file.endsWith('web_app.py') || (!options.noConfig && file === path.join(selected, 'mcb-digital-twin.json')),
         readFileSync: () => JSON.stringify({ port: options.port || 18769, autoOpen: false }),
     };
     const http = {
@@ -129,14 +129,22 @@ function harness(options = {}) {
     const childProcess = {
         spawn: (...args) => {
             calls.spawned.push(args);
+            if (options.live) return require('node:child_process').spawn(...args);
             healthy = true;
             const child = new EventEmitter();
             child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+            child.kill = () => { child.killed = true; child.emit('exit', 0); };
+            queueMicrotask(() => {
+                if (options.startFailure) { child.emit('error', new Error('Python fehlt')); return; }
+                const ready = 'MCB_READY ' + JSON.stringify({ port: options.assignedPort || options.port || 18769 }) + '\n';
+                child.stdout.emit('data', Buffer.from('Start\n' + ready.slice(0, 14)));
+                child.stdout.emit('data', Buffer.from(ready.slice(14)));
+            });
             return child;
         },
     };
     const sandbox = {
-        module: { exports: {} }, process, Buffer, setTimeout,
+        module: { exports: {} }, process, Buffer, setTimeout, clearTimeout,
         require: name => ({ vscode, fs: fakeFS, http: options.live ? require('node:http') : http, child_process: childProcess,
             './hardware': require(path.join(extensionRoot, 'hardware')),
             './variable-search': require(path.join(extensionRoot, 'variable-search')),
@@ -237,9 +245,11 @@ test('restart is discoverable in the Digital Twin group and command palette', ()
 
 test('restart uses the existing backend and opens the surface', async () => {
     const h = harness();
+    await h.commands.get('mcbDigitalTwin.start')();
+    h.calls.info.length = 0;
     await h.commands.get('mcbDigitalTwin.restart')();
     assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
-    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.spawned.length, 1);
     assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
     assert.equal(h.calls.info.length, 1);
     assert.deepEqual(h.calls.errors, []);
@@ -276,7 +286,7 @@ test('uploads the active project, saves only its documents, and opens its config
     assert.deepEqual(h.calls.saved, [h.selected]);
     assert.deepEqual(h.calls.requests[0].body, { action: 'program_start', path: h.selected });
     assert.equal(h.calls.requests[0].args.port, 18769);
-    assert.equal(h.calls.spawned.length, 0);
+    assert.equal(h.calls.spawned.length, 1);
     assert.equal(h.calls.opened[0][0], 'simpleBrowser.show');
     assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
     assert.equal(h.calls.errors.length, 0);
@@ -291,6 +301,58 @@ test('automatically starts the backend before uploading when it is not running',
     assert.ok(h.calls.spawned[0][1].includes(h.selected));
     assert.equal(h.calls.requests.length, 1);
     assert.equal(h.calls.errors.length, 0);
+});
+
+test('automatic port is used consistently for upload, open, restart and debug', async () => {
+    const h = harness({ noConfig: true, assignedPort: 23456 });
+    await h.commands.get('mcbDigitalTwin.upload')();
+    await h.commands.get('mcbDigitalTwin.open')();
+    await h.commands.get('mcbDigitalTwin.restart')();
+    await h.commands.get('mcbDigitalTwin.debug')();
+    assert.equal(h.calls.spawned.length, 1);
+    const args = h.calls.spawned[0][1];
+    assert.equal(args[args.indexOf('--port') + 1], '0');
+    assert.ok(args.includes('--auto-port'));
+    assert.ok(h.calls.requests.every(request => request.args.port === 23456));
+    assert.ok(h.calls.opened.every(opened => opened[1] === 'http://127.0.0.1:23456'));
+    assert.equal(h.calls.debug[0].configuration.mcbPort, 23456);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('occupied configured port never attaches to a foreign healthy backend', async () => {
+    const h = harness({ port: 18769, assignedPort: 23457 });
+    await h.commands.get('mcbDigitalTwin.upload')();
+    assert.equal(h.calls.spawned.length, 1);
+    assert.equal(h.calls.requests[0].args.port, 23457);
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:23457');
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('concurrent start and open share one owned process', async () => {
+    const h = harness({ noConfig: true });
+    await Promise.all([h.commands.get('mcbDigitalTwin.start')(), h.commands.get('mcbDigitalTwin.open')()]);
+    assert.equal(h.calls.spawned.length, 1);
+    assert.deepEqual(h.calls.errors, []);
+});
+
+test('two windows keep separate ports and stopping one leaves the other usable', async () => {
+    const first = harness({ noConfig: true, assignedPort: 23458 });
+    const second = harness({ noConfig: true, assignedPort: 23459 });
+    await Promise.all([first.commands.get('mcbDigitalTwin.upload')(), second.commands.get('mcbDigitalTwin.upload')()]);
+    await first.commands.get('mcbDigitalTwin.stop')();
+    await second.commands.get('mcbDigitalTwin.restart')();
+    assert.equal(first.calls.requests[0].args.port, 23458);
+    assert.ok(second.calls.requests.every(request => request.args.port === 23459));
+    assert.equal(second.calls.spawned.length, 1);
+    assert.deepEqual(second.calls.errors, []);
+});
+
+test('startup error never opens or sends actions to another backend', async () => {
+    const h = harness({ startFailure: true });
+    await h.commands.get('mcbDigitalTwin.upload')();
+    assert.deepEqual(h.calls.errors, ['Python fehlt']);
+    assert.equal(h.calls.requests.length, 0);
+    assert.equal(h.calls.opened.length, 0);
 });
 
 test('compiler errors are shown and no successful upload or browser opening is reported', async () => {
@@ -384,14 +446,11 @@ test('the extension loads the original C++ project into a running twin', {
         await h.commands.get('mcbDigitalTwin.upload')();
         assert.deepEqual(h.calls.errors, []);
         assert.equal(h.calls.info.length, 1);
-        const state = await (await fetch(`http://127.0.0.1:${port}/api/state`)).json();
+        const address = h.calls.opened[0][1];
+        const state = await (await fetch(`${address}/api/state`)).json();
         assert.equal(state.program_running, true);
         assert.ok(state.oled[1].includes('Ueb_2.7.3.4'));
-        assert.equal(h.calls.opened[0][1], `http://127.0.0.1:${port}`);
     } finally {
-        await fetch(`http://127.0.0.1:${port}/api/action`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'program_stop' }),
-        });
+        await h.commands.get('mcbDigitalTwin.stop')();
     }
 });
