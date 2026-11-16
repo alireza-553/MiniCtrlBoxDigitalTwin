@@ -4,6 +4,7 @@
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
   "version": "0.3.16",
   "publisher": "itt56-local",
+  "icon": "media/mcb-icon.png",
   "license": "UNLICENSED",
   "engines": {
     "vscode": "^1.85.0"

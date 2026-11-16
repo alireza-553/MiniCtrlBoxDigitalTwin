@@ -6,6 +6,7 @@
     <Description xml:space="preserve">Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.</Description>
     <Tags>MiniCtrlBox,Simulation,Digital Twin,PlatformIO</Tags>
     <Categories>Education,Testing</Categories>
+    <Icon>extension/media/mcb-icon.png</Icon>
     <Properties>
       <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.85.0" />
       <Property Id="Microsoft.VisualStudio.Code.ExtensionKind" Value="workspace" />
@@ -19,5 +20,6 @@
   <Assets>
     <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true" />
     <Asset Type="Microsoft.VisualStudio.Services.Content.Details" Path="extension/README.md" Addressable="true" />
+    <Asset Type="Microsoft.VisualStudio.Services.Icons.Default" Path="extension/media/mcb-icon.png" Addressable="true" />
   </Assets>
 </PackageManifest>
