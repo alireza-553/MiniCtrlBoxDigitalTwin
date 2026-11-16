@@ -258,6 +258,8 @@ Ein Dateipfad beschreibt den Ort einer Datei oder eines Ordners. `src/main.cpp` 
 
 `localhost` und die Adresse `127.0.0.1` bezeichnen den eigenen PC. Bei `http://127.0.0.1:8765` ist HTTP das verwendete Webprotokoll und `8765` der Netzwerkport des Simulators. Der Port ordnet die Verbindung einem Dienst auf dem PC zu. Er ist etwas anderes als der serielle Hardwareanschluss `COM5`. „Connection refused“ kann bedeuten, dass der Simulator noch nicht läuft oder ein anderer Port eingestellt ist.
 
+Die VS-Code-Erweiterung lässt das Betriebssystem mit Port `0` einen freien Port auswählen und sofort für den neuen Simulator reservieren. So erhalten auch gleichzeitig gestartete Fenster unterschiedliche Ports. Ein eingetragener Wunschport wird verwendet, sofern er frei ist; andernfalls weicht die Erweiterung automatisch aus. Die tatsächlich verwendete Adresse steht in der Ausgabe. Beim direkten Python-Start bleibt der Standardport `8765`; `--port 0` aktiviert die freie Vergabe und `--auto-port` den Ausweichport bei einem belegten Wunschport.
+
 <a id="sdk-api"></a>
 ### SDK, API, JSON und INI
 

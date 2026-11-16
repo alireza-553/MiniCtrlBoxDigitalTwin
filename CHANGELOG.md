@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.18 – Automatische Simulator-Ports
+
+- Jedes VS-Code-Fenster startet seinen eigenen Simulator mit einem automatisch vergebenen freien Port. Ein belegter Wunschport aus der Projektkonfiguration führt automatisch zu einem Ausweichport.
+- Die tatsächlich gebundene Adresse wird für Öffnen, Laden, Neustart und Debuggen weiterverwendet und in der Ausgabe angezeigt. Fremde Simulatoren werden nicht übernommen.
+- Parallele Starts innerhalb desselben Fensters werden zusammengeführt. Tests decken getrennte Simulationen und den belegten Wunschport ab.
+
 ## v0.3.17 – Stabile MiniCtrlBox-Größe und Erweiterungssymbol
 
 - Die MiniCtrlBox behält beim Verbinden, Wechseln und Trennen der Erweiterungsmodule ihre Größe. Auf schmalen Fenstern lässt sich die verbundene Ansicht seitlich scrollen.

@@ -159,8 +159,9 @@ Modul 2; das Anwenderprogramm auf Modul 1 läuft weiter.
 - `MiniCtrlBox: Digital Twin öffnen`
 - `MiniCtrlBox: Digital Twin testen`
 
-Optional kann eine Datei `mcb-digital-twin.json` Backend, Testordner und Port
-überschreiben. Für die normale Nutzung wird sie nicht benötigt.
+Jedes VS-Code-Fenster erhält automatisch einen freien Simulator-Port. Mehrere Fenster können unabhängige Simulationen betreiben. Öffnen, Laden, Neustart und Debuggen verwenden innerhalb des Fensters denselben Simulator; die Adresse steht unter **Ausgabe → MiniCtrlBox Digital Twin**.
+
+Optional kann eine Datei `mcb-digital-twin.json` Backend, Testordner und bevorzugten Port überschreiben. Ist der Wunschport belegt, wird ein freier Port vergeben. Eine fremde Simulation wird nicht übernommen. `0` bedeutet automatische Vergabe. Für die normale Nutzung wird diese Datei nicht benötigt. Ein eigenes Backend muss die Startmeldung `MCB_READY {"port":12345}` mit dem tatsächlich gebundenen Port ausgeben und `--auto-port` unterstützen.
 
 ```json
 {

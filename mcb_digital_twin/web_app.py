@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import argparse
+import errno
+import socket
 from pathlib import Path
 import subprocess
 import time
@@ -600,6 +602,14 @@ CONTROLLER_LOCK = RLock()
 
 
 class SimulationServer(ThreadingHTTPServer):
+    # Windows SO_REUSEADDR can let two live simulators bind the same port.
+    allow_reuse_address = not hasattr(socket, "SO_EXCLUSIVEADDRUSE")
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
     def __init__(self, *args, **kwargs):
         self.stream_stop = Event()
         super().__init__(*args, **kwargs)
@@ -682,13 +692,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="MiniCtrlBox Digital Twin")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--auto-port", action="store_true", help="Bei belegtem Wunschport einen freien Port verwenden")
     parser.add_argument("--project-root", default=str(Path.cwd()))
     args = parser.parse_args()
     CONTROLLER = SimulationController(args.project_root)
     address = (args.host, args.port)
-    print(f"Simulation laeuft auf http://{address[0]}:{address[1]}")
-    print("Beenden mit Strg+C")
-    server = SimulationServer(address, Handler)
+    try:
+        server = SimulationServer(address, Handler)
+    except OSError as error:
+        # Windows may report exclusive/reserved ports as WSAEACCES (10013).
+        unavailable = error.errno == errno.EADDRINUSE or getattr(error, "winerror", None) in (10048, 10013)
+        if not args.auto_port or not args.port or not unavailable:
+            raise
+        server = SimulationServer((args.host, 0), Handler)
+    port = server.server_address[1]
+    print("MCB_READY " + json.dumps({"port": port}), flush=True)
+    print(f"Simulation laeuft auf http://{args.host}:{port}", flush=True)
+    print("Beenden mit Strg+C", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
