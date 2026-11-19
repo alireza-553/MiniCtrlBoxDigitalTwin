@@ -12,6 +12,114 @@ Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforder
 
 Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungsbranch oder eine offene PR kann bereits weitere Funktionen enthalten; diese stehen erst nach Veröffentlichung im Release-Paket zur Verfügung. Den Stand dieses Branches kannst du selbst [als VSIX bauen](#entwicklung).
 
+## Projektpräsentation
+
+Funktionen, Entwicklung und Debugging-Erfahrungen des MiniCtrlBox Digital Twin – Stand **19.11.2026 / v0.3.19**. Die Folien enthalten direkte PR-Belege und unterscheiden umgesetzte Korrekturen von noch offenen Prüfungen. Zukunftsideen sind als Vorschläge gekennzeichnet.
+
+<details>
+<summary><strong>Projektpräsentation anzeigen – 24 Folien</strong></summary>
+
+Die Folien stehen zum Scrollen untereinander. Ein Klick auf ein Bild öffnet seine größere Ansicht.
+
+[PDF ansehen](docs/praesentation/MiniCtrlBox_Digital_Twin.pdf) · [PowerPoint herunterladen](docs/praesentation/MiniCtrlBox_Digital_Twin.pptx?raw=true)
+
+**Folie 01 · MiniCtrlBox Digital Twin**
+
+![Folie 01: MiniCtrlBox Digital Twin](docs/praesentation/folie-01.jpg)
+
+**Folie 02 · C++ wird verständlicher, wenn man es sieht.**
+
+![Folie 02: C++ wird verständlicher, wenn man es sieht.](docs/praesentation/folie-02.jpg)
+
+**Folie 03 · Ein C++-Projekt verbindet drei Bausteine.**
+
+![Folie 03: Ein C++-Projekt verbindet drei Bausteine.](docs/praesentation/folie-03.jpg)
+
+**Folie 04 · Vom Projektordner zur laufenden Simulation.**
+
+![Folie 04: Vom Projektordner zur laufenden Simulation.](docs/praesentation/folie-04.jpg)
+
+**Folie 05 · Drei Erweiterungen machen Übungen anschaulich.**
+
+![Folie 05: Drei Erweiterungen machen Übungen anschaulich.](docs/praesentation/folie-05.jpg)
+
+**Folie 06 · Zwei Ansichten zeigen dieselben Ausgänge.**
+
+![Folie 06: Zwei Ansichten zeigen dieselben Ausgänge.](docs/praesentation/folie-06.jpg)
+
+**Folie 07 · Zwei Wege zum Haltepunkt – mit klarer Trennung.**
+
+![Folie 07: Zwei Wege zum Haltepunkt – mit klarer Trennung.](docs/praesentation/folie-07.jpg)
+
+**Folie 08 · Der Debugger musste vor setup() wirklich bereit sein.**
+
+![Folie 08: Der Debugger musste vor setup() wirklich bereit sein.](docs/praesentation/folie-08.jpg)
+
+**Folie 09 · Ein Watchdog-Interrupt erklärte den untersuchten Fehler.**
+
+![Folie 09: Ein Watchdog-Interrupt erklärte den untersuchten Fehler.](docs/praesentation/folie-09.jpg)
+
+**Folie 10 · Der Rücksprung blieb trotz Skip-Regel sichtbar.**
+
+![Folie 10: Der Rücksprung blieb trotz Skip-Regel sichtbar.](docs/praesentation/folie-10.jpg)
+
+**Folie 11 · F11 sollte beim ersten Druck in die Funktion springen.**
+
+![Folie 11: F11 sollte beim ersten Druck in die Funktion springen.](docs/praesentation/folie-11.jpg)
+
+**Folie 12 · Der markierte Quelltext war nicht immer eindeutig.**
+
+![Folie 12: Der markierte Quelltext war nicht immer eindeutig.](docs/praesentation/folie-12.jpg)
+
+**Folie 13 · Hardware-Debugging brauchte gezielte Diagnose.**
+
+![Folie 13: Hardware-Debugging brauchte gezielte Diagnose.](docs/praesentation/folie-13.jpg)
+
+**Folie 14 · Die Linux-GDB-Auswahl ist korrigiert und geprüft.**
+
+![Folie 14: Die Linux-GDB-Auswahl ist korrigiert und geprüft.](docs/praesentation/folie-14.jpg)
+
+**Folie 15 · Viele Globals erschwerten die Variablensuche.**
+
+![Folie 15: Viele Globals erschwerten die Variablensuche.](docs/praesentation/folie-15.jpg)
+
+**Folie 16 · Kurzes Blinken brauchte schnellere Zustandsupdates.**
+
+![Folie 16: Kurzes Blinken brauchte schnellere Zustandsupdates.](docs/praesentation/folie-16.jpg)
+
+**Folie 17 · Mehrere Fenster brauchen getrennte Simulatoren.**
+
+![Folie 17: Mehrere Fenster brauchen getrennte Simulatoren.](docs/praesentation/folie-17.jpg)
+
+**Folie 18 · Änderungen werden lokal geprüft und versioniert.**
+
+![Folie 18: Änderungen werden lokal geprüft und versioniert.](docs/praesentation/folie-18.jpg)
+
+**Folie 19 · Auch Speicher, Bus und Tasks werden modelliert.**
+
+![Folie 19: Auch Speicher, Bus und Tasks werden modelliert.](docs/praesentation/folie-19.jpg)
+
+**Folie 20 · Simulation braucht ergänzende Hardwaretests.**
+
+![Folie 20: Simulation braucht ergänzende Hardwaretests.](docs/praesentation/folie-20.jpg)
+
+**Folie 21 · Die nächsten Schritte könnten das Lernen noch leichter machen.**
+
+![Folie 21: Die nächsten Schritte könnten das Lernen noch leichter machen.](docs/praesentation/folie-21.jpg)
+
+**Folie 22 · Code verstehen. Fehler finden. Hardware vorbereiten.**
+
+![Folie 22: Code verstehen. Fehler finden. Hardware vorbereiten.](docs/praesentation/folie-22.jpg)
+
+**Folie 23 · Ein erfolgreicher Build ist noch kein Hardwaretest.**
+
+![Folie 23: Ein erfolgreicher Build ist noch kein Hardwaretest.](docs/praesentation/folie-23.jpg)
+
+**Folie 24 · Projektquellen und Einordnung der Bilder.**
+
+![Folie 24: Projektquellen und Einordnung der Bilder.](docs/praesentation/folie-24.jpg)
+</details>
+
 ## Vorschau
 
 ### MiniCtrlBox und Kreuzungsmodul
