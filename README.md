@@ -12,6 +12,16 @@ Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforder
 
 Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungsbranch oder eine offene PR kann bereits weitere Funktionen enthalten; diese stehen erst nach Veröffentlichung im Release-Paket zur Verfügung. Den Stand dieses Branches kannst du selbst [als VSIX bauen](#entwicklung).
 
+## Video-Vorschau
+
+https://github.com/user-attachments/assets/defb69f0-f3be-4bbc-99f0-ca96187b06a0
+
+**Ca. 2:02 Minuten · mit ruhiger Hintergrundmusik.** Die Videoanleitung zeigt die Installation über das Erweiterungsmenü, Projektstart und Bedienung, Debuggen im Digital Twin sowie echtes USB-Hardware-Debugging am ESP32-C3.
+
+**0:00 Installation** · **0:20 Projektstart und Tasterbedienung** · **0:48 Digital-Twin-Debugging** · **1:08 Modulübersicht** · **1:46 Hardware-Debugging**. Der Bedienungsabschnitt zeigt das laufende C++-Übungsprogramm: Modul verbinden, mit dem rechten Taster die Ampelphase wechseln und links ausschalten. Der Debugablauf zeigt Haltepunkt, lokale Variable, F10, F5 und Beenden. Die zusätzliche Modulübersicht enthält gekennzeichnete illustrative Beispielzustände; der Hardware-Abschnitt echte aufgenommene Debug-Haltepunkte am ESP32-C3. Die Musik wurde eigens für diese Vorschau synthetisch erzeugt; es gibt keinen gesprochenen Kommentar.
+
+[MP4-Video herunterladen](docs/videos/minictrlbox-digital-twin.mp4?raw=true)
+
 ## Projektpräsentation
 
 Funktionen, Entwicklung und Debugging-Erfahrungen des MiniCtrlBox Digital Twin – Stand **19.11.2026 / v0.3.19**. Die Folien enthalten direkte PR-Belege und unterscheiden umgesetzte Korrekturen von noch offenen Prüfungen. Zukunftsideen sind als Vorschläge gekennzeichnet.
