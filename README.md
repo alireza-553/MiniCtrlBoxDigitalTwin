@@ -12,6 +12,16 @@ Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforder
 
 Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungsbranch oder eine offene PR kann bereits weitere Funktionen enthalten; diese stehen erst nach Veröffentlichung im Release-Paket zur Verfügung. Den Stand dieses Branches kannst du selbst [als VSIX bauen](#entwicklung).
 
+## Video-Vorschau
+
+https://github.com/user-attachments/assets/a6526ce8-da11-4fcc-a530-24d7bc48c6ff
+
+**Ca. 1:14 Minuten · mit ruhiger Hintergrundmusik.** Die Vorschau zeigt die Installation der VS-Code-Erweiterung, die Module des Digital Twin und echtes USB-Hardware-Debugging am ESP32-C3.
+
+**0:00 Installation** · **0:20 Funktionsvorschau** · **0:58 Hardware-Debugging**. Die Funktionsvorschau zeigt illustrative Beispielzustände aus der Weboberfläche; der Hardware-Abschnitt besteht aus echten aufgenommenen Debug-Haltepunkten in `setup()` und `loop()`. Die Musik wurde eigens für diese Vorschau synthetisch erzeugt; es gibt keinen gesprochenen Kommentar.
+
+[MP4-Video herunterladen](docs/videos/minictrlbox-digital-twin.mp4?raw=true)
+
 ## Projektpräsentation
 
 Funktionen, Entwicklung und Debugging-Erfahrungen des MiniCtrlBox Digital Twin – Stand **19.11.2026 / v0.3.19**. Die Folien enthalten direkte PR-Belege und unterscheiden umgesetzte Korrekturen von noch offenen Prüfungen. Zukunftsideen sind als Vorschläge gekennzeichnet.
