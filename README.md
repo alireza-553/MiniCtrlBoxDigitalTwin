@@ -14,7 +14,7 @@ Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungs
 
 ## Video-Vorschau
 
-https://github.com/user-attachments/assets/a6526ce8-da11-4fcc-a530-24d7bc48c6ff
+https://github.com/user-attachments/assets/95b82394-d94e-4402-992d-e806650b6335
 
 **Ca. 1:14 Minuten · mit ruhiger Hintergrundmusik.** Die Vorschau zeigt die Installation der VS-Code-Erweiterung, die Module des Digital Twin und echtes USB-Hardware-Debugging am ESP32-C3.
 
