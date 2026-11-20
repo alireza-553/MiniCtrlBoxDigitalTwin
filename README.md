@@ -14,11 +14,11 @@ Der Release-Link führt zur neuesten veröffentlichten Version. Ein Entwicklungs
 
 ## Video-Vorschau
 
-https://github.com/user-attachments/assets/95b82394-d94e-4402-992d-e806650b6335
+https://github.com/user-attachments/assets/defb69f0-f3be-4bbc-99f0-ca96187b06a0
 
-**Ca. 1:14 Minuten · mit ruhiger Hintergrundmusik.** Die Vorschau zeigt die Installation der VS-Code-Erweiterung, die Module des Digital Twin und echtes USB-Hardware-Debugging am ESP32-C3.
+**Ca. 2:02 Minuten · mit ruhiger Hintergrundmusik.** Die Videoanleitung zeigt die Installation über das Erweiterungsmenü, Projektstart und Bedienung, Debuggen im Digital Twin sowie echtes USB-Hardware-Debugging am ESP32-C3.
 
-**0:00 Installation** · **0:20 Funktionsvorschau** · **0:58 Hardware-Debugging**. Die Funktionsvorschau zeigt illustrative Beispielzustände aus der Weboberfläche; der Hardware-Abschnitt besteht aus echten aufgenommenen Debug-Haltepunkten in `setup()` und `loop()`. Die Musik wurde eigens für diese Vorschau synthetisch erzeugt; es gibt keinen gesprochenen Kommentar.
+**0:00 Installation** · **0:20 Projektstart und Tasterbedienung** · **0:48 Digital-Twin-Debugging** · **1:08 Modulübersicht** · **1:46 Hardware-Debugging**. Der Bedienungsabschnitt zeigt das laufende C++-Übungsprogramm: Modul verbinden, mit dem rechten Taster die Ampelphase wechseln und links ausschalten. Der Debugablauf zeigt Haltepunkt, lokale Variable, F10, F5 und Beenden. Die zusätzliche Modulübersicht enthält gekennzeichnete illustrative Beispielzustände; der Hardware-Abschnitt echte aufgenommene Debug-Haltepunkte am ESP32-C3. Die Musik wurde eigens für diese Vorschau synthetisch erzeugt; es gibt keinen gesprochenen Kommentar.
 
 [MP4-Video herunterladen](docs/videos/minictrlbox-digital-twin.mp4?raw=true)
 
