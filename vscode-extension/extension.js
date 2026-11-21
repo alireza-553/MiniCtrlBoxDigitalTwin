@@ -50,6 +50,7 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.test', test),
         vscode.commands.registerCommand('mcbDigitalTwin.unitTests', localTests.run),
         vscode.commands.registerCommand('mcbDigitalTwin.checkForUpdates', () => updates.check(true)),
+        vscode.commands.registerCommand('mcbDigitalTwin.disablePlatformIOStartupTabs', disablePlatformIOStartupTabs),
         vscode.commands.registerCommand('mcbDigitalTwin.upload', () => upload()),
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
@@ -118,6 +119,35 @@ async function showControls() {
     if (selected?.command) await vscode.commands.executeCommand(selected.command);
 }
 
+async function disablePlatformIOStartupTabs() {
+    if (!vscode.workspace.workspaceFolders?.length) {
+        vscode.window.showInformationMessage('Öffne zuerst den Projektordner in VS Code.');
+        return;
+    }
+    try {
+        const config = vscode.workspace.getConfiguration('platformio-ide');
+        const target = vscode.ConfigurationTarget.Workspace;
+        await config.update('disablePIOHomeStartup', true, target);
+        await config.update('autoOpenPlatformIOIniFile', false, target);
+
+        const tabGroups = vscode.window.tabGroups;
+        const tabs = tabGroups.all.flatMap(group => group.tabs).filter(tab => {
+            if (tab.isDirty || tab.isPinned) return false;
+            const input = tab.input;
+            if (input instanceof vscode.TabInputWebview) {
+                return input.viewType === 'mainThreadWebview-pioHome' || input.viewType === 'pioHome';
+            }
+            return input instanceof vscode.TabInputText && path.posix.basename(input.uri.path) === 'platformio.ini'
+                && Boolean(vscode.workspace.getWorkspaceFolder(input.uri));
+        });
+        const closed = !tabs.length || await tabGroups.close(tabs, true);
+        const message = 'PlatformIO-Starttabs sind für diesen Arbeitsbereich deaktiviert.';
+        vscode.window.showInformationMessage(closed ? message : message + ' Verbliebene Tabs kannst du direkt schließen.');
+    } catch (error) {
+        vscode.window.showErrorMessage('PlatformIO-Starttabs konnten nicht vollständig deaktiviert werden. ' + error.message);
+    }
+}
+
 function controlGroups() {
     return new DigitalTwinTreeProvider().getChildren().filter(group => group.label !== 'Werkzeuge');
 }
@@ -169,6 +199,8 @@ class DigitalTwinTreeProvider {
             this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
                 this.createItem('Nach Updates suchen', 'mcbDigitalTwin.checkForUpdates', 'cloud-download',
                     'Neueste veröffentlichte Erweiterung prüfen und nach Bestätigung installieren.'),
+                this.createItem('PlatformIO-Starttabs deaktivieren', 'mcbDigitalTwin.disablePlatformIOStartupTabs', 'settings-gear',
+                    'Das automatische Öffnen von PIO Home und platformio.ini in diesem Arbeitsbereich abschalten.'),
                 this.createItem('Variable suchen und überwachen', 'mcbDigitalTwin.searchVariables', 'search',
                     'Am Haltepunkt Variablen suchen und direkt zu Watch hinzufügen.'),
                 this.createItem('Unit-Tests ausführen', 'mcbDigitalTwin.unitTests', 'beaker',

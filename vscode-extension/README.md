@@ -32,6 +32,8 @@ bleibt in der Befehlspalette verfügbar; Laden und Öffnen starten den Twin bei 
 
 Die [Bedienungsanleitung](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/blob/main/docs/BEDIENUNG.md) erklärt alle Schaltflächen und Debug-Tasten.
 
+Unter **Werkzeuge → PlatformIO-Starttabs deaktivieren** kannst du für den geöffneten Arbeitsbereich abschalten, dass **PIO Home** und `platformio.ini` automatisch geöffnet werden.
+
 Der Befehl speichert geänderte Dateien dieses Projekts, startet den Twin
 bei Bedarf und baut/startet den originalen C++-Code aus dem geöffneten
 Projektordner. In einem Workspace mit mehreren Ordnern wird das Projekt

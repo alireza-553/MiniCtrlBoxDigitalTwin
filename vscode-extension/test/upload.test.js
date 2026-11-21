@@ -7,11 +7,19 @@ const vm = require('node:vm');
 
 const extensionRoot = path.resolve(__dirname, '..');
 
+class TabInputText {
+    constructor(uri) { this.uri = uri; }
+}
+
+class TabInputWebview {
+    constructor(viewType) { this.viewType = viewType; }
+}
+
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
     const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [],
-        saveDialogs: [], reports: [] };
+        saveDialogs: [], reports: [], settings: [], closedTabs: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -53,6 +61,8 @@ function harness(options = {}) {
             stopDebugging: async session => terminated(session),
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
+        ConfigurationTarget: { Workspace: 2 },
+        TabInputText, TabInputWebview,
         QuickPickItemKind: { Separator: -1 },
         MarkdownString: class {
             constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; }
@@ -62,6 +72,10 @@ function harness(options = {}) {
         TreeItem: class { constructor(label) { this.label = label; } },
         ThemeIcon: class { constructor(id) { this.id = id; } },
         window: {
+            tabGroups: {
+                all: options.tabGroups || [],
+                close: async (tabs, preserveFocus) => { calls.closedTabs.push({ tabs, preserveFocus }); return true; },
+            },
             activeTextEditor: { document: docs[1] },
             createOutputChannel: () => ({ clear() {}, append() {}, appendLine() {}, show() {} }),
             createStatusBarItem: (alignment, priority) => {
@@ -86,9 +100,15 @@ function harness(options = {}) {
             fs: { writeFile: async (uri, bytes) => calls.reports.push({ uri, text: Buffer.from(bytes).toString('utf8') }) },
             isTrusted: true,
             textDocuments: docs,
-            workspaceFolders: [{ uri: { fsPath: first } }, { uri: { fsPath: selected } }],
-            getWorkspaceFolder: uri => ({ uri: { fsPath: uri.fsPath.startsWith(selected) ? selected : first } }),
-            getConfiguration: () => ({ get: (key, fallback) => key === 'pythonPath' ? 'python' : fallback }),
+            workspaceFolders: options.noWorkspace ? undefined : [{ uri: { fsPath: first } }, { uri: { fsPath: selected } }],
+            getWorkspaceFolder: uri => {
+                const root = [selected, first].find(folder => uri.fsPath === folder || uri.fsPath.startsWith(folder + path.sep));
+                return root ? { uri: { fsPath: root } } : undefined;
+            },
+            getConfiguration: section => ({
+                get: (key, fallback) => key === 'pythonPath' ? 'python' : fallback,
+                update: async (key, value, target) => calls.settings.push({ section, key, value, target }),
+            }),
         },
         commands: {
             registerCommand: (name, run) => { commands.set(name, run); return {}; },
@@ -177,6 +197,39 @@ test('update check is discoverable under Werkzeuge and registered', () => {
     const tools = h.tree.getChildren().find(group => group.label === 'Werkzeuge');
     assert.ok(tools.children.some(item => item.label === 'Nach Updates suchen' && item.command.command === 'mcbDigitalTwin.checkForUpdates'));
     assert.equal(typeof h.commands.get('mcbDigitalTwin.checkForUpdates'), 'function');
+});
+
+test('the PlatformIO startup command updates only workspace settings and closes matching clean tabs', async () => {
+    const name = 'mcbDigitalTwin.disablePlatformIOStartupTabs';
+    const tab = (file, root = 'workspace-selected', extra = {}) => ({
+        input: new TabInputText({ path: `/${root}/${file}`, fsPath: path.resolve(root, file) }),
+        ...extra,
+    });
+    const home = { input: new TabInputWebview('mainThreadWebview-pioHome') };
+    const ini = tab('platformio.ini');
+    const h = harness({ tabGroups: [
+        { tabs: [home, tab('platformio.ini', 'workspace-first', { isDirty: true }), tab('main.cpp')] },
+        { tabs: [ini, tab('platformio.ini', 'outside'), tab('platformio.ini', 'workspace-first', { isPinned: true }),
+            { input: new TabInputWebview('mainThreadWebview-other'), label: 'PIO Home' }] },
+    ] });
+    const tools = h.tree.getChildren().find(group => group.label === 'Werkzeuge');
+    assert.ok(tools.children.some(item => item.label === 'PlatformIO-Starttabs deaktivieren' && item.command.command === name));
+    const manifest = require('../package.json');
+    assert.ok(manifest.activationEvents.includes('onCommand:' + name));
+    assert.ok(manifest.contributes.commands.some(command => command.command === name));
+    await h.commands.get(name)();
+    assert.deepEqual(h.calls.settings, [
+        { section: 'platformio-ide', key: 'disablePIOHomeStartup', value: true, target: 2 },
+        { section: 'platformio-ide', key: 'autoOpenPlatformIOIniFile', value: false, target: 2 },
+    ]);
+    assert.deepEqual(Array.from(h.calls.closedTabs[0].tabs), [home, ini]);
+    assert.equal(h.calls.closedTabs[0].preserveFocus, true);
+    assert.equal(h.calls.errors.length, 0);
+
+    const noWorkspace = harness({ noWorkspace: true });
+    await noWorkspace.commands.get(name)();
+    assert.equal(noWorkspace.calls.settings.length, 0);
+    assert.match(noWorkspace.calls.info[0], /Projektordner/);
 });
 
 test('status bar contains one compact menu instead of separate controls', () => {

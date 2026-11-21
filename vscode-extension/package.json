@@ -30,7 +30,8 @@
     "onCommand:mcbDigitalTwin.hardwareDrivers",
     "onCommand:mcbDigitalTwin.searchVariables",
     "onStartupFinished",
-    "onCommand:mcbDigitalTwin.checkForUpdates"
+    "onCommand:mcbDigitalTwin.checkForUpdates",
+    "onCommand:mcbDigitalTwin.disablePlatformIOStartupTabs"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -52,6 +53,12 @@
       ]
     },
     "commands": [
+      {
+        "command": "mcbDigitalTwin.disablePlatformIOStartupTabs",
+        "title": "PlatformIO-Starttabs deaktivieren",
+        "category": "MiniCtrlBox",
+        "icon": "$(settings-gear)"
+      },
       {
         "command": "mcbDigitalTwin.menu",
         "title": "Digital-Twin-Steuerung öffnen",
