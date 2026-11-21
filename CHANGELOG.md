@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.20 – Beide Haupttaster gleichzeitig bedienen
+
+- Die Twin-Ansicht bietet direkt an der MiniCtrlBox die Schaltfläche **Beide Taster**. Gedrückt halten simuliert beide Haupttaster gleichzeitig; Loslassen gibt sie wieder frei. Maus, Touch sowie Leertaste/Enter werden unterstützt.
+- Gemeinsame Zustandsänderungen werden in einem Aufruf an das C++-Programm übergeben. Einzelbetätigung und gemeinsamer Druck bleiben getrennt; Abbruch, Fokusverlust, Tabwechsel und Neustart geben gehaltene Taster frei.
+- Tests prüfen die echten Browser-Ereignishandler, atomare Übergabe und einen C++-Moduswechsel bei wiederholtem gemeinsamem Drücken.
+
 ## v0.3.19 – Update-Hinweis nach jedem VS-Code-Start
 
 - Die Updateprüfung nach dem Start wird nicht mehr durch eine erfolgreiche Prüfung innerhalb der vergangenen 24 Stunden unterdrückt. Sie läuft etwa 15 Sekunden nach jedem VS-Code-Start; im geöffneten Fenster bleibt es bei einer täglichen Prüfung.

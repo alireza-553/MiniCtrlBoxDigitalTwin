@@ -80,6 +80,29 @@ void loop(){oled.printLine(1,storage.readProjectName().c_str());}
         self.assertEqual(self.controller.state()["eeprom_bytes"][0], 3)
         self.assertEqual(self.controller.state()["project"], "Test ä")
 
+    def test_both_main_buttons_switch_cpp_mode_once_per_joint_press(self):
+        self.start('''
+#include <MiniCtrlBox.h>
+using namespace nspMiniCtrlBox;
+CButton left(PIN_BUTTON_LEFT), right(PIN_BUTTON_RIGHT); COLed display;
+bool l=false,r=false,held=false;unsigned mode=0;
+void setup(){display.begin();display.printfLine(0,"Mode %u",mode);}
+void loop(){
+ if(left.hasButtonPressed())l=true;if(right.hasButtonPressed())r=true;
+ if(l&&r&&!held){held=true;display.printfLine(0,"Mode %u",++mode);}
+ if(left.hasButtonReleased())l=false;if(right.hasButtonReleased())r=false;
+ if(!l&&!r)held=false;
+ delay(10);
+}
+''')
+        for expected in (1, 2):
+            self.controller.action({"action": "main_buttons", "states": {"left": True, "right": True}})
+            self.wait_for(lambda state: state["oled"][0] == f"Mode {expected}")
+            time.sleep(.1)
+            self.assertEqual(self.controller.state()["oled"][0], f"Mode {expected}")
+            self.controller.action({"action": "main_buttons", "states": {"left": False, "right": False}})
+            time.sleep(.05)
+
     def test_twai_receives_web_frame_and_returns_real_program_response(self):
         self.start('''
 #include <MiniCtrlBox.h>
