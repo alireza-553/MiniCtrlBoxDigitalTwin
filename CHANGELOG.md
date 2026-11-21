@@ -1,5 +1,9 @@
 # Versionshistorie
 
+## v0.3.25 – Digital-Twin-Tab in VS Code wiederverwenden
+
+- Die Befehle zum Laden, Öffnen, Debuggen und Neustarten verwenden in VS Code einen gemeinsamen Digital-Twin-Tab. Ein Portwechsel aktualisiert die Adresse im selben Tab.
+
 ## v0.3.24 – PlatformIO-Starttabs deaktivieren
 
 - **Werkzeuge → PlatformIO-Starttabs deaktivieren** schaltet das automatische Öffnen von PIO Home und `platformio.ini` für den aktuellen Arbeitsbereich ab.

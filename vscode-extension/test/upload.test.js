@@ -19,7 +19,7 @@ function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
     const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [],
-        saveDialogs: [], reports: [], settings: [], closedTabs: [] };
+        saveDialogs: [], reports: [], settings: [], closedTabs: [], panels: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -61,6 +61,7 @@ function harness(options = {}) {
             stopDebugging: async session => terminated(session),
         },
         StatusBarAlignment: { Left: 1 }, ProgressLocation: { Notification: 15 },
+        ViewColumn: { Active: -1 },
         ConfigurationTarget: { Workspace: 2 },
         TabInputText, TabInputWebview,
         QuickPickItemKind: { Separator: -1 },
@@ -78,6 +79,22 @@ function harness(options = {}) {
             },
             activeTextEditor: { document: docs[1] },
             createOutputChannel: () => ({ clear() {}, append() {}, appendLine() {}, show() {} }),
+            createWebviewPanel: (viewType, title, column, panelOptions) => {
+                let onDispose;
+                const panel = {
+                    viewType, title, column, panelOptions, reveals: 0,
+                    webview: { set html(value) {
+                        panel.html = value;
+                        const src = value.match(/ src="([^"]+)"/)?.[1];
+                        calls.opened.push([viewType, src]);
+                    } },
+                    reveal() { this.reveals++; },
+                    onDidDispose(callback) { onDispose = callback; },
+                    dispose() { onDispose(); },
+                };
+                calls.panels.push(panel);
+                return panel;
+            },
             createStatusBarItem: (alignment, priority) => {
                 const item = { alignment, priority, show() {} };
                 calls.statusItems.push(item);
@@ -106,7 +123,11 @@ function harness(options = {}) {
                 return root ? { uri: { fsPath: root } } : undefined;
             },
             getConfiguration: section => ({
-                get: (key, fallback) => key === 'pythonPath' ? 'python' : fallback,
+                get: (key, fallback) => {
+                    if (key === 'pythonPath') return 'python';
+                    if (key === 'openInsideVSCode' && options.externalBrowser) return false;
+                    return fallback;
+                },
                 update: async (key, value, target) => calls.settings.push({ section, key, value, target }),
             }),
         },
@@ -118,7 +139,10 @@ function harness(options = {}) {
             },
         },
         Uri: { parse: value => ({ toString: () => value }), file: fsPath => ({ fsPath }) },
-        env: { asExternalUri: async uri => uri },
+        env: {
+            asExternalUri: async uri => options.forwardedUri ? vscode.Uri.parse(options.forwardedUri) : uri,
+            openExternal: async uri => { calls.opened.push(['external', uri.toString()]); },
+        },
     };
     const fakeFS = {
         existsSync: file => file.endsWith('web_app.py') || (!options.noConfig && file === path.join(selected, 'mcb-digital-twin.json')),
@@ -163,7 +187,8 @@ function harness(options = {}) {
             child.kill = () => { child.killed = true; child.emit('exit', 0); };
             queueMicrotask(() => {
                 if (options.startFailure) { child.emit('error', new Error('Python fehlt')); return; }
-                const ready = 'MCB_READY ' + JSON.stringify({ port: options.assignedPort || options.port || 18769 }) + '\n';
+                const port = options.assignedPorts?.[calls.spawned.length - 1] || options.assignedPort || options.port || 18769;
+                const ready = 'MCB_READY ' + JSON.stringify({ port }) + '\n';
                 child.stdout.emit('data', Buffer.from('Start\n' + ready.slice(0, 14)));
                 child.stdout.emit('data', Buffer.from(ready.slice(14)));
             });
@@ -171,7 +196,7 @@ function harness(options = {}) {
         },
     };
     const sandbox = {
-        module: { exports: {} }, process, Buffer, setTimeout, clearTimeout,
+        module: { exports: {} }, process, Buffer, URL, setTimeout, clearTimeout,
         require: name => ({ vscode, fs: fakeFS, http: options.live ? require('node:http') : http, child_process: childProcess,
             './hardware': require(path.join(extensionRoot, 'hardware')),
             './hardware-diagnostics': require(path.join(extensionRoot, 'hardware-diagnostics')),
@@ -344,7 +369,7 @@ test('restart uses the existing backend and opens the surface', async () => {
     await h.commands.get('mcbDigitalTwin.restart')();
     assert.deepEqual(h.calls.requests.map(request => request.body), [{ action: 'twin_restart' }]);
     assert.equal(h.calls.spawned.length, 1);
-    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769/');
     assert.equal(h.calls.info.length, 1);
     assert.deepEqual(h.calls.errors, []);
 });
@@ -381,8 +406,8 @@ test('uploads the active project, saves only its documents, and opens its config
     assert.deepEqual(h.calls.requests[0].body, { action: 'program_start', path: h.selected });
     assert.equal(h.calls.requests[0].args.port, 18769);
     assert.equal(h.calls.spawned.length, 1);
-    assert.equal(h.calls.opened[0][0], 'simpleBrowser.show');
-    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769');
+    assert.equal(h.calls.panels[0].viewType, 'mcbDigitalTwin.surface');
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:18769/');
     assert.equal(h.calls.errors.length, 0);
     assert.equal(h.calls.info.length, 1);
 });
@@ -408,7 +433,9 @@ test('automatic port is used consistently for upload, open, restart and debug', 
     assert.equal(args[args.indexOf('--port') + 1], '0');
     assert.ok(args.includes('--auto-port'));
     assert.ok(h.calls.requests.every(request => request.args.port === 23456));
-    assert.ok(h.calls.opened.every(opened => opened[1] === 'http://127.0.0.1:23456'));
+    assert.deepEqual(h.calls.opened, [['mcbDigitalTwin.surface', 'http://127.0.0.1:23456/']]);
+    assert.equal(h.calls.panels.length, 1);
+    assert.equal(h.calls.panels[0].reveals, 3);
     assert.equal(h.calls.debug[0].configuration.mcbPort, 23456);
     assert.deepEqual(h.calls.errors, []);
 });
@@ -418,7 +445,7 @@ test('occupied configured port never attaches to a foreign healthy backend', asy
     await h.commands.get('mcbDigitalTwin.upload')();
     assert.equal(h.calls.spawned.length, 1);
     assert.equal(h.calls.requests[0].args.port, 23457);
-    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:23457');
+    assert.equal(h.calls.opened[0][1], 'http://127.0.0.1:23457/');
     assert.deepEqual(h.calls.errors, []);
 });
 
@@ -426,7 +453,28 @@ test('concurrent start and open share one owned process', async () => {
     const h = harness({ noConfig: true });
     await Promise.all([h.commands.get('mcbDigitalTwin.start')(), h.commands.get('mcbDigitalTwin.open')()]);
     assert.equal(h.calls.spawned.length, 1);
+    assert.equal(h.calls.panels.length, 1);
     assert.deepEqual(h.calls.errors, []);
+});
+
+test('a new backend port replaces the address in the same panel and closing it releases the panel', async () => {
+    const h = harness({ noConfig: true, assignedPorts: [23460, 23461] });
+    await h.commands.get('mcbDigitalTwin.open')();
+    await h.commands.get('mcbDigitalTwin.stop')();
+    await h.commands.get('mcbDigitalTwin.open')();
+    assert.equal(h.calls.panels.length, 1);
+    assert.match(h.calls.panels[0].html, /src="http:\/\/127\.0\.0\.1:23461\/"/);
+    h.calls.panels[0].dispose();
+    await h.commands.get('mcbDigitalTwin.open')();
+    assert.equal(h.calls.panels.length, 2);
+    assert.match(h.calls.panels[1].html, /src="http:\/\/127\.0\.0\.1:23461\/"/);
+});
+
+test('opening externally uses the forwarded address in the default browser', async () => {
+    const h = harness({ externalBrowser: true, forwardedUri: 'https://forwarded.example/twin' });
+    await h.commands.get('mcbDigitalTwin.open')();
+    assert.deepEqual(h.calls.opened, [['external', 'https://forwarded.example/twin']]);
+    assert.equal(h.calls.panels.length, 0);
 });
 
 test('two windows keep separate ports and stopping one leaves the other usable', async () => {
@@ -541,7 +589,7 @@ test('the extension loads the original C++ project into a running twin', {
         assert.deepEqual(h.calls.errors, []);
         assert.equal(h.calls.info.length, 1);
         const address = h.calls.opened[0][1];
-        const state = await (await fetch(`${address}/api/state`)).json();
+        const state = await (await fetch(new URL('/api/state', address))).json();
         assert.equal(state.program_running, true);
         assert.ok(state.oled[1].includes('Ueb_2.7.3.4'));
     } finally {
