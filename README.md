@@ -1,5 +1,7 @@
 # MiniCtrlBox Digital Twin
 
+Dieses Projekt simuliert die reale **MiniCtrlBox**, die Herr **Christoph Kilgenstein** entwickelt hat. Du erreichst ihn unter [Christoph.Kilgenstein@lehrer.technikerschule-erlangen.de](mailto:Christoph.Kilgenstein@lehrer.technikerschule-erlangen.de).
+
 > **Mit KI-Unterstützung entwickelt:** Dieses Projekt wurde mit Hilfe von künstlicher Intelligenz (OpenAI Codex) entwickelt und dokumentiert.
 
 MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: mit OLED, Tastern und gekoppeltem Kreuzungsmodul. Der originale C++-Quellcode steuert die simulierten Ausgänge.
