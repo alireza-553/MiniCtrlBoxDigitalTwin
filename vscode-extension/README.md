@@ -62,7 +62,7 @@ Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 
 **Echte Hardware → Programm übertragen** überträgt das geöffnete PlatformIO-Projekt auf die
 MiniCtrlBox. **Echte Hardware → Hardware debuggen** baut und überträgt einen Debug-Build,
-verbindet PlatformIO über natives USB-JTAG und hält in `setup()`.
+verbindet PlatformIO über natives USB-JTAG. Bei einem anfänglichen Halt setzt F5 das Programm fort.
 Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
 
 Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`,
@@ -72,7 +72,7 @@ Den seriellen Monitor vorher schließen.
 
 Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 `platformio.ini` angehängt. Sie erbt die bestehende Umgebung und setzt `build_type = debug`,
-`debug_tool = esp-builtin`, `upload_protocol = esp-builtin`, `debug_init_break = thbreak setup`.
+`debug_tool = esp-builtin` und `upload_protocol = esp-builtin`. Ein leeres `debug_init_break =` deaktiviert den automatischen Start-Haltepunkt.
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
 

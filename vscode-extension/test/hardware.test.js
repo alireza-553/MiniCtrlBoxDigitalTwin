@@ -64,7 +64,7 @@ function harness(options = {}) {
                 const selected = options.unsupported ? [['board', 'esp32dev'], ['framework', ['arduino']]] : pairs;
                 data = JSON.stringify([['env:lesson', selected], ...(options.multiEnv ? [['env:other', pairs]] : []), ...(ini.includes('[env:mcb-usb-debug-lesson]')
                     ? [['env:mcb-usb-debug-lesson', [...pairs, ['debug_tool', options.conflictingEnv ? 'esp-prog' : 'esp-builtin'], ['build_type', 'debug'],
-                        ['upload_protocol', 'esp-builtin'], ['debug_init_break', 'tbreak setup']]]] : [])]);
+                        ['upload_protocol', 'esp-builtin'], ['debug_init_break', ini.match(/^debug_init_break[ \t]*=([^\r\n]*)/m)?.[1].trim()]]]] : [])]);
             } else if (args.includes('device')) {
                 data = JSON.stringify(Array.from({ length: options.noDevice ? 0 : options.twoDevices ? 2 : 1 },
                     (_, i) => ({ port: `COM${i + 5}`, hwid: 'USB VID:PID=303A:1001' })));
@@ -101,6 +101,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.saves, 1);
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
+    assert.match(h.ini(), /^debug_init_break =\r?$/m);
     assert.match(h.ini(), /skip function loopTask/);
     assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
     assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
@@ -281,7 +282,8 @@ test('legacy generated environment is upgraded without changing other environmen
     const updated = updateDebugSection(before + old + after, 'mcb-usb-debug-lesson', commands, 'lesson');
     assert.ok(updated.startsWith(before));
     assert.ok(updated.endsWith(after));
-    assert.match(updated, /debug_init_break = thbreak setup/);
+    assert.match(updated, /^debug_init_break =\r?$/m);
+    assert.doesNotMatch(updated, /tbreak setup/);
     assert.match(updated, /monitor echo keep/);
     assert.match(updated, /\$\{env:lesson\.build_flags\}/);
     assert.match(updated, /-fno-default-inline/);
