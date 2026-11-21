@@ -205,7 +205,17 @@ class SimulationController:
             raise ValueError("SwitchLEDBoard ist nicht mit MiniCtrlBox verbunden.")
         if action == "keypad_key" and not self.keypad_connected:
             raise ValueError("Tastaturmodul ist nicht mit MiniCtrlBox verbunden.")
-        if action == "main_button":
+        if action == "main_buttons":
+            states = data.get("states")
+            if (not isinstance(states, dict) or set(states) != {"left", "right"}
+                    or any(type(value) is not bool for value in states.values())):
+                raise ValueError("Beide Tasterzustände müssen als left/right mit true oder false angegeben werden")
+            for side, pressed in states.items():
+                if pressed:
+                    self.main_buttons[side].simulatePress()
+                else:
+                    self.main_buttons[side].simulateRelease()
+        elif action == "main_button":
             side = data.get("side")
             if side not in self.main_buttons:
                 raise ValueError("Unbekannter MiniCtrlBox-Taster")
@@ -311,6 +321,7 @@ label{display:block;margin:7px 0}input[type=text],input[type=number]{background:
 .main-unit .unit-oled{position:absolute;left:32%;top:38%;width:34%;height:18%;min-height:0;margin:0;padding:2px;box-sizing:border-box;border-radius:1px;border:2px solid #242322;background:linear-gradient(130deg,#1e1118,#100e14);color:#b7e6ff;box-shadow:0 0 0 2px #a99478;overflow:hidden;font:6px/1.1 monospace;white-space:pre}
 .unit-rgb{position:absolute;left:74%;width:5.5%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:var(--rgb,#262827);border:2px solid #b8a98d;box-shadow:inset 1px 2px 4px #000,1px 1px 2px #222}.unit-rgb.on{box-shadow:inset 1px 1px 3px #fffa,0 0 13px var(--rgb)}
 .main-unit .module-key{width:7%;top:69%;font-size:0}.main-unit .key-left{left:19%}.main-unit .key-right{left:80%}
+.main-chord{position:absolute;left:25%;top:80%;width:50%;padding:6px 4px;font-size:11px;border:1px solid #a45215;background:#ff982f;color:#38220b;touch-action:none;user-select:none}.main-chord[aria-pressed=true]{background:#b95b11;color:#fff;box-shadow:inset 0 2px 4px #0006}.main-chord:focus-visible{outline:2px solid #8ed2ff;outline-offset:3px}
 .main-controls h3{margin-top:0}.main-controls .buttons{align-items:center}
 @media(max-width:780px){.main-layout{grid-template-columns:minmax(0,1fr)}.main-unit{max-width:420px;margin-left:auto;margin-right:auto}.unit-number{font-size:clamp(65px,22vw,115px)}.main-unit .unit-oled{font-size:clamp(4px,1.45vw,6px)}}
 body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px solid #34495e;margin-bottom:24px}.tabs button{background:transparent;color:#aab7c4;padding:12px 20px;border-radius:7px 7px 0 0;border-bottom:3px solid transparent}.tabs button:hover{background:#1c2732;color:#fff}.tabs button[aria-selected=true]{color:#8ed2ff;background:#1c2732;border-bottom-color:#72c5ff}.tabs button:focus-visible{outline:2px solid #72c5ff;outline-offset:-4px}
@@ -392,6 +403,7 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <div class="unit-rgb" id="unit-rgb-1" style="top:54%" role="img" aria-label="RGB-LED 1"></div>
 <button id="main-key-left" class="module-key key-left" aria-label="Linker Taster 2" aria-pressed="false" title="Linker Taster 2"></button>
 <button id="main-key-right" class="module-key key-right" aria-label="Rechter Taster 1" aria-pressed="false" title="Rechter Taster 1"></button>
+<button id="main-key-both" class="main-chord" aria-label="Beide MiniCtrlBox-Taster gleichzeitig drücken" aria-pressed="false" title="Gedrückt halten: beide Taster gleichzeitig. Loslassen: beide freigeben.">Beide Taster</button>
 </div></div></div>
 <div id="panel-1-settings" class="tab-panel module-settings" role="tabpanel" aria-labelledby="tab-1-settings" hidden><div class="main-controls"><h3>Anwenderprogramm</h3>
 <label>Projektordner <input id="program-path" type="text" aria-label="Projektordner des C++-Programms"></label>
@@ -461,7 +473,7 @@ function sensors(){act('sensors',{temperature:+$('temp').value,humidity:+$('hum'
 async function restartTwin(){
  if(twinRestarting)return;
  twinRestarting=true;$('twin-restart').disabled=true;$('twin-status').textContent='Twin wird neu gestartet …';
- for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false);
+ for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);releaseMainKeys();
  try{await act('twin_restart');$('twin-status').textContent='Twin neu gestartet. EEPROM bleibt erhalten.'}
  catch(error){$('twin-status').textContent=error.message}
  finally{twinRestarting=false;$('twin-restart').disabled=!!state.program_debug}
@@ -541,7 +553,16 @@ for(const signal of document.querySelectorAll('.street-signal[data-pair]')){
 function setKey(i,pressed){if(heldKeys.has(i)===pressed)return;pressed?heldKeys.add(i):heldKeys.delete(i);$('key-'+i).setAttribute('aria-pressed',String(pressed));act('remote_switch',{index:i,state:pressed})}
 function setKeyPadKey(i,pressed){if(heldKeyPadKeys.has(i)===pressed)return;pressed?heldKeyPadKeys.add(i):heldKeyPadKeys.delete(i);$('keypad-key-'+i).setAttribute('aria-pressed',String(pressed));act('keypad_key',{index:i,state:pressed})}
 const heldMainKeys=new Set();
-function setMainKey(side,pressed){if(heldMainKeys.has(side)===pressed)return;pressed?heldMainKeys.add(side):heldMainKeys.delete(side);$('main-key-'+side).setAttribute('aria-pressed',String(pressed));act('main_button',{side,state:pressed})}
+const mainKeySources={left:new Set(),right:new Set()};
+function setMainKeys(updates,source='single'){
+ const before=[...heldMainKeys].sort().join(',');
+ for(const [side,pressed] of Object.entries(updates)){pressed?mainKeySources[side].add(source):mainKeySources[side].delete(source)}
+ for(const side of ['left','right']){const pressed=mainKeySources[side].size>0;pressed?heldMainKeys.add(side):heldMainKeys.delete(side);$('main-key-'+side).setAttribute('aria-pressed',String(pressed))}
+ $('main-key-both').setAttribute('aria-pressed',String(heldMainKeys.size===2));
+ if(before!==[...heldMainKeys].sort().join(','))act('main_buttons',{states:{left:heldMainKeys.has('left'),right:heldMainKeys.has('right')}});
+}
+function setMainKey(side,pressed){setMainKeys({[side]:pressed})}
+function releaseMainKeys(){for(const sources of Object.values(mainKeySources))sources.clear();setMainKeys({left:false,right:false})}
 function bindMomentary(key,setPressed){
  key.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();key.focus();key.setPointerCapture(e.pointerId);setPressed(true)});
  for(const event of ['pointerup','pointercancel','lostpointercapture','blur'])key.addEventListener(event,()=>setPressed(false));
@@ -551,10 +572,11 @@ function bindMomentary(key,setPressed){
 for(let i=0;i<4;i++)bindMomentary($('key-'+i),pressed=>setKey(i,pressed));
 for(let i=0;i<16;i++)bindMomentary($('keypad-key-'+i),pressed=>setKeyPadKey(i,pressed));
 for(const side of ['left','right'])bindMomentary($('main-key-'+side),pressed=>setMainKey(side,pressed));
-window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);for(const side of [...heldMainKeys])setMainKey(side,false)});
+bindMomentary($('main-key-both'),pressed=>setMainKeys({left:pressed,right:pressed},'both'));
+window.addEventListener('blur',()=>{for(const i of [...heldKeys])setKey(i,false);for(const i of [...heldKeyPadKeys])setKeyPadKey(i,false);releaseMainKeys()});
 function selectTab(tab){
  const card=tab.closest('.unit-card,.coupled-card'),viewTabs=[...tab.closest('[role=tablist]').querySelectorAll('[role=tab]')];
- if(card.id!=='module-2'){for(const side of [...heldMainKeys])setMainKey(side,false)}if(card.id!=='module-1'){for(const i of [...heldKeys])setKey(i,false)}
+ if(card.id!=='module-2'){releaseMainKeys()}if(card.id!=='module-1'){for(const i of [...heldKeys])setKey(i,false)}
  for(const item of viewTabs){const selected=item===tab;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;$(item.getAttribute('aria-controls')).hidden=!selected}
 }
 for(const tablist of document.querySelectorAll('[role=tablist]')){const viewTabs=[...tablist.querySelectorAll('[role=tab]')];for(const tab of viewTabs){

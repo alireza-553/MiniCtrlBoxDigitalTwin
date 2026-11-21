@@ -4,6 +4,8 @@ Neu beim Programmieren? Das [Begriffslexikon](begriffe/README.md) erklärt die v
 
 Für kurze LED-Impulse siehe [Blinken mit 20 ms im Digital Twin](BLINKEN.md): Ab 0.3.14 werden Änderungen über eine dauerhafte Verbindung übertragen. Bildschirm und Betriebssystem begrenzen weiterhin die sichtbare zeitliche Genauigkeit.
 
+Ab **0.3.20** gibt es direkt auf der MiniCtrlBox in der Twin-Ansicht **Beide Taster**. Die Schaltfläche mit der Maus oder per Touch gedrückt halten und wieder loslassen, um beide orangefarbenen Haupttaster gleichzeitig zu bedienen. Mit Tastaturfokus funktionieren auch Leertaste und Enter. Das eignet sich etwa zum Demo-Wechsel in einem Anwenderprogramm. Die beiden einzelnen Taster bleiben separat bedienbar. Abbruch, Fokusverlust oder Wechsel zur Einstellungsansicht geben die Taster wieder frei. Die Schaltfläche ist auch in der gekoppelten Ansicht mit einer Erweiterung verfügbar.
+
 Die Namen in der folgenden Tabelle entsprechen den Schaltflächen der Seitenleiste. **Digital Twin**, **Echte Hardware** und **Werkzeuge** klappen ihre Einträge auf oder zu; das allein startet keine Aktion. Alle Befehle sind auch über **Strg+Umschalt+P** unter „MiniCtrlBox“ erreichbar, dort teilweise mit längeren Namen.
 
 | Bereich / Schaltfläche | Ablauf und Ergebnis |

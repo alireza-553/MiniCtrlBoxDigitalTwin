@@ -1,5 +1,7 @@
 # MiniCtrlBox Digital Twin für VS Code
 
+Ab **0.3.20** kannst du im Twin mit **Beide Taster** auf der MiniCtrlBox beide Haupttaster gleichzeitig drücken: mit Maus/Touch gedrückt halten und loslassen, oder per Leertaste/Enter. Das funktioniert auch mit verbundenem Kreuzungsmodul oder SwitchLEDBoard und erlaubt beispielsweise den Wechsel zwischen Demos im laufenden C++-Programm.
+
 Ab **0.3.16** gibt es Hinweise auf neuere öffentliche GitHub-Releases. Ab **0.3.19** erfolgt die Prüfung etwa 15 Sekunden nach jedem VS-Code-Start unabhängig vom Zeitpunkt der letzten Prüfung; danach einmal täglich, solange das Fenster geöffnet bleibt. Zunächst erscheint nur ein Hinweis. **Herunterladen und installieren** lädt das passende VSIX und prüft Dateigröße und SHA256-Prüfsumme; danach übernimmt VS Code die Installation. Mit **Release ansehen** öffnet sich die Downloadseite, **Später** führt keine Installation aus.
 
 Unter **Werkzeuge → Nach Updates suchen** ist die Prüfung auch manuell verfügbar. `mcbDigitalTwin.checkForUpdates` schaltet die automatische Prüfung aus. Eine GitHub-Anmeldung ist nicht nötig. Während einer Debugsitzung wird nicht installiert. Nach einem Update das Fenster neu laden und den Twin erneut starten.
