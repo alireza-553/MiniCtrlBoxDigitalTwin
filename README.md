@@ -6,6 +6,8 @@ MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: 
 
 **Zum Lernen:** Im [Begriffslexikon](docs/begriffe/README.md) findest du kurze Erklärungen, Beispiele und Lernaufgaben. Verlinkte Fachbegriffe in den Anleitungen führen direkt zum passenden Eintrag, etwa [Watchdog-Interrupt](docs/begriffe/README.md#watchdog-interrupt).
 
+**Zum Ausprobieren:** Zwei fertige [C++-Demoprojekte für Kreuzungsmodul und SwitchLEDBoard](examples/README.md) zeigen Ampelphasen, Taster, Schalter und LEDs im Digital Twin und auf echter Hardware.
+
 **[Aktuelle veröffentlichte Erweiterung herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest)**
 
 Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforderlich. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
