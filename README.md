@@ -8,6 +8,8 @@ MiniCtrlBox-Projekte direkt aus VS Code in einem digitalen Zwilling ausführen: 
 
 **Zum Ausprobieren:** Das [gemeinsame Demoprojekt](examples/README.md#alle-demonstrationen-einmal-laden) enthält Kreuzungsmodul, SwitchLEDBoard, Thread-Blinker und das OLED-Spiel Gleis-Sprung. Beide Haupttaster zusammen wechseln die Demo im laufenden Programm. Für die Zusatzmodule stehen auch Einzelprojekte bereit.
 
+Für einen schnellen Test kannst du [nur das Demoprojekt als ZIP herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/download/v0.3.20/module-demo-v0.3.20.zip). Entpacke die ZIP, öffne den Ordner `module-demo` in VS Code und wähle in der installierten MiniCtrlBox-Erweiterung **Digital Twin → Projekt laden und starten**. Mit **Beide Taster** wechselst du zwischen den vier Demos.
+
 **[Aktuelle veröffentlichte Erweiterung herunterladen](https://github.com/alireza-553/MiniCtrlBoxDigitalTwin/releases/latest)**
 
 Das Repository ist öffentlich; zum Download ist keine GitHub-Anmeldung erforderlich. Die Erweiterung steht unter **Releases → Assets**, nicht unter Packages. „Source code“ ist der Quellcode und nicht die installierbare Erweiterung.
