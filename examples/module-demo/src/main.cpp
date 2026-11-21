@@ -1,4 +1,5 @@
 #include <MiniCtrlBox.h>
+#include <atomic>
 
 using namespace nspMiniCtrlBox;
 
@@ -7,8 +8,9 @@ CButton left(PIN_BUTTON_LEFT);
 CButton right(PIN_BUTTON_RIGHT);
 CPortExpOOPExp crossing;
 CPortExpRem board;
+CPortExpLoc localLEDs;
 
-enum Demo { CROSSING, SWITCH_LED };
+enum Demo { CROSSING, SWITCH_LED, THREAD_BLINKER };
 Demo demo = CROSSING;
 const unsigned char vehiclePins[] = {0, 1, 4, 5, 6, 7};
 struct Phase {
@@ -40,7 +42,33 @@ unsigned long lastStep = 0;
 bool leftDown = false;
 bool rightDown = false;
 bool chord = false;
-bool demoStarted = false;
+constexpr unsigned blinkStartMs = 100;
+constexpr unsigned blinkStepMs = 20;
+constexpr unsigned blinkMaxMs = 1000;
+// Null pausiert die Task außerhalb der Blinkerdemo.
+std::atomic<unsigned> blinkIntervalMs{0};
+bool blinkerTaskStarted = false;
+
+void blinkTask(void*) {
+    bool ledOn = false;
+    unsigned long lastToggle = millis();
+    while (true) {
+        const unsigned interval = blinkIntervalMs.load();
+        const unsigned long now = millis();
+        if (interval == 0) {
+            if (ledOn) {
+                localLEDs.setColor(CPortExpLoc::RED0, false);
+                ledOn = false;
+            }
+            lastToggle = now;
+        } else if (now - lastToggle >= interval) {
+            ledOn = !ledOn;
+            localLEDs.setColor(CPortExpLoc::RED0, ledOn);
+            lastToggle = now;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 void showPhase() {
     for (unsigned char pin : vehiclePins) digitalWrite(pin, LOW);
@@ -56,11 +84,6 @@ void showPhase() {
 void startDemo() {
     // Beim Wechsel alle Ausgaenge der vorherigen Demo zuruecksetzen.
     for (unsigned char pin : vehiclePins) digitalWrite(pin, LOW);
-    if (demoStarted) {
-        if (demo == CROSSING) board.setLEDPort(0);
-        else crossing.setLEDPort(0);
-    }
-    demoStarted = true;
     display.clear();
     display.printLine(7, "Beide: Demo wechseln");
     if (demo == CROSSING) {
@@ -71,7 +94,7 @@ void startDemo() {
         display.printLine(4, "Links: Auto/Manuell");
         display.printLine(5, "Rechts: Phase weiter");
         showPhase();
-    } else {
+    } else if (demo == SWITCH_LED) {
         board.begin();
         mode = 0;
         paused = false;
@@ -82,7 +105,39 @@ void startDemo() {
         display.printLine(0, "Demo SwitchLEDBoard");
         display.printLine(4, "Links: Pause/Weiter");
         display.printLine(5, "Rechts: Modus weiter");
+    } else {
+        display.printLine(0, "Demo Thread-Blinker");
+        if (!blinkerTaskStarted && localLEDs.begin()) {
+            blinkerTaskStarted = xTaskCreate(blinkTask, "LEDBlinker", 2048, nullptr, 1, nullptr) == pdPASS;
+        }
+        if (!blinkerTaskStarted) {
+            display.printLine(2, "Blinker nicht bereit");
+            return;
+        }
+        blinkIntervalMs.store(blinkStartMs);
+        display.printLine(2, "Separate FreeRTOS-Task");
+        display.printfLine(3, "Intervall: %4u ms", blinkStartMs);
+        display.printLine(4, "Links: langsamer");
+        display.printLine(5, "Rechts: schneller");
     }
+}
+
+void nextDemo() {
+    switch (demo) {
+        case CROSSING:
+            crossing.setLEDPort(0);
+            demo = SWITCH_LED;
+            break;
+        case SWITCH_LED:
+            board.setLEDPort(0);
+            demo = THREAD_BLINKER;
+            break;
+        case THREAD_BLINKER:
+            blinkIntervalMs.store(0);
+            demo = CROSSING;
+            break;
+    }
+    startDemo();
 }
 
 void setup() {
@@ -101,8 +156,7 @@ void loop() {
     // dadurch weder einen Phasenwechsel noch einen Moduswechsel aus.
     if (leftDown && rightDown && !chord) {
         chord = true;
-        demo = demo == CROSSING ? SWITCH_LED : CROSSING;
-        startDemo();
+        nextDemo();
         delay(10);
         return;
     }
@@ -121,7 +175,7 @@ void loop() {
         display.printfLine(3, "Modus: %-12s", automatic ? "Automatik" : "Manuell");
         display.printfLine(6, "Taster: %u %u %u %u", unsigned(bool(buttons & 1)),
             unsigned(bool(buttons & 2)), unsigned(bool(buttons & 4)), unsigned(bool(buttons & 8)));
-    } else {
+    } else if (demo == SWITCH_LED) {
         if (rightClick) { mode = (mode + 1) % 3; chasePosition = 0; lastStep = now; }
         if (leftClick) { paused = !paused; lastStep = now; }
         const unsigned char switches = board.getSwitchState();
@@ -139,6 +193,12 @@ void loop() {
         display.printfLine(2, "Status: %-12s", paused ? "Pause" : "Laeuft");
         display.printfLine(3, "Schalter/LED: %02X/%02X", unsigned(switches), unsigned(leds));
         display.printLine(6, "Schalter SW1 bis SW8");
+    } else if (blinkerTaskStarted && (leftClick || rightClick)) {
+        unsigned interval = blinkIntervalMs.load();
+        if (leftClick && interval < blinkMaxMs) interval += blinkStepMs;
+        if (rightClick && interval > blinkStepMs) interval -= blinkStepMs;
+        blinkIntervalMs.store(interval);
+        display.printfLine(3, "Intervall: %4u ms", interval);
     }
     delay(10);
 }
