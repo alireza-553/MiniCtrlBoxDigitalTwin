@@ -1,6 +1,16 @@
 # Demonstrationen
 
-Zwei eigenständige PlatformIO-Arduino-Projekte für die MiniCtrlBox. Beide verwenden MiniCtrlBoxLib 6.12.1 und lassen sich im Digital Twin oder auf dem ESP32-C3 ausführen. Die Kommentare und OLED-Texte erklären die Bedienung.
+Das gemeinsame Projekt [module-demo](module-demo) enthält beide Demonstrationen in einem Programm. Daneben gibt es die zwei Einzelprojekte. Alle verwenden MiniCtrlBoxLib 6.12.1 und lassen sich im Digital Twin oder auf dem ESP32-C3 ausführen.
+
+## Beide Demonstrationen einmal laden
+
+1. In VS Code den Ordner **`examples/module-demo`** öffnen und `src/main.cpp` auswählen.
+2. **Digital Twin → Projekt hochladen** starten. Beide Demos sind jetzt im selben laufenden Programm enthalten; ein erneuter Upload zum Wechsel ist nicht nötig.
+3. Das Programm startet im Modus **Kreuzungsmodul**. Im Twin das Kreuzungsmodul verbinden.
+4. **Beide MiniCtrlBox-Taster gemeinsam drücken und wieder loslassen**, um auf **SwitchLEDBoard** umzuschalten. Im Twin jetzt das SwitchLEDBoard verbinden. Das OLED nennt die aktive Demo.
+5. Erneutes gemeinsames Drücken wechselt zurück. Beim Wechsel werden die Demo-Einstellungen zurückgesetzt. Die Einzelaktionen (links/rechts) werden in diesem gemeinsamen Projekt beim Loslassen ausgelöst; der gemeinsame Druck verändert keine Einzeloptionen.
+
+Die Bedienung innerhalb einer Demo entspricht den unten beschriebenen Einzelprojekten. Beide Erweiterungen haben dieselbe I²C-Adresse, deshalb ist immer nur eine verbunden. Auf echter Hardware die MiniCtrlBox vor dem Umstecken ausschalten; nach dem Neustart beginnt das Programm wieder mit der Kreuzungsdemo. Für das SwitchLEDBoard dann einmal beide Haupttaster drücken. Nur das tatsächlich ausgewählte Modul wird im laufenden Programm bedient. Die Ampelzeiten gelten für eine Lerndemonstration.
 
 ## Start in VS Code
 
