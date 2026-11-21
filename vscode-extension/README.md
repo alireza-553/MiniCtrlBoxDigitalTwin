@@ -61,8 +61,9 @@ Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 ## Echte Hardware programmieren und debuggen (ab 0.3.0)
 
 **Echte Hardware → Programm übertragen** überträgt das geöffnete PlatformIO-Projekt auf die
-MiniCtrlBox. **Echte Hardware → Übertragen und debuggen** baut und überträgt einen Debug-Build,
-verbindet PlatformIO über natives USB-JTAG. Bei einem anfänglichen Halt setzt F5 das Programm fort.
+MiniCtrlBox. **Echte Hardware → Übertragen und debuggen** baut und überträgt den Debug-Build
+über denselben Uploadweg. Danach verbindet sich der Debugger über natives USB-JTAG.
+Bei einem anfänglichen Halt setzt F5 das Programm fort.
 Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
 
 Bei Fehlern **Echte Hardware → Diagnosebericht speichern** wählen, bevor VS Code neu geladen wird. Die lokale TXT-Datei enthält Versionsangaben, Hardwaremeldungen und die letzten Debugaktionen. Prüfe den Bericht, bevor du ihn teilst.
@@ -74,7 +75,9 @@ Den seriellen Monitor vorher schließen.
 
 Beim Debuggen wird eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>` an
 `platformio.ini` angehängt. Sie erbt die bestehende Umgebung und setzt `build_type = debug`,
-`debug_tool = esp-builtin` und `upload_protocol = esp-builtin`. Ein leeres `debug_init_break =` deaktiviert den automatischen Start-Haltepunkt.
+`debug_tool = esp-builtin`. Sie erbt das Uploadprotokoll der Projektumgebung.
+`debug_load_mode = manual` und ein leeres `debug_load_cmds =` verhindern eine zweite automatische Übertragung.
+Ein leeres `debug_init_break =` deaktiviert den automatischen Start-Haltepunkt.
 Abweichende vorhandene Umgebungen werden nicht überschrieben.
 F9/F10/F11/F5 und Umschalt+F5 dienen zur üblichen VS-Code-Debugsteuerung.
 

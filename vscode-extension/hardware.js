@@ -55,6 +55,11 @@ function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags 
     }
     // An explicit empty value disables PlatformIO's default startup breakpoint.
     setOption('debug_init_break', ['debug_init_break =']);
+    // The extension uploads this build before starting GDB.
+    setOption('debug_load_mode', ['debug_load_mode = manual']);
+    setOption('debug_load_cmds', ['debug_load_cmds =']);
+    // Remove the legacy JTAG upload override. The debug environment inherits the normal upload protocol.
+    setOption('upload_protocol', []);
     setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
     // Keep custom debug definitions, then make our source-stepping mode the
     // final compiler choice. -fno-inline alone does not disable -Og tail sharing.
@@ -136,13 +141,28 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             child.stdout.on('data', chunk => { data += chunk; if (!json) output.append(chunk.toString()); });
             child.stderr.on('data', chunk => { errors += chunk; output.append(chunk.toString()); });
             child.on('error', error => reject(new Error(`PlatformIO konnte nicht gestartet werden: ${error.message}`)));
-            child.on('exit', code => {
+            child.on('close', code => {
                 if (code !== 0) return reject(new Error(`PlatformIO fehlgeschlagen (${code}). ${errors.slice(-2000)} Details stehen in der Ausgabe.`));
                 try { resolve(json ? JSON.parse(data) : data); } catch {
                     reject(new Error('PlatformIO liefert keine gültigen JSON-Daten. Details stehen in der Ausgabe.'));
                 }
             });
         });
+    }
+
+    async function findHardwarePort(root) {
+        const devices = (await run(root, ['device', 'list', '--json-output'], true))
+            .filter(device => /303A:1001/i.test(device.hwid || ''));
+        if (devices.length !== 1 || !devices[0].port) {
+            throw new Error('Bitte genau eine MiniCtrlBox über den nativen ESP32-C3-USB-Anschluss verbinden.');
+        }
+        return devices[0].port;
+    }
+
+    function uploadFirmware(root, environment, port, title) {
+        return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title, cancellable: false },
+            () => run(root, ['run', '--project-dir', root, '--environment', environment,
+                '--target', 'upload', '--upload-port', port]));
     }
 
     function probeDebugger(executable) {
@@ -218,6 +238,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
     async function execute(debug) {
         if (busy) return;
         busy = true;
+        let stage = '';
         try {
             output.appendLine(`\n[${new Date().toISOString()}] ${debug ? 'Übertragen und debuggen' : 'Programm übertragen'}`);
             if (!vscode.workspace.isTrusted) throw new Error('Hardwarezugriff benötigt einen vertrauenswürdigen Projektordner.');
@@ -249,22 +270,18 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 throw new Error('Diese MiniCtrlBox-Anbindung benötigt das Arduino-Framework.');
             }
             if (!/^[\w.-]+$/.test(selected.label)) throw new Error('Der Name der PlatformIO-Umgebung wird nicht unterstützt.');
-            const devices = (await run(root, ['device', 'list', '--json-output'], true))
-                .filter(device => /303A:1001/i.test(device.hwid || ''));
-            if (devices.length !== 1) throw new Error('Bitte genau eine MiniCtrlBox über den nativen ESP32-C3-USB-Anschluss verbinden.');
-            output.appendLine(`Echte MiniCtrlBox: ${devices[0].port} · ${selected.label}`);
+            const port = await findHardwarePort(root);
+            output.appendLine(`Echte MiniCtrlBox: ${port} · ${selected.label}`);
 
             if (!debug) {
                 await checkFirmwareAvailable(root, selected.label);
-                await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
-                    title: 'MiniCtrlBox: Echte Hardware programmieren', cancellable: false },
-                () => run(root, ['run', '--project-dir', root, '--environment', selected.label,
-                    '--target', 'upload', '--upload-port', devices[0].port]));
+                await uploadFirmware(root, selected.label, port, 'MiniCtrlBox: Echte Hardware programmieren');
                 output.appendLine('Programm erfolgreich übertragen.');
                 vscode.window.showInformationMessage('Anwenderprogramm wurde auf die echte MiniCtrlBox übertragen.');
                 return;
             }
 
+            stage = 'Debug-Build vorbereiten';
             await ensureDriver();
             const debugEnv = `mcb-usb-debug-${selected.label}`;
             await checkFirmwareAvailable(root, debugEnv);
@@ -277,7 +294,8 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 const current = config.find(([name]) => name === `env:${debugEnv}`);
                 const options = current && Object.fromEntries(current[1]);
                 if (!options || options.debug_tool !== 'esp-builtin' || options.build_type !== 'debug'
-                    || options.upload_protocol !== 'esp-builtin' || !['', 'tbreak setup', 'thbreak setup'].includes(options.debug_init_break)) {
+                    || ![selected.options.upload_protocol, 'esp-builtin'].includes(options.upload_protocol)
+                    || !['', 'tbreak setup', 'thbreak setup'].includes(options.debug_init_break)) {
                     throw new Error(`Die vorhandene Umgebung ${debugEnv} weicht von der USB-Debugkonfiguration ab. Bitte platformio.ini prüfen.`);
                 }
                 extraCommands = [].concat(options.debug_extra_cmds || []);
@@ -286,8 +304,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 const addition = ['', '; MiniCtrlBox: natives USB-JTAG-Debugging', section,
                     `extends = env:${selected.label}`, 'build_type = debug', 'build_flags =',
                     `    \${env:${selected.label}.build_flags}`, ...DEBUG_BUILD_FLAGS.map(flag => `    ${flag}`),
-                    'debug_tool = esp-builtin',
-                    'upload_protocol = esp-builtin', ''].join(eol);
+                    'debug_tool = esp-builtin', ''].join(eol);
                 updated += eol + addition;
             }
             // Keep user commands; add the debug-only C3 workaround once.
@@ -295,6 +312,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             updated = updateDebugSection(updated, debugEnv, [...new Set([...preservedCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label,
                 [].concat(selected.options.debug_build_flags || []));
             if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
+            output.appendLine('Debug-Build erstellen.');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },
             () => run(root, ['run', '--project-dir', root, '--environment', debugEnv]));
@@ -302,6 +320,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 '--environment', debugEnv, '--json-output'], true);
             const build = metadata[debugEnv];
             if (!build?.prog_path || !build.cc_path) throw new Error('PlatformIO liefert keine Debug-Buildinformationen.');
+            stage = 'Debugger vorbereiten';
             const debuggerBinDir = await checkDebugger(root, build.cc_path);
             if (debuggerBinDir) {
                 const current = config.find(([name]) => name === `env:${debugEnv}`);
@@ -315,12 +334,19 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 }
                 output.appendLine(`PlatformIO-Debuggerpfad bestätigt: ${expected}`);
             }
+            stage = 'Debug-Firmware übertragen';
+            const uploadPort = await findHardwarePort(root);
+            output.appendLine(`Debug-Firmware über den normalen Uploadweg übertragen: ${uploadPort} · ${debugEnv}`);
+            await uploadFirmware(root, debugEnv, uploadPort, 'MiniCtrlBox: Debug-Firmware übertragen');
+            stage = 'USB-JTAG-Debugger verbinden';
+            if (!fs.existsSync(build.prog_path)) throw new Error('Die ELF-Datei des übertragenen Debug-Builds fehlt.');
+            output.appendLine('Debug-Firmware erfolgreich übertragen. USB-JTAG-Debugger verbinden.');
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
             launchDiagnostics = { text: '' };
             const started = await vscode.debug.startDebugging(folder, {
                 name: 'MiniCtrlBox: Echte Hardware (USB-JTAG)', type: 'platformio-debug', request: 'launch',
                 cwd: root, projectEnvName: debugEnv, executable: build.prog_path,
-                toolchainBinDir: path.dirname(build.cc_path), loadMode: 'always',
+                toolchainBinDir: path.dirname(build.cc_path), loadMode: 'manual',
                 internalConsoleOptions: 'openOnSessionStart',
                 mcbHardwareDebug: true,
                 mcbModernGdb: Boolean(debuggerBinDir),
@@ -332,9 +358,10 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             }
             output.appendLine('Hardware-Debugsitzung ohne automatischen Start-Haltepunkt gestartet. Bei einem anfänglichen Halt mit F5 fortsetzen.');
         } catch (error) {
-            output.appendLine(error.message);
+            const message = stage ? `${stage}: ${error.message}` : error.message;
+            output.appendLine(message);
             output.show(true);
-            vscode.window.showErrorMessage(error.message);
+            vscode.window.showErrorMessage(message);
         } finally {
             busy = false;
         }

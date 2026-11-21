@@ -8,11 +8,15 @@ const test = require('node:test');
 function harness(options = {}) {
     const root = path.resolve('hardware-test-project');
     const iniPath = path.join(root, 'platformio.ini');
-    const original = '[env:lesson]\r\nboard = esp32-c3-devkitm-1\r\n; user settings\r\n';
-    let ini = original + (options.conflictingEnv ? '\r\n[env:mcb-usb-debug-lesson]\r\ndebug_tool = esp-prog\r\n' : '');
+    const original = '[env:lesson]\r\nboard = esp32-c3-devkitm-1\r\n; user settings\r\n'
+        + (options.uploadProtocol ? 'upload_protocol = ' + options.uploadProtocol + '\r\n' : '');
+    let ini = original + (options.conflictingEnv ? '\r\n[env:mcb-usb-debug-lesson]\r\ndebug_tool = esp-prog\r\n' : '')
+        + (options.legacyDebug ? '\r\n[env:mcb-usb-debug-lesson]\r\nextends = env:lesson\r\ndebug_tool = esp-builtin\r\n'
+            + 'build_type = debug\r\nupload_protocol = esp-builtin\r\ndebug_load_cmds = preload\r\ndebug_init_break = tbreak setup\r\n' : '');
     const calls = { processes: [], debug: [], errors: [], saves: 0 };
     let extensionsActivated = 0;
     const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']], ['debug_extra_cmds', options.extraCommands || []]];
+    if (options.uploadProtocol) pairs.push(['upload_protocol', options.uploadProtocol]);
     const vscode = {
         ProgressLocation: { Notification: 15 },
         workspace: { isTrusted: !options.untrusted, textDocuments: [{ uri: { fsPath: root }, isDirty: true,
@@ -27,7 +31,7 @@ function harness(options = {}) {
         window: { showErrorMessage: message => calls.errors.push(message), showInformationMessage() {},
             withProgress: async (_, task) => task(), showQuickPick: async () => undefined },
         debug: { startDebugging: async (folder, config) => {
-            calls.debug.push({ folder, config });
+            calls.debug.push({ folder, config, uploadFinished: calls.uploadFinished === true });
             if (options.jtagBusy || options.adapterOutput) {
                 const tracker = hardware.createDebugAdapterTracker({ configuration: config });
                 tracker.onDidSendMessage({ type: 'event', event: 'output', body: { output: options.adapterOutput
@@ -62,12 +66,17 @@ function harness(options = {}) {
             let data = '';
             if (args.includes('config')) {
                 const selected = options.unsupported ? [['board', 'esp32dev'], ['framework', ['arduino']]] : pairs;
+                const debugSection = ini.split('[env:mcb-usb-debug-lesson]')[1] || '';
+                const debugUploadProtocol = debugSection.match(/^upload_protocol = ([^\r\n]+)/m)?.[1];
                 data = JSON.stringify([['env:lesson', selected], ...(options.multiEnv ? [['env:other', pairs]] : []), ...(ini.includes('[env:mcb-usb-debug-lesson]')
                     ? [['env:mcb-usb-debug-lesson', [...pairs, ['debug_tool', options.conflictingEnv ? 'esp-prog' : 'esp-builtin'], ['build_type', 'debug'],
-                        ['upload_protocol', 'esp-builtin'], ['debug_init_break', ini.match(/^debug_init_break[ \t]*=([^\r\n]*)/m)?.[1].trim()]]]] : [])]);
+                        ...(debugUploadProtocol ? [['upload_protocol', debugUploadProtocol]] : []),
+                        ['debug_init_break', debugSection.match(/^debug_init_break[ \t]*=([^\r\n]*)/m)?.[1].trim()]]]] : [])]);
             } else if (args.includes('device')) {
+                calls.deviceScans = (calls.deviceScans || 0) + 1;
+                const firstPort = options.portAfterReconnect && calls.deviceScans > 1 ? 8 : 5;
                 data = JSON.stringify(Array.from({ length: options.noDevice ? 0 : options.twoDevices ? 2 : 1 },
-                    (_, i) => ({ port: `COM${i + 5}`, hwid: 'USB VID:PID=303A:1001' })));
+                    (_, i) => ({ port: 'COM' + (i + firstPort), hwid: 'USB VID:PID=303A:1001' })));
             } else if (args.includes('metadata')) {
                 const gdb = ini.match(/^custom_mcb_gdb_path = (.+)$/m)?.[1].trim();
                 data = JSON.stringify({ 'mcb-usb-debug-lesson': { prog_path: '/build/firmware.elf', cc_path: '/compiler/bin/gcc',
@@ -76,8 +85,10 @@ function harness(options = {}) {
                 data = JSON.stringify({ core_dir: { value: '/home/student/.platformio' } });
             }
             child.stdout.emit('data', data);
-            child.emit('exit', (options.buildFailure && args[0] === 'run')
-                || (options.gdbInstallFailure && args.includes('pkg')) ? 1 : 0);
+            const failed = (options.buildFailure && args[0] === 'run')
+                || (options.uploadFailure && args.includes('upload')) || (options.gdbInstallFailure && args.includes('pkg'));
+            if (args.includes('upload')) calls.uploadFinished = !failed;
+            child.emit('close', failed ? 1 : 0);
         });
         return child;
     } };
@@ -102,6 +113,9 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /^debug_init_break =\r?$/m);
+    assert.match(h.ini(), /^debug_load_mode = manual\r?$/m);
+    assert.match(h.ini(), /^debug_load_cmds =\r?$/m);
+    assert.doesNotMatch(h.ini(), /upload_protocol = esp-builtin/);
     assert.match(h.ini(), /skip function loopTask/);
     assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
     assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
@@ -112,14 +126,34 @@ test('hardware debug preserves project settings, builds before launch and uses n
     const config = h.calls.debug[0].config;
     assert.equal(config.type, 'platformio-debug');
     assert.equal(config.projectEnvName, 'mcb-usb-debug-lesson');
-    assert.equal(config.loadMode, 'always');
+    assert.equal(config.loadMode, 'manual');
     assert.equal(config.executable, '/build/firmware.elf');
-    assert.ok(h.calls.processes.some(p => p.args[0] === 'run'));
-    assert.ok(!h.calls.processes.some(p => p.args.includes('upload')));
+    assert.equal(h.calls.debug[0].uploadFinished, true);
+    const buildAndUpload = h.calls.processes.filter(p => p.args[0] === 'run');
+    assert.equal(buildAndUpload.length, 2);
+    assert.deepEqual(Array.from(buildAndUpload[0].args.slice(-2)), ['--environment', 'mcb-usb-debug-lesson']);
+    assert.deepEqual(Array.from(buildAndUpload[1].args.slice(-6)),
+        ['--environment', 'mcb-usb-debug-lesson', '--target', 'upload', '--upload-port', 'COM5']);
     assert.ok(h.calls.processes.every(p => p.options.shell === false && p.options.cwd === h.root));
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
     assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
+});
+
+test('legacy debug configuration inherits normal upload protocol and uses the current USB port', async () => {
+    const h = harness({ legacyDebug: true, uploadProtocol: 'esptool', portAfterReconnect: true });
+    await h.hardware.debug();
+    assert.deepEqual(h.calls.errors, []);
+    assert.ok(h.ini().startsWith(h.original));
+    assert.doesNotMatch(h.ini(), /upload_protocol = esp-builtin|debug_load_cmds = preload/);
+    assert.equal(h.calls.processes.find(p => p.args.includes('upload')).args.at(-1), 'COM8');
+});
+
+test('debug upload failure names the failing stage and does not open the debugger', async () => {
+    const h = harness({ uploadFailure: true });
+    await h.hardware.debug();
+    assert.match(h.calls.errors[0], /^Debug-Firmware übertragen: /);
+    assert.equal(h.calls.debug.length, 0);
 });
 
 test('legacy interrupt masking is upgraded without losing other debug commands', async () => {
