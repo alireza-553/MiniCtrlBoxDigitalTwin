@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.24 – PlatformIO-Starttabs deaktivieren
+
+- **Werkzeuge → PlatformIO-Starttabs deaktivieren** schaltet das automatische Öffnen von PIO Home und `platformio.ini` für den aktuellen Arbeitsbereich ab.
+- Der Befehl schließt die passenden offenen Tabs. Angeheftete Tabs und ungespeicherte Änderungen bleiben erhalten.
+
 ## v0.3.23 – Debug-Firmware über den normalen USB-Upload übertragen
 
 - **Übertragen und debuggen** nutzt für den Debug-Build den Uploadweg der normalen Projektumgebung. Erst danach verbindet sich der USB-JTAG-Debugger ohne zweiten automatischen Upload.
