@@ -28,7 +28,7 @@ const DEBUG_BUILD_FLAGS = [
     '-fno-default-inline',
 ];
 
-function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags = []) {
+function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags = [], usePreload = true) {
     const lines = text.split(/\r?\n/);
     const start = lines.findIndex(line => line.trim() === `[env:${name}]`);
     if (start < 0) throw new Error('Die MiniCtrlBox-Debugumgebung wurde nicht gefunden.');
@@ -55,6 +55,8 @@ function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags 
     }
     // An explicit empty value disables PlatformIO's default startup breakpoint.
     setOption('debug_init_break', ['debug_init_break =']);
+    // Let PlatformIO upload and verify the complete flash image before GDB connects.
+    if (usePreload) setOption('debug_load_cmds', ['debug_load_cmds = preload']);
     setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
     // Keep custom debug definitions, then make our source-stepping mode the
     // final compiler choice. -fno-inline alone does not disable -Og tail sharing.
@@ -273,6 +275,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             const section = `[env:${debugEnv}]`;
             let updated = original;
             let extraCommands = [].concat(selected.options.debug_extra_cmds || []);
+            let loadCommands = selected.options.debug_load_cmds;
             if (original.split(/\r?\n/).some(line => line.trim() === section)) {
                 const current = config.find(([name]) => name === `env:${debugEnv}`);
                 const options = current && Object.fromEntries(current[1]);
@@ -281,6 +284,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                     throw new Error(`Die vorhandene Umgebung ${debugEnv} weicht von der USB-Debugkonfiguration ab. Bitte platformio.ini prüfen.`);
                 }
                 extraCommands = [].concat(options.debug_extra_cmds || []);
+                loadCommands = options.debug_load_cmds;
             } else {
                 const eol = original.includes('\r\n') ? '\r\n' : '\n';
                 const addition = ['', '; MiniCtrlBox: natives USB-JTAG-Debugging', section,
@@ -293,7 +297,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             // Keep user commands; add the debug-only C3 workaround once.
             const preservedCommands = extraCommands.filter(command => command.trim() !== 'monitor riscv set_maskisr off');
             updated = updateDebugSection(updated, debugEnv, [...new Set([...preservedCommands, ...DEBUG_STARTUP_COMMANDS])], selected.label,
-                [].concat(selected.options.debug_build_flags || []));
+                [].concat(selected.options.debug_build_flags || []), loadCommands === undefined);
             if (updated !== original) fs.writeFileSync(iniPath, updated, 'utf8');
             await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification,
                 title: 'MiniCtrlBox: Hardware-Debugbuild erstellen', cancellable: false },
@@ -317,6 +321,9 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             }
             const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(root));
             launchDiagnostics = { text: '' };
+            if (loadCommands === undefined || [].concat(loadCommands).join(' ') === 'preload') {
+                output.appendLine('PlatformIO überträgt und prüft den vollständigen Debug-Build vor der GDB-Verbindung.');
+            }
             const started = await vscode.debug.startDebugging(folder, {
                 name: 'MiniCtrlBox: Echte Hardware (USB-JTAG)', type: 'platformio-debug', request: 'launch',
                 cwd: root, projectEnvName: debugEnv, executable: build.prog_path,

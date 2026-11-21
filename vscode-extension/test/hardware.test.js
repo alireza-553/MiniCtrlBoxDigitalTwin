@@ -8,11 +8,13 @@ const test = require('node:test');
 function harness(options = {}) {
     const root = path.resolve('hardware-test-project');
     const iniPath = path.join(root, 'platformio.ini');
-    const original = '[env:lesson]\r\nboard = esp32-c3-devkitm-1\r\n; user settings\r\n';
+    const original = '[env:lesson]\r\nboard = esp32-c3-devkitm-1\r\n; user settings\r\n'
+        + (options.loadCommands ? 'debug_load_cmds =\r\n' + options.loadCommands.map(command => '    ' + command + '\r\n').join('') : '');
     let ini = original + (options.conflictingEnv ? '\r\n[env:mcb-usb-debug-lesson]\r\ndebug_tool = esp-prog\r\n' : '');
     const calls = { processes: [], debug: [], errors: [], saves: 0 };
     let extensionsActivated = 0;
     const pairs = [['board', 'esp32-c3-devkitm-1'], ['framework', ['arduino']], ['debug_extra_cmds', options.extraCommands || []]];
+    if (options.loadCommands) pairs.push(['debug_load_cmds', options.loadCommands]);
     const vscode = {
         ProgressLocation: { Notification: 15 },
         workspace: { isTrusted: !options.untrusted, textDocuments: [{ uri: { fsPath: root }, isDirty: true,
@@ -64,7 +66,8 @@ function harness(options = {}) {
                 const selected = options.unsupported ? [['board', 'esp32dev'], ['framework', ['arduino']]] : pairs;
                 data = JSON.stringify([['env:lesson', selected], ...(options.multiEnv ? [['env:other', pairs]] : []), ...(ini.includes('[env:mcb-usb-debug-lesson]')
                     ? [['env:mcb-usb-debug-lesson', [...pairs, ['debug_tool', options.conflictingEnv ? 'esp-prog' : 'esp-builtin'], ['build_type', 'debug'],
-                        ['upload_protocol', 'esp-builtin'], ['debug_init_break', ini.match(/^debug_init_break[ \t]*=([^\r\n]*)/m)?.[1].trim()]]]] : [])]);
+                        ['upload_protocol', 'esp-builtin'], ['debug_init_break', ini.match(/^debug_init_break[ \t]*=([^\r\n]*)/m)?.[1].trim()],
+                        ...(ini.includes('debug_load_cmds = preload') ? [['debug_load_cmds', ['preload']]] : [])]]] : [])]);
             } else if (args.includes('device')) {
                 data = JSON.stringify(Array.from({ length: options.noDevice ? 0 : options.twoDevices ? 2 : 1 },
                     (_, i) => ({ port: `COM${i + 5}`, hwid: 'USB VID:PID=303A:1001' })));
@@ -102,6 +105,7 @@ test('hardware debug preserves project settings, builds before launch and uses n
     assert.equal(h.calls.driverChecked, true);
     assert.ok(h.ini().startsWith(h.original));
     assert.match(h.ini(), /^debug_init_break =\r?$/m);
+    assert.match(h.ini(), /^debug_load_cmds = preload\r?$/m);
     assert.match(h.ini(), /skip function loopTask/);
     assert.match(h.ini(), /monitor riscv set_maskisr steponly/);
     assert.doesNotMatch(h.ini(), /monitor riscv set_maskisr off/);
@@ -120,6 +124,17 @@ test('hardware debug preserves project settings, builds before launch and uses n
     await h.hardware.debug();
     assert.equal(h.ini().split('[env:mcb-usb-debug-lesson]').length, 2);
     assert.equal(h.ini().match(/skip function loopTask/g).length, 1);
+    assert.equal(h.ini().match(/debug_load_cmds = preload/g).length, 1);
+});
+
+test('existing PlatformIO load commands, including an explicitly empty list, are preserved', async () => {
+    for (const loadCommands of [[], ['load'], ['monitor echo keep']]) {
+        const h = harness({ loadCommands });
+        await h.hardware.debug();
+        assert.deepEqual(h.calls.errors, []);
+        assert.ok(h.ini().startsWith(h.original));
+        assert.doesNotMatch(h.ini().split('[env:mcb-usb-debug-lesson]')[1], /debug_load_cmds/);
+    }
 });
 
 test('legacy interrupt masking is upgraded without losing other debug commands', async () => {
