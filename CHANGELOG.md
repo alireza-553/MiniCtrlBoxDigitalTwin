@@ -1,5 +1,11 @@
 # Versionshistorie
 
+## v0.3.22 – Hardware-Diagnosebericht
+
+- **Übertragen und debuggen** macht sichtbar, dass der Debug-Build auf die MiniCtrlBox übertragen wird.
+- **Diagnosebericht speichern** exportiert Hardwaremeldungen, Debug-Aktionen und Versionsangaben als lokale TXT-Datei.
+- Schalter und LEDs des simulierten SwitchLEDBoards stehen von links nach rechts in Bitreihenfolge 7 bis 0.
+
 ## v0.3.21 – Hardware-Debugstart ohne automatischen Haltepunkt
 
 - Die erzeugte Debugumgebung setzt `debug_init_break` leer. Beim nächsten Hardware-Debugstart werden auch bisherige automatisch erzeugte `thbreak setup`- und `tbreak setup`-Einträge abgelöst.

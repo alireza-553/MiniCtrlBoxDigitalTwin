@@ -6,6 +6,7 @@ const { createArduinoStepTracker } = require('./arduino-stepping');
 
 const MODERN_RISCV_GDB_PACKAGE = 'platformio/tool-riscv32-esp-elf-gdb@14.2.0+20240403';
 const MODERN_RISCV_GDB_DIRECTORY = 'tool-riscv32-esp-elf-gdb';
+const DIAGNOSTIC_DEBUG_REQUESTS = new Set(['continue', 'next', 'stepIn', 'stepOut', 'pause', 'restart', 'disconnect', 'terminate']);
 
 const DEBUG_STARTUP_COMMANDS = [
     // Keep Arduino's FreeRTOS wrapper out of normal source-level step-into operations.
@@ -218,6 +219,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
         if (busy) return;
         busy = true;
         try {
+            output.appendLine(`\n[${new Date().toISOString()}] ${debug ? 'Übertragen und debuggen' : 'Programm übertragen'}`);
             if (!vscode.workspace.isTrusted) throw new Error('Hardwarezugriff benötigt einen vertrauenswürdigen Projektordner.');
             if (sessions.size || (vscode.debug.activeDebugSession && isHardwareSession(vscode.debug.activeDebugSession))) {
                 throw new Error('Bitte zuerst die laufende Hardware-Debugsitzung beenden.');
@@ -258,6 +260,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                     title: 'MiniCtrlBox: Echte Hardware programmieren', cancellable: false },
                 () => run(root, ['run', '--project-dir', root, '--environment', selected.label,
                     '--target', 'upload', '--upload-port', devices[0].port]));
+                output.appendLine('Programm erfolgreich übertragen.');
                 vscode.window.showInformationMessage('Anwenderprogramm wurde auf die echte MiniCtrlBox übertragen.');
                 return;
             }
@@ -349,10 +352,17 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
             output.appendLine(`[Hardware-Debugger] ${text.trim()}`);
         }
         return {
-            onWillReceiveMessage(message) { stepping?.onWillReceiveMessage(message); },
+            onWillReceiveMessage(message) {
+                if (message.type === 'request' && DIAGNOSTIC_DEBUG_REQUESTS.has(message.command)) {
+                    record(`Debug-Aktion: ${message.command}`);
+                }
+                stepping?.onWillReceiveMessage(message);
+            },
             onDidSendMessage(message) {
                 stepping?.onDidSendMessage(message);
                 if (message.type === 'event' && message.event === 'output') record(message.body?.output);
+                if (message.type === 'event' && message.event === 'stopped') record(`Debugger angehalten: ${message.body?.reason || 'unbekannt'}`);
+                if (message.type === 'event' && message.event === 'terminated') record('Debugsitzung beendet.');
                 if (message.type === 'response' && message.success === false) record(message.message || message.body?.error?.format);
             },
             onError(error) { record(error.message); },

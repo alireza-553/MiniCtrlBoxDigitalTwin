@@ -4,6 +4,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { createHardwareCommands } = require('./hardware');
+const { createHardwareDiagnostics } = require('./hardware-diagnostics');
 const { createJtagDriverSetup } = require('./jtag-driver');
 const { createVariableSearch, combineTrackers } = require('./variable-search');
 const { createLocalTests } = require('./local-tests');
@@ -29,8 +30,9 @@ function activate(context) {
     status.show();
 
     const treeProvider = new DigitalTwinTreeProvider();
-    const ensureDriver = createJtagDriverSetup(vscode, output, context);
-    const hardware = createHardwareCommands(vscode, output, getWorkspaceRoot, ensureDriver);
+    const diagnostics = createHardwareDiagnostics(vscode, output, context.extension.packageJSON.version);
+    const ensureDriver = createJtagDriverSetup(vscode, diagnostics, context);
+    const hardware = createHardwareCommands(vscode, diagnostics, getWorkspaceRoot, ensureDriver);
     const variableSearch = createVariableSearch(vscode, output);
     const localTests = createLocalTests(vscode, output, extensionRoot);
     const updates = createUpdates(vscode, output, context, context.extension.packageJSON.version);
@@ -52,10 +54,11 @@ function activate(context) {
         vscode.commands.registerCommand('mcbDigitalTwin.debug', () => upload(true)),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareUpload', hardware.upload),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareDebug', hardware.debug),
+        vscode.commands.registerCommand('mcbDigitalTwin.hardwareDiagnostics', diagnostics.save),
         vscode.commands.registerCommand('mcbDigitalTwin.searchVariables', variableSearch.search),
         vscode.commands.registerCommand('mcbDigitalTwin.hardwareDrivers', async () => {
             try { await ensureDriver(true); }
-            catch (error) { output.appendLine(error.message); vscode.window.showErrorMessage(error.message); }
+            catch (error) { diagnostics.appendLine(error.message); vscode.window.showErrorMessage(error.message); }
         }),
         vscode.debug.registerDebugAdapterTrackerFactory('*', {
             createDebugAdapterTracker(session) {
@@ -158,8 +161,10 @@ class DigitalTwinTreeProvider {
             this.createGroup('Echte Hardware', 'MiniCtrlBox über USB', 'circuit-board', [
                 this.createItem('Programm übertragen', 'mcbDigitalTwin.hardwareUpload', 'arrow-up',
                     'Firmware auf die über USB angeschlossene echte MiniCtrlBox übertragen.'),
-                this.createItem('Hardware debuggen', 'mcbDigitalTwin.hardwareDebug', 'debug-alt',
+                this.createItem('Übertragen und debuggen', 'mcbDigitalTwin.hardwareDebug', 'debug-alt',
                     'Debug-Firmware auf die echte MiniCtrlBox übertragen und USB-JTAG-Debugging starten.'),
+                this.createItem('Diagnosebericht speichern', 'mcbDigitalTwin.hardwareDiagnostics', 'file-text',
+                    'Protokoll des Hardware-Uploads und USB-JTAG-Debuggings als Textdatei speichern.'),
             ]),
             this.createGroup('Werkzeuge', 'Tests und Einrichtung', 'tools', [
                 this.createItem('Nach Updates suchen', 'mcbDigitalTwin.checkForUpdates', 'cloud-download',

@@ -2,7 +2,7 @@
   "name": "mcb-digital-twin",
   "displayName": "MiniCtrlBox Digital Twin",
   "description": "Startet, testet und öffnet Python-Digitalzwillinge für MiniCtrlBox-Projekte.",
-  "version": "0.3.21",
+  "version": "0.3.22",
   "publisher": "itt56-local",
   "icon": "media/mcb-icon.png",
   "license": "UNLICENSED",
@@ -26,6 +26,7 @@
     "onView:mcbDigitalTwin.control",
     "onCommand:mcbDigitalTwin.hardwareUpload",
     "onCommand:mcbDigitalTwin.hardwareDebug",
+    "onCommand:mcbDigitalTwin.hardwareDiagnostics",
     "onCommand:mcbDigitalTwin.hardwareDrivers",
     "onCommand:mcbDigitalTwin.searchVariables",
     "onStartupFinished",
@@ -108,9 +109,15 @@
       },
       {
         "command": "mcbDigitalTwin.hardwareDebug",
-        "title": "Echte Hardware debuggen (USB)",
+        "title": "Auf echte Hardware übertragen und debuggen",
         "category": "MiniCtrlBox",
         "icon": "$(debug-alt-small)"
+      },
+      {
+        "command": "mcbDigitalTwin.hardwareDiagnostics",
+        "title": "Hardware-Diagnosebericht speichern",
+        "category": "MiniCtrlBox",
+        "icon": "$(file-text)"
       },
       {
         "command": "mcbDigitalTwin.hardwareDrivers",

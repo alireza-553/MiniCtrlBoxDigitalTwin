@@ -61,9 +61,11 @@ Phasensteuerung, Automatik oder anklickbaren Ausgangs-LEDs.
 ## Echte Hardware programmieren und debuggen (ab 0.3.0)
 
 **Echte Hardware → Programm übertragen** überträgt das geöffnete PlatformIO-Projekt auf die
-MiniCtrlBox. **Echte Hardware → Hardware debuggen** baut und überträgt einen Debug-Build,
+MiniCtrlBox. **Echte Hardware → Übertragen und debuggen** baut und überträgt einen Debug-Build,
 verbindet PlatformIO über natives USB-JTAG. Bei einem anfänglichen Halt setzt F5 das Programm fort.
 Beide Aktionen ersetzen die Firmware auf dem angeschlossenen Board.
+
+Bei Fehlern **Echte Hardware → Diagnosebericht speichern** wählen, bevor VS Code neu geladen wird. Die lokale TXT-Datei enthält Versionsangaben, Hardwaremeldungen und die letzten Debugaktionen. Prüfe den Bericht, bevor du ihn teilst.
 
 Voraussetzungen: PlatformIO IDE, ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`,
 genau eine direkt über natives USB angeschlossene MiniCtrlBox (C3 ab Revision 0.3)
