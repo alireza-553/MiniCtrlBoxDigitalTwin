@@ -1,5 +1,9 @@
 # Versionshistorie
 
+## v0.3.21 – Hardware-Debugstart ohne automatischen Haltepunkt
+
+- Die erzeugte Debugumgebung setzt `debug_init_break` leer. Beim nächsten Hardware-Debugstart werden auch bisherige automatisch erzeugte `thbreak setup`- und `tbreak setup`-Einträge abgelöst.
+
 ## v0.3.20 – Beide Haupttaster gleichzeitig bedienen
 
 - Die Twin-Ansicht bietet direkt an der MiniCtrlBox die Schaltfläche **Beide Taster**. Gedrückt halten simuliert beide Haupttaster gleichzeitig; Loslassen gibt sie wieder frei. Maus, Touch sowie Leertaste/Enter werden unterstützt.

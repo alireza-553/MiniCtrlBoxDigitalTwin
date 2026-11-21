@@ -52,7 +52,8 @@ function updateDebugSection(text, name, commands, baseName, inheritedDebugFlags 
         const existing = new Set(section.slice(index, end).map(line => line.trim()));
         section.splice(end, 0, ...values.filter(value => !existing.has(value)).map(value => `    ${value}`));
     }
-    setOption('debug_init_break', ['debug_init_break = thbreak setup']);
+    // An explicit empty value disables PlatformIO's default startup breakpoint.
+    setOption('debug_init_break', ['debug_init_break =']);
     setOption('debug_extra_cmds', ['debug_extra_cmds =', ...commands.map(command => `    ${command}`)]);
     // Keep custom debug definitions, then make our source-stepping mode the
     // final compiler choice. -fno-inline alone does not disable -Og tail sharing.
@@ -273,7 +274,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 const current = config.find(([name]) => name === `env:${debugEnv}`);
                 const options = current && Object.fromEntries(current[1]);
                 if (!options || options.debug_tool !== 'esp-builtin' || options.build_type !== 'debug'
-                    || options.upload_protocol !== 'esp-builtin' || !['tbreak setup', 'thbreak setup'].includes(options.debug_init_break)) {
+                    || options.upload_protocol !== 'esp-builtin' || !['', 'tbreak setup', 'thbreak setup'].includes(options.debug_init_break)) {
                     throw new Error(`Die vorhandene Umgebung ${debugEnv} weicht von der USB-Debugkonfiguration ab. Bitte platformio.ini prüfen.`);
                 }
                 extraCommands = [].concat(options.debug_extra_cmds || []);
@@ -283,7 +284,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                     `extends = env:${selected.label}`, 'build_type = debug', 'build_flags =',
                     `    \${env:${selected.label}.build_flags}`, ...DEBUG_BUILD_FLAGS.map(flag => `    ${flag}`),
                     'debug_tool = esp-builtin',
-                    'upload_protocol = esp-builtin', 'debug_init_break = thbreak setup', ''].join(eol);
+                    'upload_protocol = esp-builtin', ''].join(eol);
                 updated += eol + addition;
             }
             // Keep user commands; add the debug-only C3 workaround once.
@@ -326,7 +327,7 @@ function createHardwareCommands(vscode, output, getRoot, ensureDriver) {
                 const hint = launchHint(details);
                 throw new Error(`Hardware-Debugger wurde nicht gestartet.${details ? `\n${details}` : ' PlatformIO hat den Start abgebrochen. Details in der Debugkonsole prüfen.'}${hint}`);
             }
-            output.appendLine('Hardware-Debugsitzung gestartet. PlatformIO überträgt die Firmware und hält in setup().');
+            output.appendLine('Hardware-Debugsitzung ohne automatischen Start-Haltepunkt gestartet. Bei einem anfänglichen Halt mit F5 fortsetzen.');
         } catch (error) {
             output.appendLine(error.message);
             output.show(true);

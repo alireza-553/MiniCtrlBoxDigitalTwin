@@ -232,7 +232,7 @@ Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Ardui
 2. **Echte Hardware → Programm übertragen** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
 3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Hardware debuggen** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
 4. Die Erweiterung ergänzt in `platformio.ini` eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>`. Die bestehende Umgebung und ihre Einstellungen bleiben erhalten. Abweichende vorhandene Debug-Umgebungen werden nicht überschrieben.
-5. PlatformIO baut den Debug-Build, verbindet sich über USB-JTAG und hält in `setup()`. F10/F11/F5 und die Variablenansicht funktionieren in der VS-Code-Debugansicht.
+5. PlatformIO baut den Debug-Build und verbindet sich über USB-JTAG. Die Erweiterung setzt keinen automatischen Start-Haltepunkt. Ist das Board nach der Verbindung angehalten, kannst du mit F5 fortsetzen.
 6. Mit Umschalt+F5 die Hardware-Debugsitzung beenden. Das Verhalten des Controllers nach dem Trennen bestimmt PlatformIO/OpenOCD; bei Bedarf die MiniCtrlBox zurücksetzen.
 
 Die ergänzte Umgebung erbt die Projektkonfiguration:
@@ -248,7 +248,7 @@ build_type = debug
 debug_build_flags = -O0 -g3 -ggdb3
 debug_tool = esp-builtin
 upload_protocol = esp-builtin
-debug_init_break = thbreak setup
+debug_init_break =
 ```
 
 Bei mehreren passenden Umgebungen fragt die Erweiterung nach der gewünschten. Bei mehreren angeschlossenen Espressif-USB-Geräten bitte die übrigen trennen, damit kein anderes Board programmiert wird. Ein anderer PlatformIO-Core ist über `mcbDigitalTwin.platformioPath` wählbar.
