@@ -10,7 +10,8 @@ const extensionRoot = path.resolve(__dirname, '..');
 function harness(options = {}) {
     const first = path.resolve('workspace-first');
     const selected = path.resolve(options.root || 'workspace-selected');
-    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [] };
+    const calls = { saved: [], requests: [], spawned: [], opened: [], errors: [], info: [], debug: [], statusItems: [], picks: [],
+        saveDialogs: [], reports: [] };
     let terminated;
     let started;
     let trackerFactory;
@@ -23,6 +24,7 @@ function harness(options = {}) {
     });
     const docs = [document(first), document(selected)];
     const vscode = {
+        version: '1.100.0',
         extensions: { getExtension: () => options.noDebugger ? undefined : {} },
         debug: {
             registerDebugAdapterTrackerFactory: (_, factory) => { trackerFactory = factory; return {}; },
@@ -70,6 +72,10 @@ function harness(options = {}) {
             registerTreeDataProvider: (_, provider) => { tree = provider; return {}; },
             showErrorMessage: message => { calls.errors.push(message); },
             showInformationMessage: message => { calls.info.push(message); },
+            showSaveDialog: async dialog => {
+                calls.saveDialogs.push(dialog);
+                return options.reportDestination;
+            },
             showQuickPick: async (items, pickerOptions) => {
                 calls.picks.push({ items: Array.from(items), options: pickerOptions });
                 return items.find(item => item.command === options.pickCommand);
@@ -77,6 +83,7 @@ function harness(options = {}) {
             withProgress: async (_, run) => run({ report() {} }),
         },
         workspace: {
+            fs: { writeFile: async (uri, bytes) => calls.reports.push({ uri, text: Buffer.from(bytes).toString('utf8') }) },
             isTrusted: true,
             textDocuments: docs,
             workspaceFolders: [{ uri: { fsPath: first } }, { uri: { fsPath: selected } }],
@@ -147,6 +154,7 @@ function harness(options = {}) {
         module: { exports: {} }, process, Buffer, setTimeout, clearTimeout,
         require: name => ({ vscode, fs: fakeFS, http: options.live ? require('node:http') : http, child_process: childProcess,
             './hardware': require(path.join(extensionRoot, 'hardware')),
+            './hardware-diagnostics': require(path.join(extensionRoot, 'hardware-diagnostics')),
             './variable-search': require(path.join(extensionRoot, 'variable-search')),
             './local-tests': require(path.join(extensionRoot, 'local-tests')),
             './updates': { createUpdates: () => ({ start() {}, dispose() {}, check: async () => {} }) },
@@ -154,7 +162,7 @@ function harness(options = {}) {
     };
     vm.runInNewContext(fs.readFileSync(path.join(extensionRoot, 'extension.js'), 'utf8'), sandbox);
     sandbox.module.exports.activate({ extensionPath: extensionRoot, extension: { packageJSON: { version: '0.3.16' } }, subscriptions: [] });
-    return { calls, selected, commands, tree, terminate: terminated };
+    return { calls, selected, commands, tree, terminate: terminated, trackerFactory };
 }
 
 test('local unit tests are discoverable under Werkzeuge', () => {
@@ -207,11 +215,44 @@ test('menu groups program and twin actions and cancellation has no side effects'
     assert.deepEqual(menu.filter(item => item.command).map(item => item.command), [
         'mcbDigitalTwin.upload', 'mcbDigitalTwin.debug', 'mcbDigitalTwin.open',
         'mcbDigitalTwin.stop', 'mcbDigitalTwin.restart',
-        'mcbDigitalTwin.hardwareUpload', 'mcbDigitalTwin.hardwareDebug',
+        'mcbDigitalTwin.hardwareUpload', 'mcbDigitalTwin.hardwareDebug', 'mcbDigitalTwin.hardwareDiagnostics',
     ]);
     assert.equal(h.calls.requests.length, 0);
     assert.equal(h.calls.spawned.length, 0);
     assert.equal(h.calls.opened.length, 0);
+});
+
+test('hardware diagnostics exports adapter events only after a destination is chosen', async () => {
+    const destination = { fsPath: path.join('reports', 'hardware.txt') };
+    const h = harness({ reportDestination: destination });
+    const save = h.commands.get('mcbDigitalTwin.hardwareDiagnostics');
+    const hardware = h.tree.getChildren().find(group => group.label === 'Echte Hardware');
+    assert.equal(hardware.children[1].label, 'Übertragen und debuggen');
+    assert.equal(hardware.children[2].command.command, 'mcbDigitalTwin.hardwareDiagnostics');
+    await save();
+    assert.equal(h.calls.saveDialogs.length, 0);
+    const session = { configuration: { mcbHardwareDebug: true } };
+    const tracker = h.trackerFactory.createDebugAdapterTracker(session);
+    tracker.onWillReceiveMessage({ type: 'request', command: 'next', arguments: { secret: 'private' } });
+    tracker.onDidSendMessage({ type: 'event', event: 'output', body: {
+        output: `\x1b[31m${h.selected}/firmware.elf\x1b[0m\nReset cause (3) - (Software core reset)\ntoken=private\n`,
+    } });
+    tracker.onDidSendMessage({ type: 'event', event: 'stopped', body: { reason: 'exception' } });
+    await save();
+    const [{ uri, text }] = h.calls.reports;
+    assert.equal(uri, destination);
+    assert.match(text, /VS Code: 1\.100\.0/);
+    assert.match(text, /Debug-Aktion: next/);
+    assert.match(text, /<PROJEKT>\/firmware\.elf/);
+    assert.match(text, /Reset cause \(3\)/);
+    assert.match(text, /Debugger angehalten: exception/);
+    assert.ok(!text.includes(h.selected) && !text.includes('private') && !text.includes('\x1b'));
+
+    const canceled = harness();
+    canceled.trackerFactory.createDebugAdapterTracker(session).onError(new Error('OpenOCD failed'));
+    await canceled.commands.get('mcbDigitalTwin.hardwareDiagnostics')();
+    assert.equal(canceled.calls.saveDialogs.length, 1);
+    assert.equal(canceled.calls.reports.length, 0);
 });
 
 test('menu selection invokes the real restart command', async () => {

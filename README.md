@@ -226,20 +226,22 @@ Im Debugmodus gibt es keine Zwei-Sekunden-Grenze für Antworten des C++-Programm
 
 ## Echte MiniCtrlBox über USB debuggen (ab 0.3.0)
 
-Die Seitenleiste ist in **Digital Twin**, **Echte Hardware** und **Werkzeuge** gegliedert. Unter **Echte Hardware** stehen **Programm übertragen** und **Hardware debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
+Die Seitenleiste ist in **Digital Twin**, **Echte Hardware** und **Werkzeuge** gegliedert. Unter **Echte Hardware** stehen **Programm übertragen** und **Übertragen und debuggen**. Die [Treibereinrichtung](docs/begriffe/README.md#treiber) liegt unter **Werkzeuge**. Die Browseransicht bleibt der [Simulator](docs/begriffe/README.md#simulator); eine Live-Spiegelung der echten Hardware ist nicht enthalten.
 
 Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Arduino-Projekt mit `board = esp32-c3-devkitm-1`, genau eine MiniCtrlBox am [nativen USB-Anschluss](docs/begriffe/README.md#usb-jtag) und ein funktionierender USB-JTAG-Treiber. Unterstützt wird ESP32-C3 ab Revision 0.3. Ein USB-UART-Wandler reicht für USB-JTAG nicht aus; GPIO18/19 dürfen nicht anderweitig belegt sein. [Espressifs Anleitung](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-guides/jtag-debugging/configure-builtin-jtag.html).
 
 1. Den PlatformIO-Projektordner öffnen und die MiniCtrlBox über USB anschließen. Den seriellen Monitor schließen.
 2. **Echte Hardware → Programm übertragen** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
-3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Hardware debuggen** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
+3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Übertragen und debuggen** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
 4. Die Erweiterung ergänzt in `platformio.ini` eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>`. Die bestehende Umgebung und ihre Einstellungen bleiben erhalten. Abweichende vorhandene Debug-Umgebungen werden nicht überschrieben.
 5. PlatformIO baut den Debug-Build und verbindet sich über USB-JTAG. Die Erweiterung setzt keinen automatischen Start-Haltepunkt. Ist das Board nach der Verbindung angehalten, kannst du mit F5 fortsetzen.
 6. Mit Umschalt+F5 die Hardware-Debugsitzung beenden. Das Verhalten des Controllers nach dem Trennen bestimmt PlatformIO/OpenOCD; bei Bedarf die MiniCtrlBox zurücksetzen.
 
+Wenn das Übertragen oder Debuggen fehlschlägt, kannst du unter **Echte Hardware → Diagnosebericht speichern** einen lokalen [TXT-Bericht für die Fehlersuche](docs/HARDWARE_DEBUG.md#diagnosebericht-speichern) erstellen.
+
 Die ergänzte Umgebung erbt die Projektkonfiguration:
 
-Ab **0.3.11** verwendet **Hardware debuggen** einen [Debug-Build](docs/begriffe/README.md#debug-release) mit **`-O0`** (großes O, Ziffer Null) und `-g3 -ggdb3`. Die [Compileroptionen](docs/begriffe/README.md#compileroptionen) schalten die meisten Optimierungen ab und liefern Debug-Informationen. Dadurch lassen sich Einzelschritte besser dem Quellcode zuordnen. Im geprüften `OFF`-Zweig von `setPhase()` führte F10 danach von Zeile **87 → 89 → Aufrufer**, statt irreführend Zeile 67 anzuzeigen. Die normale Uploadumgebung bleibt unverändert; nach einer Änderung ist ein neuer Hardware-Debugstart einschließlich Build und Übertragung nötig.
+Ab **0.3.11** verwendet **Übertragen und debuggen** einen [Debug-Build](docs/begriffe/README.md#debug-release) mit **`-O0`** (großes O, Ziffer Null) und `-g3 -ggdb3`. Die [Compileroptionen](docs/begriffe/README.md#compileroptionen) schalten die meisten Optimierungen ab und liefern Debug-Informationen. Dadurch lassen sich Einzelschritte besser dem Quellcode zuordnen. Im geprüften `OFF`-Zweig von `setPhase()` führte F10 danach von Zeile **87 → 89 → Aufrufer**, statt irreführend Zeile 67 anzuzeigen. Die normale Uploadumgebung bleibt unverändert; nach einer Änderung ist ein neuer Hardware-Debugstart einschließlich Build und Übertragung nötig.
 
 Die [Optimierungsstufen `-O0`, `-Og`, `-O1` bis `-O3`, `-Os` und `-Ofast`](docs/begriffe/README.md#optimierung) erklärt das Begriffslexikon. Ablauf und geprüfte Grenzen stehen in der [Hardware-Anleitung](docs/HARDWARE_DEBUG.md#zeilenanzeige-bei-switch-und-break).
 

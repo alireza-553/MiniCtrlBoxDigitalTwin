@@ -2,6 +2,12 @@
 
 Für Lernende: Die Begriffe [Firmware](begriffe/README.md#firmware), [USB-JTAG](begriffe/README.md#usb-jtag), [GDB/OpenOCD](begriffe/README.md#gdb-openocd) und [Debugadapter](begriffe/README.md#debugadapter) stehen im [Begriffslexikon](begriffe/README.md). Der Weg zum Board lautet vereinfacht: VS Code → Debugadapter → GDB → OpenOCD → ESP32-C3.
 
+## Diagnosebericht speichern
+
+Wenn das Übertragen oder Debuggen fehlschlägt, wähle **Echte Hardware → Diagnosebericht speichern**, bevor du VS Code neu lädst oder schließt. Der Bericht enthält Versionsangaben, die letzten Meldungen von PlatformIO und dem Debugadapter sowie den Ablauf der Debugaktionen. So kannst du beispielsweise bei wiederholten ESP32-Resets die Meldungen vor dem Reset zusammen mit den letzten Debugaktionen weitergeben.
+
+Die TXT-Datei wird am gewählten Ort gespeichert. Bekannte Projekt- und Benutzerpfade sowie gängige Zugangsdatenmuster werden maskiert. Öffne den Bericht vor dem Teilen und prüfe die übrigen Meldungen auf persönliche oder projektspezifische Angaben.
+
 ## Getestete Toolchain für Erweiterung v0.3.7
 
 Die Hardware-Debugfunktionen der Erweiterung **v0.3.7** wurden mit der folgenden Kombination auf **Windows** und einer MiniCtrlBox mit **ESP32-C3, Revision 0.4**, über den nativen USB-Anschluss geprüft. Diese Angaben beschreiben die getestete Referenzumgebung; sie sind keine Zusage für jede mögliche Versionskombination.
@@ -64,7 +70,7 @@ PlatformIO liefert Stackframe-Namen im Format `loopTask(void*)@0x…`. Die Erken
 
 Ab 0.3.11 prüft die Erweiterung nach einem solchen Quellcode-Einzelschritt den obersten Stackframe. Nur wenn der Haltgrund `step`, der Thread derselbe und die Funktion `loopTask` aus `cores/esp32/main.cpp` ist, setzt sie einen temporären, an diesen Thread gebundenen Hardware-Haltepunkt in `loop()` und setzt einmalig fort. Das Programm läuft dabei tatsächlich weiter bis zum nächsten `loop()`-Eintritt. Dazwischen können weiterhin Haltepunkte oder Fehler anhalten. Die Debugkonsole und der Ausgabekanal zeigen den automatischen Übergang; die Arduino-Datei kann dabei kurz sichtbar werden.
 
-Manuelles Anhalten, Haltepunkte, Ausnahmefehler, Maschinenschritte und ausdrücklich gewähltes Herausspringen (Umschalt+F11) werden nicht automatisch fortgesetzt. Bei einem Fehler wird kein weiterer Versuch gestartet. Unter `mcbDigitalTwin.skipArduinoLoopTask` lässt sich die Behandlung abschalten; anschließend die Debugsitzung neu starten. Dies betrifft die über **Hardware debuggen** gestarteten MiniCtrlBox-Sitzungen.
+Manuelles Anhalten, Haltepunkte, Ausnahmefehler, Maschinenschritte und ausdrücklich gewähltes Herausspringen (Umschalt+F11) werden nicht automatisch fortgesetzt. Bei einem Fehler wird kein weiterer Versuch gestartet. Unter `mcbDigitalTwin.skipArduinoLoopTask` lässt sich die Behandlung abschalten; anschließend die Debugsitzung neu starten. Dies betrifft die über **Übertragen und debuggen** gestarteten MiniCtrlBox-Sitzungen.
 
 Die Auswahl- und Abbruchbedingungen sind automatisiert geprüft. Der Befehl `advance loop` wird bewusst nicht verwendet: Er meldet `location-reached`, was der untersuchte PlatformIO-Adapter als unbekannten Haltgrund mit „assuming exception“ einordnet. Das wurde in der echten Debugkonsole beobachtet. Ein temporärer Haltepunkt liefert dagegen den unterstützten Haltgrund `breakpoint-hit`. Bei fehlenden Hardware-Haltepunktressourcen wird nicht fortgesetzt. Wird zuvor ein anderer Halt erreicht, entfernt die Erweiterung nur ihren eigenen temporären Haltepunkt.
 
@@ -86,7 +92,7 @@ Compileroptimierung kann mehrere Quellzeilen auf ein gemeinsames Funktionsende a
 
 Die generierte Hardware-Debugumgebung verwendet ab 0.3.11 ausdrücklich `debug_build_flags` mit abschließendem `-O0 -g3 -ggdb3`, zusätzlich zum abgeschalteten Inlining. Eigene Debug-Definitionen bleiben erhalten. Dies reduziert solche durch Optimierung verursachten Sprünge; eine perfekte Eins-zu-eins-Zuordnung jeder C++-Zeile ist auch damit nicht allgemein garantiert. Die normale Uploadumgebung bleibt unverändert. Debug-Firmware kann größer und langsamer sein als die normale Firmware.
 
-Nach einer Änderung der Build-Einstellungen muss die Debugsitzung beendet und **Hardware debuggen** neu gestartet werden. Ein Neuladen des Editors allein ersetzt die Firmware auf dem Board nicht. Siehe [PlatformIO: debug_build_flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/debug_build_flags.html).
+Nach einer Änderung der Build-Einstellungen muss die Debugsitzung beendet und **Übertragen und debuggen** neu gestartet werden. Ein Neuladen des Editors allein ersetzt die Firmware auf dem Board nicht. Siehe [PlatformIO: debug_build_flags](https://docs.platformio.org/en/latest/projectconf/sections/env/options/debug/debug_build_flags.html).
 
 **Hardwarevergleich am 30.10.2026:** Die neu erzeugte `firmware.elf` ordnete Zeile 67 der Adresse `0x420002f4`, Zeile 87 der Adresse `0x42000374` und das Funktionsende in Zeile 89 der Adresse `0x42000376` zu. Nach Übertragung auf die MiniCtrlBox wurde `ampel.currentPhase` für den Test im Debugger auf `CAmpel::OFF` gesetzt und ein temporärer Hardware-Haltepunkt auf `CAmpel.h:87` angelegt. Dort führte F10 nach Zeile 89 und der nächste F10-Schritt zurück zu `CAmpel::nextPhase()` in Zeile 58. Zeile 67 wurde dabei nicht mehr angezeigt. Der temporäre Testhaltepunkt wurde beim Treffer von GDB entfernt; der Quellcode der Übung blieb unverändert.
 
