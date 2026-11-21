@@ -7,7 +7,7 @@ Das gemeinsame Projekt [module-demo](module-demo) enthält beide Demonstrationen
 1. In VS Code den Ordner **`examples/module-demo`** öffnen und `src/main.cpp` auswählen.
 2. **Digital Twin → Projekt hochladen** starten. Beide Demos sind jetzt im selben laufenden Programm enthalten; ein erneuter Upload zum Wechsel ist nicht nötig.
 3. Das Programm startet im Modus **Kreuzungsmodul**. Im Twin das Kreuzungsmodul verbinden.
-4. **Beide MiniCtrlBox-Taster gemeinsam drücken und wieder loslassen**, um auf **SwitchLEDBoard** umzuschalten. Im Twin jetzt das SwitchLEDBoard verbinden. Das OLED nennt die aktive Demo.
+4. Im Twin **Beide Taster** auf der MiniCtrlBox drücken und wieder loslassen, um auf **SwitchLEDBoard** umzuschalten. Danach das SwitchLEDBoard verbinden. Das OLED nennt die aktive Demo.
 5. Erneutes gemeinsames Drücken wechselt zurück. Beim Wechsel werden die Demo-Einstellungen zurückgesetzt. Die Einzelaktionen (links/rechts) werden in diesem gemeinsamen Projekt beim Loslassen ausgelöst; der gemeinsame Druck verändert keine Einzeloptionen.
 
 Die Bedienung innerhalb einer Demo entspricht den unten beschriebenen Einzelprojekten. Beide Erweiterungen haben dieselbe I²C-Adresse, deshalb ist immer nur eine verbunden. Auf echter Hardware die MiniCtrlBox vor dem Umstecken ausschalten; nach dem Neustart beginnt das Programm wieder mit der Kreuzungsdemo. Für das SwitchLEDBoard dann einmal beide Haupttaster drücken. Nur das tatsächlich ausgewählte Modul wird im laufenden Programm bedient. Die Ampelzeiten gelten für eine Lerndemonstration.
