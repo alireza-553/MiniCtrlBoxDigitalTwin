@@ -232,7 +232,7 @@ Voraussetzungen: [PlatformIO IDE](docs/begriffe/README.md#platformio), ein Ardui
 
 1. Den PlatformIO-Projektordner öffnen und die MiniCtrlBox über USB anschließen. Den seriellen Monitor schließen.
 2. **Echte Hardware → Programm übertragen** baut das Projekt und überträgt es auf den erkannten USB-COM-Port. Die bisherige Firmware wird ersetzt.
-3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Übertragen und debuggen** wählen. Auch dieser Befehl überträgt Firmware auf die MiniCtrlBox und startet sie neu.
+3. Zum Debuggen Haltepunkte setzen und **Echte Hardware → Übertragen und debuggen** wählen. Die Erweiterung überträgt den Debug-Build wie beim normalen Upload über den USB-COM-Port. Danach verbindet sie den Debugger per USB-JTAG.
 4. Die Erweiterung ergänzt in `platformio.ini` eine eigene Umgebung `mcb-usb-debug-<Projektumgebung>`. Die bestehende Umgebung und ihre Einstellungen bleiben erhalten. Abweichende vorhandene Debug-Umgebungen werden nicht überschrieben.
 5. PlatformIO baut den Debug-Build und verbindet sich über USB-JTAG. Die Erweiterung setzt keinen automatischen Start-Haltepunkt. Ist das Board nach der Verbindung angehalten, kannst du mit F5 fortsetzen.
 6. Mit Umschalt+F5 die Hardware-Debugsitzung beenden. Das Verhalten des Controllers nach dem Trennen bestimmt PlatformIO/OpenOCD; bei Bedarf die MiniCtrlBox zurücksetzen.
@@ -251,7 +251,8 @@ extends = env:esp32-c3-devkitm-1
 build_type = debug
 debug_build_flags = -O0 -g3 -ggdb3
 debug_tool = esp-builtin
-upload_protocol = esp-builtin
+debug_load_mode = manual
+debug_load_cmds =
 debug_init_break =
 ```
 

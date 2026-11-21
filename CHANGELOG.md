@@ -1,5 +1,10 @@
 # Versionshistorie
 
+## v0.3.23 – Debug-Firmware über den normalen USB-Upload übertragen
+
+- **Übertragen und debuggen** nutzt für den Debug-Build den Uploadweg der normalen Projektumgebung. Erst danach verbindet sich der USB-JTAG-Debugger ohne zweiten automatischen Upload.
+- Der Diagnosebericht zeigt Build, Upload und Debugger-Verbindung als getrennte Schritte.
+
 ## v0.3.22 – Hardware-Diagnosebericht
 
 - **Übertragen und debuggen** macht sichtbar, dass der Debug-Build auf die MiniCtrlBox übertragen wird.
