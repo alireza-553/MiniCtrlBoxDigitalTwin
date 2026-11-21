@@ -1,14 +1,14 @@
 # Demonstrationen
 
-Das gemeinsame Projekt [module-demo](module-demo) enthält das Kreuzungsmodul, das SwitchLEDBoard und den Thread-Blinker in einem Programm. Für Kreuzungsmodul und SwitchLEDBoard gibt es auch Einzelprojekte. Alle verwenden MiniCtrlBoxLib 6.12.1 und lassen sich im Digital Twin oder auf dem ESP32-C3 ausführen.
+Das gemeinsame Projekt [module-demo](module-demo) enthält Kreuzungsmodul, SwitchLEDBoard, Thread-Blinker und Gleis-Sprung in einem Programm. Für Kreuzungsmodul und SwitchLEDBoard gibt es auch Einzelprojekte. Alle verwenden MiniCtrlBoxLib 6.12.1 und lassen sich im Digital Twin oder auf dem ESP32-C3 ausführen.
 
 ## Alle Demonstrationen einmal laden
 
 1. In VS Code den Ordner **`examples/module-demo`** öffnen und `src/main.cpp` auswählen.
-2. **Digital Twin → Projekt laden und starten** wählen. Alle drei Demos sind im selben Programm enthalten.
+2. **Digital Twin → Projekt laden und starten** wählen. Alle vier Demos sind im selben Programm enthalten.
 3. Das Programm startet im Modus **Kreuzungsmodul**. Im Twin das Kreuzungsmodul verbinden.
 4. Im Twin **Beide Taster** auf der MiniCtrlBox drücken und wieder loslassen, um auf **SwitchLEDBoard** umzuschalten. Danach das SwitchLEDBoard verbinden. Das OLED nennt die aktive Demo.
-5. Ein weiterer gemeinsamer Tastendruck startet den **Thread-Blinker**. Er blinkt mit der roten RGB-LED 0 der MiniCtrlBox und braucht kein Zusatzmodul. Der nächste gemeinsame Tastendruck führt zurück zum Kreuzungsmodul.
+5. Der zweite gemeinsame Tastendruck startet den **Thread-Blinker**, der dritte **Gleis-Sprung**. Beide laufen direkt auf der MiniCtrlBox ohne Zusatzmodul. Der vierte gemeinsame Tastendruck führt zurück zum Kreuzungsmodul.
 
 Beim Wechsel werden die Demo-Einstellungen zurückgesetzt. Einzelaktionen werden beim Loslassen des linken oder rechten Tasters ausgelöst.
 
@@ -49,3 +49,7 @@ Mit dem linken MiniCtrlBox-Taster frierst du die LED-Ausgabe ein und setzt sie w
 ## Thread-Blinker
 
 Wie in **3_Threads_Blinker_V3** steuert eine separate FreeRTOS-Task die rote RGB-LED 0. Dadurch kann das Hauptprogramm gleichzeitig Taster und OLED bedienen. Das Startintervall beträgt 100 ms pro LED-Wechsel. Links verlängert das Intervall um 20 ms, rechts verkürzt es um 20 ms. Das OLED zeigt den aktuellen Wert. Beim Verlassen der Demo schaltet die Task die LED aus. Beim erneuten Öffnen wird dieselbe Task weiterverwendet.
+
+## Gleis-Sprung
+
+Die Figur `@` läuft auf dem OLED. Hindernisse `#` kommen von rechts. Drücke den **rechten Haupttaster** kurz und lass ihn los, um zu springen. Jedes übersprungene Hindernis bringt einen Punkt und erhöht das Tempo bis zur Höchstgeschwindigkeit. Bei einer Kollision hält das Spiel an. Ein erneuter Druck rechts startet eine neue Runde.

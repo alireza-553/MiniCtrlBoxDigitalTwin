@@ -1,5 +1,6 @@
 #include <MiniCtrlBox.h>
 #include <atomic>
+#include "track_runner.h"
 
 using namespace nspMiniCtrlBox;
 
@@ -10,7 +11,7 @@ CPortExpOOPExp crossing;
 CPortExpRem board;
 CPortExpLoc localLEDs;
 
-enum Demo { CROSSING, SWITCH_LED, THREAD_BLINKER };
+enum Demo { CROSSING, SWITCH_LED, THREAD_BLINKER, TRACK_RUNNER };
 Demo demo = CROSSING;
 const unsigned char vehiclePins[] = {0, 1, 4, 5, 6, 7};
 struct Phase {
@@ -105,7 +106,7 @@ void startDemo() {
         display.printLine(0, "Demo SwitchLEDBoard");
         display.printLine(4, "Links: Pause/Weiter");
         display.printLine(5, "Rechts: Modus weiter");
-    } else {
+    } else if (demo == THREAD_BLINKER) {
         display.printLine(0, "Demo Thread-Blinker");
         if (!blinkerTaskStarted && localLEDs.begin()) {
             blinkerTaskStarted = xTaskCreate(blinkTask, "LEDBlinker", 2048, nullptr, 1, nullptr) == pdPASS;
@@ -119,6 +120,8 @@ void startDemo() {
         display.printfLine(3, "Intervall: %4u ms", blinkStartMs);
         display.printLine(4, "Links: langsamer");
         display.printLine(5, "Rechts: schneller");
+    } else {
+        trackRunner::start(display);
     }
 }
 
@@ -134,6 +137,9 @@ void nextDemo() {
             break;
         case THREAD_BLINKER:
             blinkIntervalMs.store(0);
+            demo = TRACK_RUNNER;
+            break;
+        case TRACK_RUNNER:
             demo = CROSSING;
             break;
     }
@@ -193,6 +199,8 @@ void loop() {
         display.printfLine(2, "Status: %-12s", paused ? "Pause" : "Laeuft");
         display.printfLine(3, "Schalter/LED: %02X/%02X", unsigned(switches), unsigned(leds));
         display.printLine(6, "Schalter SW1 bis SW8");
+    } else if (demo == TRACK_RUNNER) {
+        trackRunner::update(display, rightClick);
     } else if (blinkerTaskStarted && (leftClick || rightClick)) {
         unsigned interval = blinkIntervalMs.load();
         if (leftClick && interval < blinkMaxMs) interval += blinkStepMs;
