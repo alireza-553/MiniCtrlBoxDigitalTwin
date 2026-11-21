@@ -453,7 +453,7 @@ body{max-width:1400px;margin:auto}.tabs{display:flex;gap:6px;border-bottom:1px s
 <button id="tab-3-view" role="tab" aria-selected="true" aria-controls="panel-3-view" tabindex="0">Ansicht</button>
 <button id="tab-3-settings" role="tab" aria-selected="false" aria-controls="panel-3-settings" tabindex="-1">Einstellungen</button>
 </nav>
-<div id="panel-3-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-3-view"><div class="unit-stage"><div id="module-3-visual" class="slb-visual"><span id="module-3-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Kippschaltern"><span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 0–7</span><span>Kippschalter S0–S7</span></div></div></div></div>
+<div id="panel-3-view" class="tab-panel" role="tabpanel" aria-labelledby="tab-3-view"><div class="unit-stage"><div id="module-3-visual" class="slb-visual"><span id="module-3-socket" class="module-input" title="Erweiterungsanschluss zu MiniCtrlBox"></span><div class="slb-board" role="group" aria-label="SwitchLEDBoard mit acht LEDs und acht Kippschaltern"><span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span><div id="slb-leds" class="slb-column"></div><div id="slb-switches" class="slb-column"></div></div><div class="slb-labels"><span>LED 7–0</span><span>Kippschalter S7–S0</span></div></div></div></div>
 <div id="panel-3-settings" class="tab-panel module-settings" role="tabpanel" aria-labelledby="tab-3-settings" hidden><div id="slb-interrupt" class="status" role="status"></div><p class="module-help">Die LEDs werden ausschließlich über <code>CPortExpRem</code> vom laufenden Anwenderprogramm gesteuert.</p></div></article>
 <article id="module-4" class="card unit-card"><h2 id="module-4-title"><span class="module-badge">4</span> Tastaturmodul</h2><p id="module-4-status" class="module-link-status">Nicht verbunden · inaktiv</p>
 <nav class="tabs" role="tablist" aria-labelledby="module-4-title">
@@ -520,7 +520,9 @@ const pedestrianIcons=[`<circle cx="12" cy="4" r="2" stroke="none"/><path d="M9 
 $('street-signals').innerHTML=streetSignals.map((signal,n)=>`<div class="traffic-pair" style="left:${signal.x}%;top:${signal.y}%" role="group" aria-label="Fahrzeug- und Fußgängerampel an einem gemeinsamen Mast"><div class="street-signal vehicle" data-pair="${n}" tabindex="0" title="Fahrzeugampel mit zugehöriger Fußgängerampel"><div class="signal-housing">${['red','yellow','green'].map((color,i)=>`<div id="street-${n}-${i}" class="street-lamp ${color}" role="img" aria-label="Fahrzeugampel ${n===0?'links':'rechts'}: ${['Rot','Gelb','Grün'][i]}"></div>`).join('')}</div></div><div class="street-signal pedestrian" data-pair="${n}" tabindex="0" title="Fußgängerampel am selben Mast"><div class="signal-housing">${['red','green'].map((color,i)=>`<div role="img" id="pedestrian-${n}-${i}" class="street-lamp ${color}" aria-label="Zugehörige Fußgängerampel: ${i===0?'Rot':'Grün'}"><svg viewBox="0 0 24 24" aria-hidden="true">${pedestrianIcons[i]}</svg></div>`).join('')}</div></div></div>`).join('');
 $('board-extras').innerHTML=extraLamps.map((l,i)=>`<div role="img" id="extra-${i}" class="board-lamp ${l.color} ${l.kind}" style="left:${l.x}%;top:${l.y}%" aria-label="LED${i+6}" title="LED${i+6}" ></div>`).join('');
 $('board-keys').innerHTML=Array.from({length:4},(_,i)=>`<button class="module-key" id="key-${i}" style="top:${22+i*20}%" aria-label="Taster ${i+1}" aria-pressed="false" title="Taster ${i+1}"></button>`).join('');
-$('slb-leds').innerHTML=['blue','green','yellow','red','blue','green','yellow','red'].map((color,i)=>`<div id="slb-led-${i}" class="slb-led ${color}" role="img" aria-label="LED ${i}"></div>`).join('');
+const slbColumns=[7,6,5,4,3,2,1,0];
+const slbLedColors=['red','yellow','green','blue','red','yellow','green','blue'];
+$('slb-leds').innerHTML=slbColumns.map(i=>`<div id="slb-led-${i}" class="slb-led ${slbLedColors[i]}" role="img" aria-label="LED ${i}"></div>`).join('');
 function toggleSwitchGraphic(i){return `<svg viewBox="0 0 64 80" aria-hidden="true" focusable="false">
 <defs>
  <linearGradient id="washer-${i}" x1="0" y1="0" x2="0.8" y2="1"><stop stop-color="#fafaf4"/><stop offset=".25" stop-color="#b0b5b5"/><stop offset=".54" stop-color="#515a5e"/><stop offset=".8" stop-color="#d4d8d6"/><stop offset="1" stop-color="#4a5357"/></linearGradient>
@@ -540,8 +542,8 @@ function toggleSwitchGraphic(i){return `<svg viewBox="0 0 64 80" aria-hidden="tr
  <ellipse cx="32" cy="10" rx="4.6" ry="2.5" fill="#e6e9e2" stroke="#7d8a8c" stroke-width=".7"/>
 </g>
 </svg>`}
-$('slb-switches').innerHTML=Array.from({length:8},(_,i)=>`<button id="slb-switch-${i}" class="slb-switch" aria-label="Schalter S${i}" aria-pressed="false" title="Schalter S${i}">${toggleSwitchGraphic(i)}</button>`).join('');
-for(let i=0;i<8;i++)$('slb-switch-'+i).addEventListener('click',()=>act('slb_switch',{index:i,state:!state.slb_switch[i]}));
+$('slb-switches').innerHTML=slbColumns.map(i=>`<button id="slb-switch-${i}" class="slb-switch" aria-label="Schalter S${i}" aria-pressed="false" title="Schalter S${i}">${toggleSwitchGraphic(i)}</button>`).join('');
+for(const i of slbColumns)$('slb-switch-'+i).addEventListener('click',()=>act('slb_switch',{index:i,state:!state.slb_switch[i]}));
 $('keypad-grid').innerHTML=['1','2','3','A','4','5','6','B','7','8','9','C','*','0','#','D'].map((label,i)=>`<button id="keypad-key-${i}" class="keypad-key" aria-label="Taste ${label}" aria-pressed="false">${label}</button>`).join('');
 const heldKeys=new Set();
 const heldKeyPadKeys=new Set();
