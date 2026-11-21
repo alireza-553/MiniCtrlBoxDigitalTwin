@@ -7,6 +7,8 @@
   the pull request base. Preserve required dependency changes on the working
   branch, but keep the pull request base set to `main`.
 - Verify the pull request base is `main` when creating or updating a PR.
+- Schreibe Titel und Beschreibungen aller GitHub-Pull-Requests auf Deutsch.
+  Das gilt beim Erstellen und beim Aktualisieren bestehender Pull Requests.
 - Push the branch and open a GitHub pull request for that change. Do not merge
   the pull request unless the user requests it.
 - Run the checks relevant to the change before pushing. For extension changes,
