@@ -19,6 +19,7 @@ let status;
 let extensionRoot;
 let uploading = false;
 let debugSession;
+let twinView;
 const debugReadiness = new Map();
 
 function activate(context) {
@@ -550,13 +551,38 @@ async function open() {
 
 async function openAtPort(port) {
     const localUri = vscode.Uri.parse(`http://127.0.0.1:${port}`);
-    const uri = await vscode.env.asExternalUri(localUri);
     const inside = vscode.workspace.getConfiguration('mcbDigitalTwin')
         .get('openInsideVSCode', true);
-    if (inside) {
-        await vscode.commands.executeCommand('simpleBrowser.show', uri.toString(true));
-    } else {
+    const uri = await vscode.env.asExternalUri(localUri);
+    if (!inside) {
         await vscode.env.openExternal(uri);
+        return;
+    }
+    const url = new URL(uri.toString());
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Ungültige Adresse für die Digital-Twin-Oberfläche.');
+    if (port !== backendPort) return;
+
+    if (!twinView) {
+        const panel = vscode.window.createWebviewPanel('mcbDigitalTwin.surface', 'MiniCtrlBox Digital Twin',
+            vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
+        twinView = { panel };
+        panel.onDidDispose(() => { twinView = undefined; });
+    } else {
+        twinView.panel.reveal();
+    }
+    if (twinView.url !== url.href) {
+        const src = url.href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+        twinView.panel.webview.html = `<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; frame-src ${url.origin}">
+    <title>MiniCtrlBox Digital Twin</title>
+    <style>html, body { height: 100%; margin: 0; padding: 0; } iframe { display: block; width: 100%; height: 100%; border: 0; }</style>
+</head>
+<body><iframe title="MiniCtrlBox Digital Twin" sandbox="allow-scripts allow-same-origin" src="${src}"></iframe></body>
+</html>`;
+        twinView.url = url.href;
     }
 }
 
@@ -620,6 +646,7 @@ function setRunning(running) {
 }
 
 function deactivate() {
+    twinView?.panel.dispose();
     if (backendProcess && !backendProcess.killed) backendProcess.kill('SIGTERM');
 }
 
