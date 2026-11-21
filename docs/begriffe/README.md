@@ -9,6 +9,7 @@ Hier werden die Fachbegriffe aus diesem Lernprojekt erklärt. Links in den Anlei
 1. **Programm verstehen:** [Quellcode](#quellcode), [Variable](#variable), [Funktion](#funktion), [Klasse und Objekt](#klasse-objekt), [setup und loop](#setup-loop).
 2. **Programm ausführen:** [Build](#build), [Compiler und Linker](#compiler-linker), [Firmware](#firmware), [Upload](#upload), [Simulator](#simulator).
 3. **Fehler suchen:** [Debugger](#debugger), [Haltepunkt](#haltepunkt), [Einzelschritt](#einzelschritt), [Aufrufliste](#aufrufliste), [Watchdog-Interrupt](#watchdog-interrupt).
+4. **Twin erklären:** [Browser-Oberfläche](#web-oberflaeche), [Python und C++ im Twin](#prozesskommunikation), [Server-Sent Events](#sse).
 
 Die folgenden Gruppen sind das Inhaltsverzeichnis. Innerhalb jeder Gruppe führt ein Klick zur Erklärung.
 
@@ -18,6 +19,7 @@ Die folgenden Gruppen sind das Inhaltsverzeichnis. Innerhalb jeder Gruppe führt
 | Bauen und Ausführen | [Build](#build) · [Compiler und Linker](#compiler-linker) · [Compileroptionen und Build-Flags](#compileroptionen) · [Optimierungsstufen -O](#optimierung) · [Debug- und Release-Build](#debug-release) · [Firmware](#firmware) · [ELF, BIN und Debug-Symbole](#elf-bin) · [Upload und Flashen](#upload) · [RAM und Flash](#ram-flash) · [Simulator und digitaler Zwilling](#simulator) |
 | Fehlersuche | [Debugging und Debugger](#debugger) · [Haltepunkt](#haltepunkt) · [Hardware-Haltepunkt und thbreak](#hardware-haltepunkt) · [Einzelschritt und Fortsetzen](#einzelschritt) · [Aufrufliste und Stack Frame](#aufrufliste) · [Task und Thread](#task-thread) · [Interrupt und ISR](#interrupt) · [Watchdog](#watchdog) · [Watchdog-Interrupt](#watchdog-interrupt) · [Panic-Handler](#panic-handler) · [Timeout und busy](#timeout) · [Reset](#reset) |
 | Hardware und Verbindung | [Mikrocontroller und CPU](#mikrocontroller-cpu) · [GPIO](#gpio) · [OLED und I2C](#oled-i2c) · [USB, COM-Port und serieller Monitor](#usb-com) · [USB-JTAG](#usb-jtag) · [GDB und OpenOCD](#gdb-openocd) · [Register, Adresse und Bit](#register-bit) · [Treiber und WinUSB](#treiber) |
+| Web und Digital Twin | [HTML, CSS und JavaScript](#web-oberflaeche) · [Prozesskommunikation](#prozesskommunikation) · [Server-Sent Events](#sse) · [HTTP-Anfragen und Endpunkte](#http-endpunkte) · [Polling und WebSocket](#polling-websocket) |
 | Werkzeuge und Projekt | [VS Code und VSIX](#vscode-vsix) · [PlatformIO und Umgebung](#platformio) · [Debugadapter und DAP](#debugadapter) · [Workspace und Vertrauen](#workspace) · [Pfad und PATH](#pfad) · [localhost und Port](#localhost-port) · [SDK und Dateiformate](#sdk-api) · [Prozess und Dateisperre](#prozess-dateisperre) · [Test](#test) · [SHA-256 und Signatur](#hash-signatur) · [Git, Branch, PR und Tag](#git-pr) |
 
 ## Programmieren
@@ -147,6 +149,11 @@ RAM ist Arbeitsspeicher, unter anderem für veränderliche Daten während der Au
 
 Der digitale Zwilling bildet für dieses Lernprojekt MiniCtrlBox, Display, Taster und Ampelausgänge auf dem PC nach. Ein Desktop-Hardwareadapter setzt die unterstützten Hardwareaufrufe deines C++-Programms in simulierte Ein- und Ausgänge um. Er bildet keinen vollständigen ESP32-Chip nach. Die Oberfläche ist deshalb auch keine automatische Live-Anzeige des angeschlossenen echten Boards.
 
+<a id="prozesskommunikation"></a>
+### Prozesskommunikation zwischen Python und C++
+
+Der Twin kompiliert dein C++-Programm für den PC und startet es als eigenen Prozess. Die beiden Programme tauschen Daten über **Pipes** aus. Python schreibt Eingaben wie Tastendrücke in die Standardeingabe (`stdin`) des C++-Prozesses. Der C++-Adapter meldet Zustände wie LED und OLED als JSON über die Standardausgabe (`stdout`) zurück. Python gibt diese Zustände über [SSE](#sse) an den Browser weiter.
+
 ## Fehlersuche und Debugging
 
 <a id="debugger"></a>
@@ -259,6 +266,26 @@ Ein Dateipfad beschreibt den Ort einer Datei oder eines Ordners. `src/main.cpp` 
 `localhost` und die Adresse `127.0.0.1` bezeichnen den eigenen PC. Bei `http://127.0.0.1:8765` ist HTTP das verwendete Webprotokoll und `8765` der Netzwerkport des Simulators. Der Port ordnet die Verbindung einem Dienst auf dem PC zu. Er ist etwas anderes als der serielle Hardwareanschluss `COM5`. „Connection refused“ kann bedeuten, dass der Simulator noch nicht läuft oder ein anderer Port eingestellt ist.
 
 Die VS-Code-Erweiterung lässt das Betriebssystem mit Port `0` einen freien Port auswählen und sofort für den neuen Simulator reservieren. So erhalten auch gleichzeitig gestartete Fenster unterschiedliche Ports. Ein eingetragener Wunschport wird verwendet, sofern er frei ist; andernfalls weicht die Erweiterung automatisch aus. Die tatsächlich verwendete Adresse steht in der Ausgabe. Beim direkten Python-Start bleibt der Standardport `8765`; `--port 0` aktiviert die freie Vergabe und `--auto-port` den Ausweichport bei einem belegten Wunschport.
+
+<a id="web-oberflaeche"></a>
+### HTML, CSS und JavaScript
+
+**HTML** beschreibt den Aufbau der Twin-Oberfläche, etwa die Taster und das OLED. **CSS** gestaltet die Anzeige, etwa die Farbe einer leuchtenden LED. **JavaScript** verarbeitet im Browser die Klicks und aktualisiert die Anzeige mit den Daten des Python-Simulators. Python liefert die Seite per HTTP aus.
+
+<a id="sse"></a>
+### Server-Sent Events (SSE) und EventSource
+
+Bei SSE hält der Browser eine HTTP-Verbindung offen, auf der der Server laufend Nachrichten an ihn senden kann. Im Twin öffnet JavaScript die Verbindung mit `EventSource('/api/events')`. Ändert sich beispielsweise eine LED, sendet der Python-Simulator den aktuellen Zustand und JavaScript aktualisiert die Anzeige. Nach einer Unterbrechung verbindet sich der Browser automatisch neu und erhält den aktuellen Zustand. [HTML-Standard zu SSE](https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events) · [Beispiel mit kurzen Blinkphasen](../BLINKEN.md).
+
+<a id="http-endpunkte"></a>
+### HTTP-Anfragen und Endpunkte
+
+Ein **Endpunkt** ist eine Adresse für eine bestimmte Aufgabe des Servers. `GET /api/state` fragt den aktuellen Zustand einmal ab. Ein Klick auf einen Taster sendet mit `POST /api/action` eine Aktion als JSON an Python. `GET /api/events` öffnet den SSE-Strom für laufende Zustandsmeldungen.
+
+<a id="polling-websocket"></a>
+### Polling und WebSocket
+
+Beim **Polling** fragt der Browser den Server in festen Abständen nach dem aktuellen Zustand. Kurze Blinkphasen können zwischen zwei Abfragen liegen. Ein **WebSocket** erlaubt Browser und Server, über dieselbe offene Verbindung in beide Richtungen Nachrichten zu senden. Der Twin nutzt für die laufende Anzeige [SSE](#sse) und sendet Eingaben über separate HTTP-Anfragen. [WebSocket-Standard](https://websockets.spec.whatwg.org/#introduction).
 
 <a id="sdk-api"></a>
 ### SDK, API, JSON und INI
